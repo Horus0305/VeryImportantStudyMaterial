@@ -386,7 +386,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                     {/* Header */}
                     <div className="text-center space-y-3">
                         <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-                             E Cricket
+                            E Cricket
                         </h1>
                         <p className="text-xl text-slate-300">Welcome, <span className="font-semibold text-orange-400">{username}</span>!</p>
                     </div>
@@ -440,7 +440,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                             onClick={() => navigate('/profile')}
                             className="flex items-center gap-2 bg-slate-800/50 border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50 hover:border-purple-500/50"
                         >
-                             View Profile
+                            View Profile
                         </Button>
                         <Button
                             variant="ghost"
@@ -481,7 +481,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                         onClick={() => { navigate('/'); setScreen('home'); }}
                         className="text-slate-300 hover:text-white hover:bg-slate-800/50"
                     >
-                         Home
+                        Home
                     </Button>
                     {screen === 'lobby' && (
                         <div className="flex items-center gap-2">
@@ -490,7 +490,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                                     {shareLinkDisplay}
                                 </span>
                             )}
-                            <Button variant="ghost" size="sm" onClick={() => {
+                            <Button variant="ghost" size="sm" className="text-white hover:bg-slate-800/50" onClick={() => {
                                 navigator.clipboard.writeText(shareLink).then(() => {
                                     if (serverIP && isLocalhost) {
                                         setError(` LAN link copied: ${shareLink}`)
@@ -506,7 +506,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                                     setTimeout(() => setError(''), 10000)
                                 })
                             }}>
-                                 Copy Link
+                                Copy Link
                             </Button>
                         </div>
                     )}
