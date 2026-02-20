@@ -113,6 +113,8 @@ async def resolve_pending_ball(manager, room, innings) -> bool:
             new_innings = match.active_innings
             await manager._send_match_state(room)
             if new_innings:
+                from .captain import _trigger_captain_picks_if_needed
+                await _trigger_captain_picks_if_needed(manager, room, new_innings)
                 start_ball_countdowns(manager, room, new_innings)
             await manager._maybe_cpu_move(room, new_innings)
             await manager._auto_play_cpu_match(room)

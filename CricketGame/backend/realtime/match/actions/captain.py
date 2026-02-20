@@ -124,6 +124,17 @@ async def _captain_bowler_timeout(manager, room, innings, captain: str) -> None:
 
 # ─── Captain pick initiators ──────────────────────────────────────────────────
 
+async def _trigger_captain_picks_if_needed(manager, room, innings) -> bool:
+    """Check if the innings starts with a captain pick and trigger it."""
+    started_pick = False
+    if innings.needs_batter_choice:
+        await _start_captain_batter_pick(manager, room, innings)
+        started_pick = True
+    if innings.needs_bowler_choice:
+        await _start_captain_bowler_pick(manager, room, innings)
+        started_pick = True
+    return started_pick
+
 async def _start_captain_batter_pick(manager, room, innings) -> None:
     """Notify batting captain to pick next batter; start 5-second timeout."""
     batting_team = _team_for_side(room, innings.batting_side)

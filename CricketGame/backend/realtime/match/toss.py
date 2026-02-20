@@ -134,5 +134,7 @@ async def toss_choice(manager, room, player, msg: dict) -> None:
     # Start 10-second ball-pick countdowns for the opening ball
     from .match_actions import start_ball_countdowns
     if match.active_innings:
+        from .actions.captain import _trigger_captain_picks_if_needed
+        await _trigger_captain_picks_if_needed(manager, room, match.active_innings)
         start_ball_countdowns(manager, room, match.active_innings)
     await manager._auto_play_cpu_match(room)

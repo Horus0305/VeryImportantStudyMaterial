@@ -142,7 +142,7 @@ export default function TournamentDetailPage() {
                         </Button>
                         <div className="h-8 w-px bg-slate-700" />
                         <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-400 to-pink-600 bg-clip-text text-transparent">
-                             Tournament
+                            🏆 Tournament
                         </h1>
                     </div>
                     <Badge className="bg-slate-700/50 text-slate-300 border-slate-600/50 text-xs">
@@ -153,7 +153,7 @@ export default function TournamentDetailPage() {
                 {/* Champion Banner */}
                 {data.champion && (
                     <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/30 rounded-2xl p-6 mb-6 text-center shadow-[0_0_50px_-12px_rgba(234,179,8,0.2)]">
-                        <div className="text-4xl mb-2 animate-bounce"></div>
+                        <div className="text-4xl mb-2 animate-bounce">👑</div>
                         <div className="text-xs text-yellow-400 font-semibold uppercase tracking-wide">Champion</div>
                         <div className="text-4xl font-black text-yellow-300 mt-2 uppercase tracking-wide drop-shadow-md">{data.champion}</div>
                     </div>
@@ -162,42 +162,42 @@ export default function TournamentDetailPage() {
                 {/* Awards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
                     <AwardCard
-                        icon="" label="Player of Tournament" color="from-yellow-500/20 to-amber-500/20" borderColor="border-yellow-500/40"
+                        icon="🌟" label="Player of Tournament" color="from-yellow-500/20 to-amber-500/20" borderColor="border-yellow-500/40"
                         data={data.player_of_tournament}
                         detail={data.player_of_tournament && data.player_of_tournament.runs !== undefined && data.player_of_tournament.wickets !== undefined
                             ? `${data.player_of_tournament.runs} runs, ${data.player_of_tournament.wickets} wkts`
                             : undefined}
                     />
                     <AwardCard
-                        icon="" label="Orange Cap" color="from-orange-500/20 to-red-500/20" borderColor="border-orange-500/40"
+                        icon="🟠" label="Orange Cap" color="from-orange-500/20 to-red-500/20" borderColor="border-orange-500/40"
                         data={data.orange_cap}
                         detail={data.orange_cap && data.orange_cap.runs !== undefined && data.orange_cap.sr !== undefined
                             ? `${data.orange_cap.runs} runs (SR: ${data.orange_cap.sr})`
                             : undefined}
                     />
                     <AwardCard
-                        icon="" label="Purple Cap" color="from-purple-500/20 to-violet-500/20" borderColor="border-purple-500/40"
+                        icon="🟣" label="Purple Cap" color="from-purple-500/20 to-violet-500/20" borderColor="border-purple-500/40"
                         data={data.purple_cap}
                         detail={data.purple_cap && data.purple_cap.wickets !== undefined && data.purple_cap.economy !== undefined
                             ? `${data.purple_cap.wickets} wickets (Econ: ${data.purple_cap.economy})`
                             : undefined}
                     />
                     <AwardCard
-                        icon="" label="Best Strike Rate" color="from-cyan-500/20 to-blue-500/20" borderColor="border-cyan-500/40"
+                        icon="⚡" label="Best Strike Rate" color="from-cyan-500/20 to-blue-500/20" borderColor="border-cyan-500/40"
                         data={data.best_strike_rate}
                         detail={data.best_strike_rate && data.best_strike_rate.sr !== undefined && data.best_strike_rate.runs !== undefined
                             ? `SR: ${data.best_strike_rate.sr} (${data.best_strike_rate.runs} runs)`
                             : undefined}
                     />
                     <AwardCard
-                        icon="" label="Best Average" color="from-green-500/20 to-emerald-500/20" borderColor="border-green-500/40"
+                        icon="📈" label="Best Average" color="from-green-500/20 to-emerald-500/20" borderColor="border-green-500/40"
                         data={data.best_average}
                         detail={data.best_average && data.best_average.average !== undefined && data.best_average.runs !== undefined
                             ? `Avg: ${data.best_average.average} (${data.best_average.runs} runs)`
                             : undefined}
                     />
                     <AwardCard
-                        icon="" label="Best Economy" color="from-pink-500/20 to-rose-500/20" borderColor="border-pink-500/40"
+                        icon="🎯" label="Best Economy" color="from-pink-500/20 to-rose-500/20" borderColor="border-pink-500/40"
                         data={data.best_economy}
                         detail={data.best_economy && data.best_economy.economy !== undefined && data.best_economy.overs !== undefined
                             ? `Econ: ${data.best_economy.economy} (${data.best_economy.overs} ov)`
@@ -212,7 +212,7 @@ export default function TournamentDetailPage() {
                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
                         </div>
                         <h3 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
-                            <span className="text-2xl"></span> Playoff Bracket
+                            <span className="text-2xl">⚔️</span> Playoff Bracket
                         </h3>
                         <PlayoffTree
                             bracket={data.playoff_bracket}
@@ -225,7 +225,7 @@ export default function TournamentDetailPage() {
                     {/* Points Table */}
                     <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-5 sm:p-6 shadow-2xl">
                         <h3 className="text-xl sm:text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                            <span className="text-2xl"></span> Points Table
+                            <span className="text-2xl">📊</span> Points Table
                         </h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm sm:text-base min-w-[520px]">
@@ -245,7 +245,7 @@ export default function TournamentDetailPage() {
                                         <tr key={s.player} className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors ${i < 4 ? 'bg-gradient-to-r from-emerald-500/5 to-transparent' : ''}`}>
                                             <td className="py-3 px-3 text-slate-500 font-mono">{i + 1}</td>
                                             <td className={`py-3 px-3 font-semibold ${i === 0 ? 'text-yellow-300' : i < 4 ? 'text-emerald-300' : 'text-slate-200'}`}>
-                                                {s.player} {i === 0 && ''} {i < 4 && i > 0 && ''}
+                                                {s.player} {i === 0 && '👑'} {i < 4 && i > 0 && '⭐'}
                                             </td>
                                             <td className="text-center py-3 text-slate-300">{s.played}</td>
                                             <td className="text-center py-3 text-emerald-400 font-bold">{s.won}</td>
@@ -265,7 +265,7 @@ export default function TournamentDetailPage() {
                 {/* All Matches List */}
                 <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
                     <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                        <span className="text-2xl"></span> All Matches ({data.matches.length})
+                        <span className="text-2xl">🏏</span> All Matches ({data.matches.length})
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {data.matches.map((m, i) => (
@@ -285,7 +285,7 @@ export default function TournamentDetailPage() {
                                 <div className="text-sm text-emerald-400 font-medium truncate mb-2 relative z-10">{m.result_text}</div>
                                 {m.potm && (
                                     <div className="text-xs text-yellow-400 flex items-center gap-1 relative z-10">
-                                        <span></span> {m.potm}
+                                        <span>⭐</span> {m.potm}
                                     </div>
                                 )}
                                 <div className="absolute bottom-4 right-4 text-orange-400 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
@@ -521,7 +521,7 @@ const BracketNode = forwardRef<HTMLButtonElement, {
                             ? 'bg-green-500/20 text-green-300 border border-green-500/30'
                             : 'bg-slate-800/50 text-slate-300'
                             }`}>
-                            {winner === t && ' '}{t}
+                            {winner === t && '⭐ '}{t}
                         </div>
                     ))}
                 </div>

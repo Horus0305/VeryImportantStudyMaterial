@@ -118,7 +118,7 @@ export default function MatchDetailPage() {
 
                 {/* Result Banner */}
                 <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-2xl p-5 sm:p-6 mb-6 text-center">
-                    <p className="text-xl sm:text-2xl font-bold text-green-300"> {match.result_text}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-green-300">🎉 {match.result_text}</p>
                     <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-6 mt-3 text-sm text-slate-400">
                         <span>{match.side_a.join(', ')} vs {match.side_b.join(', ')}</span>
                         <span>•</span>
@@ -130,7 +130,7 @@ export default function MatchDetailPage() {
                 {match.potm_stats && (
                     <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/30 rounded-2xl p-5 sm:p-6 mb-6 flex flex-col lg:flex-row items-start lg:items-center gap-4 lg:gap-6">
                         <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center text-2xl sm:text-3xl shadow-lg shadow-yellow-500/20">
-                            
+                            ⭐
                         </div>
                         <div className="flex-1">
                             <div className="text-xs text-yellow-400 font-semibold uppercase tracking-wide mb-1">Player of the Match</div>
@@ -183,7 +183,7 @@ function InningsCard({ innings, label, battingTeam }: {
         <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-5 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <span className="text-xl"></span> {label}
+                    <span className="text-xl">🏏</span> {label}
                 </h3>
                 <div className="flex gap-2">
                     <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 text-xs">

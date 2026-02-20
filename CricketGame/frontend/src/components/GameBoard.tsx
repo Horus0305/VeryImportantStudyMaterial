@@ -231,15 +231,16 @@ function CelebrationOverlay({ flash }: { flash: BallFlash | null }) {
 // ─── Captain Picker Modal ─────────────────────────────────────────────────────
 
 function CaptainPickerModal({
-    type, options, seconds, onPick,
+    type, options, seconds, onPick, stats
 }: {
     type: 'batter' | 'bowler'
     options: CaptainOption[]
     seconds: number
     onPick: (player: string) => void
+    stats?: (BatCard | BowlCard)[]
 }) {
     return (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur-md rounded-xl p-4 sm:p-6 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-[2px] p-4 sm:p-6">
             <div className="bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-amber-500/50 rounded-2xl p-6 sm:p-8 shadow-[0_0_40px_rgba(245,158,11,0.2)] w-full max-w-sm sm:max-w-md md:max-w-lg flex flex-col max-h-full">
 
                 {/* Header */}
@@ -277,9 +278,19 @@ function CaptainPickerModal({
                                 }`}
                         >
                             <div className="flex justify-between items-center relative z-10">
-                                <span className={`font-bold sm:text-lg truncate tracking-tight ${o.disabled ? 'text-slate-500' : 'group-hover:text-amber-400'}`}>
-                                    {o.player}
-                                </span>
+                                <div className="flex flex-col min-w-0">
+                                    <span className={`font-bold sm:text-lg truncate tracking-tight ${o.disabled ? 'text-slate-500' : 'group-hover:text-amber-400'}`}>
+                                        {o.player}
+                                    </span>
+                                    {stats && !o.disabled && (
+                                        <span className="text-xs text-slate-400 mt-0.5">
+                                            {type === 'batter'
+                                                ? `${(stats.find(s => s.name === o.player) as BatCard)?.runs ?? 0} runs (${(stats.find(s => s.name === o.player) as BatCard)?.balls ?? 0}b)`
+                                                : `${(stats.find(s => s.name === o.player) as BowlCard)?.wickets ?? 0}-${(stats.find(s => s.name === o.player) as BowlCard)?.runs ?? 0} (${(stats.find(s => s.name === o.player) as BowlCard)?.overs ?? '0'} ov)`
+                                            }
+                                        </span>
+                                    )}
+                                </div>
                                 {o.disabled ? (
                                     <Badge variant="outline" className="text-[10px] bg-slate-900 border-slate-700 text-slate-500 py-0">Unavailable</Badge>
                                 ) : (
@@ -489,6 +500,7 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                                 options={state.available_batters}
                                 seconds={captainCountdown}
                                 onPick={(player) => sendMsg({ action: 'PICK_BATTER', player })}
+                                stats={state.batting_card}
                             />
                         )}
                         {isBowlingCaptain && state.available_bowlers && (
@@ -497,6 +509,7 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                                 options={state.available_bowlers}
                                 seconds={captainCountdown}
                                 onPick={(player) => sendMsg({ action: 'PICK_BOWLER', player })}
+                                stats={state.bowling_card}
                             />
                         )}
                     </div>

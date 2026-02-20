@@ -30,10 +30,10 @@ class Innings:
         self.is_complete = False
 
         # Captain selection state (team mode only)
-        self.last_batter_out: Optional[str] = None   # Blocked from consecutive re-entry
-        self.last_bowler: Optional[str] = None        # Blocked from bowling consecutive overs
-        self.needs_batter_choice: bool = False        # Waiting for batting captain
-        self.needs_bowler_choice: bool = False        # Waiting for bowling captain
+        self.last_batter_out: Optional[str] = None
+        self.last_bowler: Optional[str] = None
+        self.needs_batter_choice = (is_team_mode and len(batting_side) > 1)
+        self.needs_bowler_choice = (is_team_mode and len(bowling_side) > 1)
 
     @property
     def striker(self) -> str:
@@ -200,7 +200,7 @@ class Innings:
         non_striker_name = self.batting_side[self.non_striker_idx] if self.non_striker_idx is not None else None
         options = []
         for name in self.batting_side:
-            if name == striker_name or name == non_striker_name:
+            if not self.needs_batter_choice and (name == striker_name or name == non_striker_name):
                 continue  # Already at crease
             is_out = self.batting_cards[name].is_out
             # Allow re-batting if wickets allow (innings not over), but block consecutive
@@ -226,11 +226,23 @@ class Innings:
         return options
 
     def apply_batter_choice(self, player: str) -> None:
-        """Captain confirmed next batter. Sets them as non-striker."""
+        """Captain confirmed next batter. Sets them as striker if it's ball 1, else non-striker."""
         if player not in self.batting_side:
             return
         idx = self.batting_side.index(player)
-        self.non_striker_idx = idx
+        
+        # Determine if we are picking for the very first ball
+        is_first_ball = (self.overs_completed == 0 and self.balls_in_over == 0 and self.wickets_fallen == 0)
+        
+        if is_first_ball:
+            # We are picking the opening striker. The other slot defaults to the second guy.
+            self.striker_idx = idx
+            # Ensure the non-striker isn't accidentally overlapping with the picked striker
+            if self.non_striker_idx == idx:
+                self.non_striker_idx = (idx + 1) % len(self.batting_side)
+        else:
+            self.non_striker_idx = idx
+        
         self.needs_batter_choice = False
 
     def apply_bowler_choice(self, player: str) -> None:

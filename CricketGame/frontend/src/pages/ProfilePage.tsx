@@ -267,7 +267,7 @@ export default function ProfilePage({ token, username, onLogout, onRename }: Pro
                             )}
                             <div className="flex gap-3">
                                 <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/30">
-                                     Cricket Player
+                                    🏏 Cricket Player
                                 </Badge>
                             </div>
                         </div>
@@ -326,7 +326,7 @@ export default function ProfilePage({ token, username, onLogout, onRename }: Pro
                     </div>
                 ) : !formatData || formatData.matches_played === 0 ? (
                     <div className="bg-slate-800/30 rounded-xl p-8 sm:p-12 text-center border border-slate-700/50">
-                        <div className="text-6xl mb-4"></div>
+                        <div className="text-6xl mb-4">😢</div>
                         <h3 className="text-2xl font-bold text-white mb-2">No Matches Played</h3>
                         <p className="text-slate-400">Start playing {activeTab} to see your stats here!</p>
                         <Button
@@ -343,19 +343,19 @@ export default function ProfilePage({ token, username, onLogout, onRename }: Pro
                             <StatCard
                                 label="Matches"
                                 value={formatData.matches_played}
-                                icon=""
+                                icon="🎮"
                                 gradient="from-blue-500 to-cyan-500"
                             />
                             <StatCard
                                 label="Wins"
                                 value={formatData.matches_won}
-                                icon=""
+                                icon="🏆"
                                 gradient="from-green-500 to-emerald-500"
                             />
                             <StatCard
                                 label="Win Rate"
                                 value={winRate + '%'}
-                                icon=""
+                                icon="📈"
                                 gradient="from-purple-500 to-pink-500"
                             />
 
@@ -364,21 +364,21 @@ export default function ProfilePage({ token, username, onLogout, onRename }: Pro
                                 <StatCard
                                     label="Player of Tournament"
                                     value={formatData.player_of_tournament_count || 0}
-                                    icon=""
+                                    icon="🌟"
                                     gradient="from-yellow-500 to-orange-500"
                                 />
                             ) : activeTab === 'overall' ? (
                                 <StatCard
                                     label="Titles Won"
                                     value={formatData.total_titles || 0}
-                                    icon=""
+                                    icon="👑"
                                     gradient="from-yellow-500 to-orange-500"
                                 />
                             ) : (
                                 <StatCard
                                     label="Player of Match"
                                     value={formatData.potm_count || 0}
-                                    icon=""
+                                    icon="⭐"
                                     gradient="from-orange-500 to-red-500"
                                 />
                             )}
@@ -387,7 +387,7 @@ export default function ProfilePage({ token, username, onLogout, onRename }: Pro
                         {/* Batting Stats */}
                         <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-5 sm:p-6 shadow-xl">
                             <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                                 <span>Batting Statistics</span>
+                                <span>🏏 Batting Statistics</span>
                             </h3>
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                                 <StatItem label="Total Runs" value={formatData.total_runs} />
@@ -405,7 +405,7 @@ export default function ProfilePage({ token, username, onLogout, onRename }: Pro
                         {formatData.wickets_taken > 0 && (
                             <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-5 sm:p-6 shadow-xl">
                                 <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                                     <span>Bowling Statistics</span>
+                                    <span>🎯 Bowling Statistics</span>
                                 </h3>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                                     <StatItem label="Wickets" value={formatData.wickets_taken} />
@@ -421,7 +421,7 @@ export default function ProfilePage({ token, username, onLogout, onRename }: Pro
                 {(activeTab === 'overall' || activeTab === '1v1' || activeTab === 'team' || activeTab === 'cpu') && matchHistory.length > 0 && (
                     <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-5 sm:p-6 shadow-xl mt-6">
                         <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-                             <span>Match History</span>
+                            <span>📜 Match History</span>
                             <span className="text-sm font-normal text-slate-400">({matchHistory.length} recent)</span>
                         </h3>
                         <div className="space-y-2">
@@ -480,7 +480,7 @@ export default function ProfilePage({ token, username, onLogout, onRename }: Pro
                 {(activeTab === 'overall' || activeTab === 'tournament') && tournamentHistory.length > 0 && (
                     <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-5 sm:p-6 shadow-xl mt-6">
                         <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-                             <span>Recent Tournaments</span>
+                            <span>🏆 Recent Tournaments</span>
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {tournamentHistory.map(t => (
@@ -490,22 +490,22 @@ export default function ProfilePage({ token, username, onLogout, onRename }: Pro
                                     className="text-left bg-gradient-to-br from-slate-800/70 to-slate-900/70 hover:from-slate-700/70 hover:to-slate-800/70 rounded-xl p-5 border border-slate-700/50 hover:border-yellow-500/30 transition-all group cursor-pointer"
                                 >
                                     <div className="flex items-center justify-between mb-3">
-                                        <span className="text-2xl"></span>
+                                        <span className="text-2xl">🏆</span>
                                         <span className="text-[10px] text-slate-500">
                                             {new Date(t.timestamp).toLocaleDateString()}
                                         </span>
                                     </div>
                                     {t.champion && (
                                         <div className="mb-2">
-                                            <span className="text-[10px] text-yellow-400 uppercase tracking-wider font-semibold">Champion</span>
+                                            <span className="text-[10px] text-yellow-400 uppercase tracking-wider font-semibold">👑 Champion</span>
                                             <div className={`text-lg font-bold ${t.champion === username ? 'text-yellow-300' : 'text-white'}`}>
-                                                {t.champion} {t.champion === username && ''}
+                                                {t.champion} {t.champion === username && '👑'}
                                             </div>
                                         </div>
                                     )}
                                     <div className="space-y-1 text-[11px] text-slate-400">
-                                        {t.orange_cap && <div> {t.orange_cap.player}: {t.orange_cap.runs} runs</div>}
-                                        {t.purple_cap && <div> {t.purple_cap.player}: {t.purple_cap.wickets} wkts</div>}
+                                        {t.orange_cap && <div>🟠 {t.orange_cap.player}: {t.orange_cap.runs} runs</div>}
+                                        {t.purple_cap && <div>🟣 {t.purple_cap.player}: {t.purple_cap.wickets} wkts</div>}
                                     </div>
                                     <div className="text-[10px] text-blue-400 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                         View details →
