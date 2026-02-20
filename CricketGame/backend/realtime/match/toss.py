@@ -41,7 +41,15 @@ async def _cpu_choice_timeout(manager, room, winner: str) -> None:
 
 async def initiate_toss(manager, room) -> None:
     match = room.match
-    toss_info = match.do_toss()
+    
+    caller = None
+    if room.mode == "team" and room.captains:
+        captains = list(room.captains.values())
+        if captains:
+            import random
+            caller = random.choice(captains)
+
+    toss_info = match.do_toss(caller)
     caller = toss_info["caller"]
     toss_caller = caller
     human_captain = None
@@ -75,7 +83,16 @@ async def toss_call(manager, room, player, msg: dict) -> None:
         return
 
     call = msg.get("call", "heads")
-    result = match.resolve_toss(call)
+    
+    other_chooser = None
+    if room.mode == "team" and room.captains:
+        caller_team_key = manager._team_for_player(room, toss.get("caller"))
+        for team_key, cap in room.captains.items():
+            if team_key != caller_team_key:
+                other_chooser = cap
+                break
+
+    result = match.resolve_toss(call, other_side_chooser=other_chooser)
     toss["phase"] = "choosing"
 
     await manager.broadcast(room, {

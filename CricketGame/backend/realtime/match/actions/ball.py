@@ -146,17 +146,16 @@ async def resolve_pending_ball(manager, room, innings) -> bool:
             await manager.broadcast_lobby(room)
         return True
 
-    # ── Over ended → bowling captain picks OR auto-rotate ────────────────────
-    if result.get("needs_bowler_choice"):
-        await _start_captain_bowler_pick(manager, room, innings)
-        return True
-
-    # ── Wicket → batting captain picks OR auto-advance ────────────────────────
+    # ── Wicket or Over ended → captain picks OR auto-rotate ────────────────────
+    started_pick = False
     if result.get("needs_batter_choice"):
         await _start_captain_batter_pick(manager, room, innings)
-        # Corner case: last ball of over also ended → captain must pick bowler too
-        if result.get("needs_bowler_choice"):
-            await _start_captain_bowler_pick(manager, room, innings)
+        started_pick = True
+    if result.get("needs_bowler_choice"):
+        await _start_captain_bowler_pick(manager, room, innings)
+        started_pick = True
+        
+    if started_pick:
         return True
 
     # ── Normal ball — send state and arm next countdown ───────────────────────

@@ -26,15 +26,21 @@ class Match:
         self.result_text = ""
         self.is_finished = False
 
-    def do_toss(self) -> dict:
-        all_players = self.side_a + self.side_b
-        self.toss_caller = random.choice(all_players)
+    def do_toss(self, caller: Optional[str] = None) -> dict:
+        if caller:
+            self.toss_caller = caller
+        else:
+            all_players = self.side_a + self.side_b
+            self.toss_caller = random.choice(all_players)
         return {"caller": self.toss_caller}
 
-    def resolve_toss(self, call: str) -> dict:
+    def resolve_toss(self, call: str, other_side_chooser: Optional[str] = None) -> dict:
         coin = random.choice(["heads", "tails"])
         won = (call == coin)
-        self.toss_winner = self.toss_caller if won else self._other_side_player(self.toss_caller)
+        if won:
+            self.toss_winner = self.toss_caller
+        else:
+            self.toss_winner = other_side_chooser if other_side_chooser else self._other_side_player(self.toss_caller)
         return {
             "coin": coin, "call": call, "won": won,
             "winner": self.toss_winner,
