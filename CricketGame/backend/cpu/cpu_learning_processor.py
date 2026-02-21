@@ -60,13 +60,22 @@ class CPULearningProcessor:
             if not queue_items:
                 return  # Nothing to process
             
+            # Optimization: Fetch all ball logs in one query
+            ball_log_ids = [item.ball_log_id for item in queue_items]
+            balls = db.query(MatchBallLog).filter(MatchBallLog.id.in_(ball_log_ids)).all()
+            balls_map = {ball.id: ball for ball in balls}
+
             for item in queue_items:
                 try:
                     item.processing_started_at = datetime.utcnow()
-                    db.commit()
+                    # db.commit() removed for optimization - commit at end of item processing
                     
-                    # Process this ball
-                    await self._update_cpu_knowledge(db, item.ball_log_id)
+                    # Get the ball object
+                    ball = balls_map.get(item.ball_log_id)
+
+                    if ball:
+                        # Process this ball
+                        await self._update_cpu_knowledge(db, ball)
                     
                     # Mark as processed
                     item.processed = True
@@ -84,13 +93,8 @@ class CPULearningProcessor:
         finally:
             db.close()
     
-    async def _update_cpu_knowledge(self, db: Session, ball_log_id: int):
+    async def _update_cpu_knowledge(self, db: Session, ball: MatchBallLog):
         """Update all CPU knowledge tables based on a single ball."""
-        # Fetch ball data
-        ball = db.query(MatchBallLog).filter(MatchBallLog.id == ball_log_id).first()
-        if not ball:
-            return
-        
         # Update global patterns (both batting and bowling perspectives)
         self._update_global_pattern(db, ball, 'batting', ball.bat_move)
         self._update_global_pattern(db, ball, 'bowling', ball.bowl_move)
@@ -160,7 +164,7 @@ class CPULearningProcessor:
             )
             db.add(pattern)
         
-        db.commit()
+        # db.commit() removed for optimization
     
     def _update_user_profile(self, db: Session, user_id: int, match_format: str, role: str, move: int):
         """Update user profile statistics."""
@@ -248,7 +252,7 @@ class CPULearningProcessor:
             
             db.add(profile)
         
-        db.commit()
+        # db.commit() removed for optimization
     
     def _update_user_learning_progress(self, db: Session, user_id: int):
         """Update learning progress tracking."""
@@ -271,7 +275,7 @@ class CPULearningProcessor:
             )
             db.add(progress)
         
-        db.commit()
+        # db.commit() removed for optimization
     
     def _update_situational_pattern(self, db: Session, ball: MatchBallLog, user_id: int, role: str, move: int):
         """Update situational patterns."""
@@ -327,7 +331,7 @@ class CPULearningProcessor:
             )
             db.add(pattern)
         
-        db.commit()
+        # db.commit() removed for optimization
     
     def _update_sequence_patterns(self, db: Session, ball: MatchBallLog):
         """Update sequence patterns based on previous ball."""
@@ -412,7 +416,7 @@ class CPULearningProcessor:
             )
             db.add(pattern)
         
-        db.commit()
+        # db.commit() removed for optimization
     
     def _get_recent_event_for_ball(self, db: Session, ball: MatchBallLog) -> str:
         """Determine recent event based on previous balls."""
