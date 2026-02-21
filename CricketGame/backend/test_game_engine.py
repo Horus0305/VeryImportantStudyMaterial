@@ -94,7 +94,7 @@ def test_cpu_toss_timeout_fallback_triggers():
     room.captains["A"] = "CPU Bot"
     match = Match("M3", "team", ["CPU Bot"], ["Host"], total_overs=1, total_wickets=1)
 
-    def fixed_do_toss():
+    def fixed_do_toss(caller=None):
         match.toss_caller = "CPU Bot"
         return {"caller": "CPU Bot"}
 

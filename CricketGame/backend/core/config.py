@@ -11,6 +11,8 @@ if not SECRET_KEY:
         raise ValueError("SECRET_KEY is required in production")
     SECRET_KEY = "cricket-dev-key-2026"
 
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "super-secret-admin-key")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 

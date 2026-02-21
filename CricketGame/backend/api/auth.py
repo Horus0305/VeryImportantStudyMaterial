@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import json
+import secrets
 
 from ..data.database import get_db
 from ..core.auth import register_player, login_player, get_player_stats, decode_token, create_token
+from ..core.config import ADMIN_SECRET
 from ..data.models import Player, MatchHistory, TournamentHistory, FormatStats
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -38,6 +40,10 @@ def stats(username: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Player not found")
     return data
 
+def verify_admin_secret(x_admin_secret: str = Header(...)):
+    if not secrets.compare_digest(x_admin_secret, ADMIN_SECRET):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid admin secret")
+
 def _merge_format_stats(keeper: FormatStats, src: FormatStats) -> None:
     keeper.matches_played        += src.matches_played
     keeper.matches_won           += src.matches_won
@@ -61,7 +67,7 @@ def _merge_format_stats(keeper: FormatStats, src: FormatStats) -> None:
         keeper.best_bowling_wickets = src.best_bowling_wickets
         keeper.best_bowling_runs    = src.best_bowling_runs
 
-@router.get("/migrate-formats")
+@router.post("/migrate-formats", dependencies=[Depends(verify_admin_secret)])
 def migrate_formats(db: Session = Depends(get_db)):
     stats_merged_2v2 = 0
     stats_deduped = 0
