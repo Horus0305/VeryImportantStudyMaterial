@@ -221,6 +221,48 @@ def exponential_moving_average_update(
     return new_freqs, total_samples + 1
 
 
+def update_pattern_frequencies(
+    pattern_obj: object,
+    observed_move: int,
+    max_samples: int,
+    freq_prefix: str = "num_",
+    count_attr: str = "total_samples"
+) -> List[float]:
+    """
+    Update pattern frequencies in-place using EMA.
+
+    Args:
+        pattern_obj: The SQLAlchemy model instance to update
+        observed_move: The move observed (0-6)
+        max_samples: Max samples for EMA calculation
+        freq_prefix: Prefix for frequency attributes (e.g., "num_", "bat_num_")
+        count_attr: Name of the sample count attribute
+
+    Returns:
+        The new normalized frequencies
+    """
+    # Extract current frequencies
+    old_freqs = []
+    for i in range(7):
+        attr_name = f"{freq_prefix}{i}_freq"
+        old_freqs.append(getattr(pattern_obj, attr_name))
+
+    current_count = getattr(pattern_obj, count_attr)
+
+    # Calculate new frequencies
+    new_freqs, new_count = exponential_moving_average_update(
+        old_freqs, observed_move, current_count, max_samples
+    )
+
+    # Update object in-place
+    for i in range(7):
+        attr_name = f"{freq_prefix}{i}_freq"
+        setattr(pattern_obj, attr_name, new_freqs[i])
+
+    setattr(pattern_obj, count_attr, new_count)
+    return new_freqs
+
+
 # Constants for EMA
 MAX_SAMPLES_GLOBAL = 1000  # Slower adaptation, more stable
 MAX_SAMPLES_USER = 500  # Faster personalization

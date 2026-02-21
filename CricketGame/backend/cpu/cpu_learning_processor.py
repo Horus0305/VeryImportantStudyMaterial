@@ -11,7 +11,7 @@ from .cpu_learning_schema import (
     CPUSequencePattern, CPULearningProgress, CPULearningQueue
 )
 from .cpu_learning_utils import (
-    exponential_moving_average_update, normalize_frequencies,
+    exponential_moving_average_update, normalize_frequencies, update_pattern_frequencies,
     calculate_learning_phase, MAX_SAMPLES_GLOBAL, MAX_SAMPLES_USER, MAX_SAMPLES_SITUATIONAL
 )
 
@@ -122,22 +122,10 @@ class CPULearningProcessor:
         
         if pattern:
             # Update existing pattern
-            old_freqs = [
-                pattern.num_0_freq, pattern.num_1_freq, pattern.num_2_freq,
-                pattern.num_3_freq, pattern.num_4_freq, pattern.num_5_freq, pattern.num_6_freq
-            ]
-            new_freqs, new_total = exponential_moving_average_update(
-                old_freqs, move, pattern.total_samples, MAX_SAMPLES_GLOBAL
+            update_pattern_frequencies(
+                pattern, move, MAX_SAMPLES_GLOBAL,
+                freq_prefix="num_", count_attr="total_samples"
             )
-            
-            pattern.num_0_freq = new_freqs[0]
-            pattern.num_1_freq = new_freqs[1]
-            pattern.num_2_freq = new_freqs[2]
-            pattern.num_3_freq = new_freqs[3]
-            pattern.num_4_freq = new_freqs[4]
-            pattern.num_5_freq = new_freqs[5]
-            pattern.num_6_freq = new_freqs[6]
-            pattern.total_samples = new_total
         else:
             # Create new pattern
             freqs = [0.0] * 7
@@ -172,42 +160,18 @@ class CPULearningProcessor:
         if profile:
             # Update existing profile
             if role == 'batting':
-                old_freqs = [
-                    profile.bat_num_0_freq, profile.bat_num_1_freq, profile.bat_num_2_freq,
-                    profile.bat_num_3_freq, profile.bat_num_4_freq, profile.bat_num_5_freq, profile.bat_num_6_freq
-                ]
-                new_freqs, new_total = exponential_moving_average_update(
-                    old_freqs, move, profile.total_balls_faced, MAX_SAMPLES_USER
+                new_freqs = update_pattern_frequencies(
+                    profile, move, MAX_SAMPLES_USER,
+                    freq_prefix="bat_num_", count_attr="total_balls_faced"
                 )
-                
-                profile.bat_num_0_freq = new_freqs[0]
-                profile.bat_num_1_freq = new_freqs[1]
-                profile.bat_num_2_freq = new_freqs[2]
-                profile.bat_num_3_freq = new_freqs[3]
-                profile.bat_num_4_freq = new_freqs[4]
-                profile.bat_num_5_freq = new_freqs[5]
-                profile.bat_num_6_freq = new_freqs[6]
-                profile.total_balls_faced = new_total
                 
                 # Update aggression metric (higher numbers = more aggressive)
                 profile.batting_aggression = (new_freqs[4] + new_freqs[5] + new_freqs[6]) / sum(new_freqs)
             else:
-                old_freqs = [
-                    profile.bowl_num_0_freq, profile.bowl_num_1_freq, profile.bowl_num_2_freq,
-                    profile.bowl_num_3_freq, profile.bowl_num_4_freq, profile.bowl_num_5_freq, profile.bowl_num_6_freq
-                ]
-                new_freqs, new_total = exponential_moving_average_update(
-                    old_freqs, move, profile.total_balls_bowled, MAX_SAMPLES_USER
+                new_freqs = update_pattern_frequencies(
+                    profile, move, MAX_SAMPLES_USER,
+                    freq_prefix="bowl_num_", count_attr="total_balls_bowled"
                 )
-                
-                profile.bowl_num_0_freq = new_freqs[0]
-                profile.bowl_num_1_freq = new_freqs[1]
-                profile.bowl_num_2_freq = new_freqs[2]
-                profile.bowl_num_3_freq = new_freqs[3]
-                profile.bowl_num_4_freq = new_freqs[4]
-                profile.bowl_num_5_freq = new_freqs[5]
-                profile.bowl_num_6_freq = new_freqs[6]
-                profile.total_balls_bowled = new_total
                 
                 # Update variation metric (entropy-based)
                 import math
@@ -289,22 +253,10 @@ class CPULearningProcessor:
         ).first()
         
         if pattern:
-            old_freqs = [
-                pattern.num_0_freq, pattern.num_1_freq, pattern.num_2_freq,
-                pattern.num_3_freq, pattern.num_4_freq, pattern.num_5_freq, pattern.num_6_freq
-            ]
-            new_freqs, new_count = exponential_moving_average_update(
-                old_freqs, move, pattern.sample_count, MAX_SAMPLES_SITUATIONAL
+            update_pattern_frequencies(
+                pattern, move, MAX_SAMPLES_SITUATIONAL,
+                freq_prefix="num_", count_attr="sample_count"
             )
-            
-            pattern.num_0_freq = new_freqs[0]
-            pattern.num_1_freq = new_freqs[1]
-            pattern.num_2_freq = new_freqs[2]
-            pattern.num_3_freq = new_freqs[3]
-            pattern.num_4_freq = new_freqs[4]
-            pattern.num_5_freq = new_freqs[5]
-            pattern.num_6_freq = new_freqs[6]
-            pattern.sample_count = new_count
         else:
             freqs = [0.0] * 7
             freqs[move] = 1.0
@@ -375,22 +327,10 @@ class CPULearningProcessor:
         ).first()
         
         if pattern:
-            old_freqs = [
-                pattern.next_0_freq, pattern.next_1_freq, pattern.next_2_freq,
-                pattern.next_3_freq, pattern.next_4_freq, pattern.next_5_freq, pattern.next_6_freq
-            ]
-            new_freqs, new_count = exponential_moving_average_update(
-                old_freqs, next_move, pattern.sample_count, MAX_SAMPLES_SITUATIONAL
+            update_pattern_frequencies(
+                pattern, next_move, MAX_SAMPLES_SITUATIONAL,
+                freq_prefix="next_", count_attr="sample_count"
             )
-            
-            pattern.next_0_freq = new_freqs[0]
-            pattern.next_1_freq = new_freqs[1]
-            pattern.next_2_freq = new_freqs[2]
-            pattern.next_3_freq = new_freqs[3]
-            pattern.next_4_freq = new_freqs[4]
-            pattern.next_5_freq = new_freqs[5]
-            pattern.next_6_freq = new_freqs[6]
-            pattern.sample_count = new_count
         else:
             freqs = [0.0] * 7
             freqs[next_move] = 1.0
