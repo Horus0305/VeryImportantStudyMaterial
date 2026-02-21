@@ -2,7 +2,7 @@
 Test script for CPU Strategy Engine
 Run this to verify intelligent move selection is working.
 """
-from .data.database import SessionLocal
+from .data.database import SessionLocal, init_db
 from .cpu.cpu_strategy_engine import CPUStrategyEngine, get_learning_phase, BASE_WEIGHTS
 from .cpu.cpu_learning_schema import CPULearningProgress, CPUUserProfile
 from .data.models import Player
@@ -308,6 +308,13 @@ def run_all_tests():
     print("=" * 60)
     
     try:
+        # Ensure DB is initialized for tests
+        try:
+            init_db()
+            print("  ✓ Database initialized")
+        except Exception as e:
+            print(f"  ⚠️ Database initialization failed: {e}")
+
         test_learning_phases()
         test_base_weights()
         test_cpu_engine_initialization()
