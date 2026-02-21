@@ -7,9 +7,7 @@ APP_ENV = os.getenv("APP_ENV", "development").lower()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
-    if APP_ENV in ("production", "prod"):
-        raise ValueError("SECRET_KEY is required in production")
-    SECRET_KEY = "cricket-dev-key-2026"
+    raise ValueError("SECRET_KEY environment variable is required")
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
