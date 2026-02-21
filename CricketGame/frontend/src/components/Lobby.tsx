@@ -367,6 +367,7 @@ export default function Lobby({ lobby, username, sendMsg }: Props) {
                                         </button>
                                         <button
                                             onClick={() => sendMsg({ action: 'REMOVE_CPU' })}
+                                            aria-label="Remove the last added CPU player"
                                             disabled={cpuCount === 0}
                                             className="px-4 py-2 bg-white border border-slate-200 text-slate-400 text-xs font-bold uppercase tracking-wider rounded disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
@@ -579,12 +580,16 @@ function DraggablePlayer({ player, sendMsg }: {
             </div>
             <div className="flex gap-1 flex-shrink-0 ml-2">
                 <button
+                    aria-label={`Assign ${player.username} to Team A`}
+                    title="Assign to Team A"
                     onClick={(e) => { e.stopPropagation(); sendMsg({ action: 'ASSIGN_TEAM', player: player.username, team: 'A' }) }}
-                    className="h-5 px-1.5 text-[9px] font-bold rounded bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 transition-colors"
+                    className="h-5 px-1.5 text-[9px] font-bold rounded bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                 >A</button>
                 <button
+                    aria-label={`Assign ${player.username} to Team B`}
+                    title="Assign to Team B"
                     onClick={(e) => { e.stopPropagation(); sendMsg({ action: 'ASSIGN_TEAM', player: player.username, team: 'B' }) }}
-                    className="h-5 px-1.5 text-[9px] font-bold rounded bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 transition-colors"
+                    className="h-5 px-1.5 text-[9px] font-bold rounded bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 transition-colors focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none"
                 >B</button>
             </div>
         </div>
@@ -634,8 +639,10 @@ function TeamDropZone({ team, lobby, sendMsg, isHost }: {
                             </div>
                             {isHost && captain !== playerName && (
                                 <button
+                                    aria-label={`Make ${playerName} captain`}
+                                    title="Make Captain"
                                     onClick={() => sendMsg({ action: 'SET_CAPTAIN', team, captain: playerName })}
-                                    className={`h-5 px-1.5 text-[9px] font-bold rounded border transition-colors ${captainBtnColor}`}
+                                    className={`h-5 px-1.5 text-[9px] font-bold rounded border transition-colors ${captainBtnColor} focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:outline-none`}
                                 >
                                     👑
                                 </button>
