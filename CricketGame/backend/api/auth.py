@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 
 from ..data.database import get_db
@@ -9,23 +9,27 @@ from ..data.models import Player, MatchHistory, TournamentHistory, FormatStats
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-class AuthRequest(BaseModel):
+class LoginRequest(BaseModel):
     username: str
     password: str
 
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=20, pattern=r"^[a-zA-Z0-9_]+$")
+    password: str = Field(min_length=8, max_length=64)
+
 class RenameRequest(BaseModel):
     token: str
-    new_username: str
+    new_username: str = Field(min_length=3, max_length=20, pattern=r"^[a-zA-Z0-9_]+$")
 
 @router.post("/register")
-def register(req: AuthRequest, db: Session = Depends(get_db)):
+def register(req: RegisterRequest, db: Session = Depends(get_db)):
     ok, msg = register_player(db, req.username, req.password)
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
     return {"msg": msg}
 
 @router.post("/login")
-def login(req: AuthRequest, db: Session = Depends(get_db)):
+def login(req: LoginRequest, db: Session = Depends(get_db)):
     ok, msg, token = login_player(db, req.username, req.password)
     if not ok:
         raise HTTPException(status_code=401, detail=msg)
