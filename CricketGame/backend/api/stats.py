@@ -17,7 +17,7 @@ def get_match_detail(match_id: str, db: Session = Depends(get_db)):
     return match.to_dict()
 
 @router.get("/matches/{username}")
-def get_user_matches(username: str, mode: str = Query(None), limit: int = 20, db: Session = Depends(get_db)):
+def get_user_matches(username: str, mode: str = Query(None), limit: int = 100, db: Session = Depends(get_db)):
     query = db.query(MatchHistory).filter(
         (MatchHistory.side_a.contains(username)) | (MatchHistory.side_b.contains(username))
     )
@@ -48,7 +48,7 @@ def get_tournament_detail(tournament_id: str, db: Session = Depends(get_db)):
     return result
 
 @router.get("/tournaments/{username}")
-def get_user_tournaments(username: str, limit: int = 3, db: Session = Depends(get_db)):
+def get_user_tournaments(username: str, limit: int = 100, db: Session = Depends(get_db)):
     tournaments = (
         db.query(TournamentHistory)
         .filter(TournamentHistory.players.contains(username))

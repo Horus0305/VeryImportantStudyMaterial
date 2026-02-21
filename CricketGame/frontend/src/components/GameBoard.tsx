@@ -326,11 +326,24 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
         setHasSent(true)
     }, [sendMsg])
 
+    // Reset hasSent when a new countdown timer starts (seconds === 10)
     useEffect(() => {
         if (countdown?.seconds === 10) {
             setHasSent(false)
         }
     }, [countdown?.seconds])
+
+    // Also reset hasSent when innings changes (innings break) or role changes
+    // This prevents buttons from staying disabled after an innings transition
+    const prevInningsRef = useRef(state.innings)
+    const prevRoleRef = useRef(state.my_role)
+    useEffect(() => {
+        if (state.innings !== prevInningsRef.current || state.my_role !== prevRoleRef.current) {
+            setHasSent(false)
+            prevInningsRef.current = state.innings
+            prevRoleRef.current = state.my_role
+        }
+    }, [state.innings, state.my_role])
 
     const need = state.target ? state.target - state.total_runs : null
     const canAct = role.active && !hasSent && !ballFlash
@@ -378,16 +391,16 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
     const targetText = state.target ? `Target: ${state.target} (Need ${need})` : '--'
 
     return (
-        <div className="flex-1 flex flex-col lg:flex-row h-full max-h-[calc(100vh-64px)] overflow-hidden bg-slate-50 min-h-0 text-slate-900 border-t border-slate-200">
+        <div className="flex-1 flex flex-col lg:flex-row bg-slate-50 text-slate-900 border-t border-slate-200">
             {watchingCaptainType && watchingCaptain && (
                 <CaptainBanner type={watchingCaptainType} captain={watchingCaptain} seconds={captainCountdown} />
             )}
 
             {/* Main Stage (Stadium Area) */}
-            <section className="flex-1 relative flex flex-col bg-white p-4 lg:p-6 overflow-y-auto lg:overflow-hidden min-h-0">
+            <section className="flex-1 relative flex flex-col bg-white p-4 lg:p-6">
 
-                {/* Mobile Header Box */}
-                <div className="lg:hidden mb-4 bg-slate-50 rounded-lg p-4 border border-slate-200">
+                {/* Mobile Score Header */}
+                <div className="lg:hidden mb-3 bg-slate-50 rounded-lg p-4 border border-slate-200">
                     <div className="flex justify-between items-center mb-2">
                         <span className="text-emerald-500 tracking-wider text-3xl" style={DISPLAY_FONT}>{state.total_runs}/{state.wickets}</span>
                         <span className="text-slate-600 text-sm font-semibold">{state.overs} Overs</span>
@@ -395,64 +408,76 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                     <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">Target: {targetText}</div>
                 </div>
 
-                {/* Banner - Role */}
-                {role.active && (
-                    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 w-full max-w-lg px-4 hidden lg:block">
-                        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg rounded-sm p-[1px]">
-                            <div className="bg-white/95 backdrop-blur px-6 py-2 rounded-sm flex items-center justify-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
-                                <span className="font-bold uppercase tracking-wider text-sm text-slate-800">{role.text}</span>
+                {/* Cricket Field Visual
+                    Mobile: aspect-[4/5] gives a prominent, tall field
+                    Desktop: flex-1 fills remaining height */}
+                <div
+                    className="relative w-full aspect-[5/4] lg:aspect-auto lg:flex-1 rounded-2xl overflow-hidden shadow-inner border border-slate-200 group"
+                    style={{ background: 'radial-gradient(circle, #2d6a36 0%, #1B4D26 100%)' }}
+                >
+                    {/* Boundary Circles */}
+                    <div className="absolute inset-4 sm:inset-6 border-2 border-white/15 rounded-full opacity-50" />
+                    <div className="absolute inset-[15%] sm:inset-[18%] border border-white/10 rounded-full border-dashed opacity-30" />
+
+                    {/* Role Banner — visible on BOTH mobile and desktop */}
+                    {role.active && (
+                        <div className="absolute top-4 left-0 right-0 flex justify-center z-20">
+                            <div className="bg-orange-100 text-orange-800 px-4 py-1.5 rounded-full shadow-lg flex items-center space-x-2 text-xs font-bold uppercase tracking-wider border border-orange-200 backdrop-blur-sm lg:bg-white/95 lg:text-slate-800 lg:border-slate-200 lg:rounded-sm lg:px-6 lg:py-2 lg:shadow-md">
+                                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                                <span>{role.text}</span>
                             </div>
                         </div>
-                    </div>
-                )}
-                {!role.active && role.text && (
-                    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 w-full max-w-lg px-4 hidden lg:block">
-                        <div className="bg-slate-300 text-slate-600 shadow-sm rounded-sm p-[1px]">
-                            <div className="bg-white/95 backdrop-blur px-6 py-2 rounded-sm flex items-center justify-center gap-2">
-                                <span className="font-bold uppercase tracking-wider text-sm">{role.text}</span>
+                    )}
+                    {!role.active && role.text && (
+                        <div className="absolute top-4 left-0 right-0 flex justify-center z-20">
+                            <div className="bg-white/80 text-slate-600 px-4 py-1.5 rounded-full shadow flex items-center space-x-2 text-xs font-bold uppercase tracking-wider border border-slate-200 backdrop-blur-sm lg:rounded-sm lg:px-6 lg:py-2">
+                                <span>{role.text}</span>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Match Control Buttons (Host) - Hidden since not in original, will add to right aside if needed, or keeping it clean */}
-
-                {/* Stadium Visual */}
-                <div className="\
-                    relative flex-1 rounded-2xl overflow-hidden shadow-inner border border-slate-200 group min-h-[300px]\
-                    bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.1)_100%),repeating-linear-gradient(0deg,transparent,transparent_49px,rgba(255,255,255,0.1)_50px)]\
-                    bg-[#2d5a27] text-white">
-                    <div className="absolute inset-4 border-2 border-white/20 rounded-full opacity-50"></div>
-                    <div className="absolute inset-16 border border-white/10 rounded-full border-dashed opacity-30"></div>
-
-                    {/* Central Pitch Box */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-24 sm:h-32 bg-[#e2c799] rounded shadow-lg flex items-center justify-between px-4 opacity-95">
-                        <div className="flex gap-1 h-12 sm:h-16 items-end relative">
-                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
-                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
-                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
-                            <div className="absolute top-0 w-full h-[2px] bg-slate-600"></div>
+                    {/* Central Pitch Box — vertical on mobile, horizontal on desktop */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
+                        w-24 h-48 sm:w-[60%] sm:h-24 md:h-32
+                        bg-[#D2B48C] rounded shadow-xl border-2 border-[#C19A6B]
+                        flex flex-col sm:flex-row items-center justify-between py-2 sm:py-0 sm:px-4 opacity-95">
+                        {/* Stumps Top / Left */}
+                        <div className="flex justify-center sm:justify-start space-x-[2px] sm:gap-1 sm:h-12 md:h-16 sm:items-end relative">
+                            <div className="w-1 h-8 sm:h-full bg-slate-800 rounded-sm" />
+                            <div className="w-1 h-8 sm:h-full bg-slate-800 rounded-sm" />
+                            <div className="w-1 h-8 sm:h-full bg-slate-800 rounded-sm" />
                         </div>
-                        <div className="absolute left-16 top-0 bottom-0 w-[1px] bg-white/40"></div>
-                        <div className="absolute right-16 top-0 bottom-0 w-[1px] bg-white/40"></div>
-
-                        <div className="text-center opacity-40 pointer-events-none select-none">
-                            <span className="text-4xl tracking-[0.2em] text-[#8b7355] block" style={DISPLAY_FONT}>PITCH</span>
+                        {/* PITCH label — rotated on mobile, horizontal on desktop */}
+                        <div className="text-center opacity-30 pointer-events-none select-none">
+                            <span className="text-2xl sm:text-4xl font-bold tracking-[0.2em] text-[#8B4513] block sm:transform-none -rotate-90 sm:rotate-0" style={DISPLAY_FONT}>PITCH</span>
                         </div>
-
-                        <div className="flex gap-1 h-12 sm:h-16 items-end relative">
-                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
-                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
-                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
-                            <div className="absolute top-0 w-full h-[2px] bg-slate-600"></div>
+                        {/* Stumps Bottom / Right */}
+                        <div className="flex justify-center sm:justify-start space-x-[2px] sm:gap-1 sm:h-12 md:h-16 sm:items-end relative">
+                            <div className="w-1 h-8 sm:h-full bg-slate-800 rounded-sm" />
+                            <div className="w-1 h-8 sm:h-full bg-slate-800 rounded-sm" />
+                            <div className="w-1 h-8 sm:h-full bg-slate-800 rounded-sm" />
                         </div>
                     </div>
 
-                    {/* Small aesthetic pitch markings */}
-                    <div className="absolute top-[20%] left-[20%] w-3 h-3 bg-emerald-500 rounded-full shadow-[0_0_15px_#10B981]">
-                    </div>
-                    <div className="absolute bottom-[30%] right-[25%] w-3 h-3 bg-white/70 rounded-full border border-white"></div>
+                    {/* Fielder dots */}
+                    <div className="absolute top-[30%] left-[20%] w-3 h-3 bg-white rounded-full shadow-lg border-2 border-slate-300" />
+                    <div className="absolute bottom-[20%] right-[30%] w-3 h-3 bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.8)] animate-bounce" />
+
+                    {/* Mobile countdown bar inside the field */}
+                    {countdown && !isCaptainPending && (
+                        <div className="absolute bottom-4 left-4 right-4 z-10 lg:hidden">
+                            <div className="flex justify-between text-[10px] font-bold text-white/80 mb-1 uppercase tracking-wider">
+                                <span>Your turn to {countdown.role}</span>
+                                <span>{countdown.seconds}s</span>
+                            </div>
+                            <div className="h-2 bg-black/30 rounded-full overflow-hidden backdrop-blur">
+                                <div
+                                    className="h-full bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-all duration-1000 ease-linear"
+                                    style={{ width: `${(countdown.seconds / 10) * 100}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     {/* Celebrations inside stadium */}
                     <CelebrationOverlay flash={ballFlash} />
@@ -465,10 +490,10 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                     )}
                 </div>
 
-                {/* Input Area */}
-                <div className="mt-6 w-full max-w-3xl mx-auto px-1 sm:px-4 z-10 shrink-0">
-                    {/* Countdown bar */}
-                    <div className={`w-full transition-opacity duration-300 ${countdown && !isCaptainPending ? 'opacity-100' : 'opacity-0'}`}>
+                {/* Input Area — Number Buttons */}
+                <div className="mt-4 sm:mt-6 w-full max-w-3xl mx-auto px-1 sm:px-4 z-10 shrink-0">
+                    {/* Desktop-only countdown bar (outside the field) */}
+                    <div className={`w-full transition-opacity duration-300 hidden lg:block ${countdown && !isCaptainPending ? 'opacity-100' : 'opacity-0'}`}>
                         {countdown && !isCaptainPending && (
                             <>
                                 <div className="flex justify-between items-end mb-2 text-xs font-mono px-2 font-bold uppercase" style={{ color: countdown.role === 'bat' ? '#10B981' : '#64748b' }}>
@@ -480,29 +505,29 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                                 </div>
                             </>
                         )}
-                        {/* Placeholder to prevent layout shift if countdown is hidden */}
-                        {(!countdown || isCaptainPending) && <div className="h-6 mb-4"></div>}
+                        {(!countdown || isCaptainPending) && <div className="h-6 mb-4" />}
                     </div>
 
-                    <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl p-3 flex items-center justify-center gap-2 sm:gap-4 shadow-xl">
+                    {/* Number Buttons */}
+                    <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl p-3 flex items-center justify-between sm:justify-center gap-2 sm:gap-4 shadow-xl">
                         {[0, 1, 2, 3, 4, 5, 6].map(n => (
                             <button
                                 key={n}
                                 onClick={() => sendMove(n)}
                                 disabled={!canAct || isCaptainPending}
-                                className={`w-11 h-11 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all active:scale-95 group relative border text-xl sm:text-4xl shadow-sm
+                                className={`flex-1 sm:flex-initial aspect-square sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all active:scale-95 group relative border text-2xl sm:text-4xl shadow-sm
                                     ${!canAct || isCaptainPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                                     ${n === 4
-                                        ? 'bg-emerald-500 border-transparent text-white shadow-lg hover:scale-105 z-10'
+                                        ? 'bg-emerald-500 border-transparent text-white shadow-lg shadow-emerald-500/30 transform scale-110 border-2 border-emerald-400 hover:scale-[1.15] z-10'
                                         : n === 6
-                                            ? 'bg-slate-50 border-slate-200 hover:border-purple-600 hover:bg-purple-50 hover:text-purple-600 text-slate-500'
-                                            : 'bg-slate-50 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-500 text-slate-500'}
+                                            ? 'bg-slate-100 border-slate-200 hover:border-purple-600 hover:bg-purple-50 hover:text-purple-600 text-slate-700'
+                                            : 'bg-slate-100 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-500 text-slate-700'}
                                 `}
                                 style={DISPLAY_FONT}
                             >
                                 {n}
-                                {n === 0 && <span className="absolute -bottom-3 opacity-0 group-hover:opacity-100 text-[9px] text-emerald-500 font-sans uppercase tracking-wider font-bold transition-opacity">Dot</span>}
-                                {n === 6 && <span className="absolute -bottom-3 opacity-0 group-hover:opacity-100 text-[9px] text-purple-600 font-sans uppercase tracking-wider font-bold transition-opacity">Max</span>}
+                                {n === 0 && <span className="absolute -bottom-3 opacity-0 group-hover:opacity-100 text-[9px] text-emerald-500 font-sans uppercase tracking-wider font-bold transition-opacity hidden sm:inline">Dot</span>}
+                                {n === 6 && <span className="absolute -bottom-3 opacity-0 group-hover:opacity-100 text-[9px] text-purple-600 font-sans uppercase tracking-wider font-bold transition-opacity hidden sm:inline">Max</span>}
                             </button>
                         ))}
                     </div>

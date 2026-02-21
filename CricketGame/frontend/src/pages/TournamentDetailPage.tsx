@@ -227,7 +227,6 @@ export default function TournamentDetailPage() {
                             results={data.playoff_results}
                             matchLookup={matchLookup}
                             champion={data.champion}
-                            players={data.players}
                             onMatchClick={(id) => navigate(`/match/${id}`)}
                         />
                     )}
@@ -641,10 +640,10 @@ function MobileStandingsTab({ data, awards }: { data: TournamentData; awards: Aw
     )
 }
 
-function MobileBracketTab({ bracket, results, matchLookup, champion, players, onMatchClick }: {
+function MobileBracketTab({ bracket, results, matchLookup, champion, onMatchClick }: {
     bracket: Record<string, string[] | null>; results: Record<string, string>
     matchLookup: Record<string, MatchSummary>; champion: string | null
-    players: string[]; onMatchClick: (id: string) => void
+    onMatchClick: (id: string) => void
 }) {
     if (!bracket) return <div className="text-gray-500 text-sm py-10 text-center">No playoff data</div>
 

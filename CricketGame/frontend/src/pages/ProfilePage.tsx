@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Bell, Edit3, ChevronRight, Check, X } from 'lucide-react'
+import { ArrowLeft, Bell, Edit3, ChevronRight, Check } from 'lucide-react'
 
 interface FormatStats {
     format: string
@@ -68,7 +68,7 @@ const TAB_LABELS: Record<string, string> = {
 
 const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
 
-export default function ProfilePage({ token, username, onLogout, onRename }: Props) {
+export default function ProfilePage({ token, username, onRename }: Props) {
     const navigate = useNavigate()
     const [stats, setStats] = useState<PlayerStats | null>(null)
     const [activeTab, setActiveTab] = useState<'overall' | '1v1' | 'team' | 'cpu' | 'tournament'>('overall')
@@ -119,7 +119,7 @@ export default function ProfilePage({ token, username, onLogout, onRename }: Pro
             if (activeTab === 'tournament') return
 
             try {
-                const res = await fetch(`${API}/api/matches/${username}?${queryMode}limit=10`)
+                const res = await fetch(`${API}/api/matches/${username}?${queryMode}`)
                 if (res.ok) setMatchHistory(await res.json())
             } catch (err) {
                 console.error("Failed to fetch matches:", err)
