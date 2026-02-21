@@ -124,14 +124,16 @@ async def maybe_cpu_move(manager, room, innings) -> None:
     # CPU batter: submit immediately if its slot is empty
     if striker_is_cpu and "bat" not in pending:
         await asyncio.sleep(0.25)
-        pending["bat"] = cpu_pick_move(manager, room, "bat", innings.striker)
+        # Run in thread to prevent blocking event loop with DB queries
+        pending["bat"] = await asyncio.to_thread(cpu_pick_move, manager, room, "bat", innings.striker)
         placed = True
 
     # CPU bowler: submit immediately if its slot is empty
     if bowler_is_cpu and "bowl" not in pending:
         if not placed:
             await asyncio.sleep(0.25)
-        pending["bowl"] = cpu_pick_move(manager, room, "bowl", innings.current_bowler)
+        # Run in thread to prevent blocking event loop with DB queries
+        pending["bowl"] = await asyncio.to_thread(cpu_pick_move, manager, room, "bowl", innings.current_bowler)
         placed = True
 
     # Broadcast state so the frontend immediately sees the CPU's ready indicator
@@ -238,9 +240,11 @@ async def auto_play_cpu_match(manager, room) -> None:
                 return
             pending = room.pending_moves
             if "bat" not in pending:
-                pending["bat"] = cpu_pick_move(manager, room, "bat", innings.striker)
+                # Run in thread to prevent blocking event loop with DB queries
+                pending["bat"] = await asyncio.to_thread(cpu_pick_move, manager, room, "bat", innings.striker)
             if "bowl" not in pending:
-                pending["bowl"] = cpu_pick_move(manager, room, "bowl", innings.current_bowler)
+                # Run in thread to prevent blocking event loop with DB queries
+                pending["bowl"] = await asyncio.to_thread(cpu_pick_move, manager, room, "bowl", innings.current_bowler)
             await asyncio.sleep(0.25)
             resolved = await manager._resolve_pending_ball(room, innings)
             if not resolved:
