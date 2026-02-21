@@ -32,7 +32,7 @@ function App() {
   }
 
   return (
-    <div className="dark min-h-screen">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
       <Routes>
         <Route path="/profile" element={
           <ProfilePage token={token} username={username} onLogout={handleLogout} onRename={handleRename} />

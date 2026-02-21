@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pro Gameplay - E-sports Style (Light)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=Inter:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Bebas Neue', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            DEFAULT: "#10B981", // Emerald-500
+                            neon: "#059669", // Darker Emerald for light mode legibility
+                            vibrant: "#00FF9D", // Original neon for special glows
+                            dark: "#064E3B",
+                            surface: "#FFFFFF",
+                        },
+                        ui: {
+                            50: "#F9FAFB",
+                            100: "#F3F4F6",
+                            200: "#E5E7EB",
+                            300: "#D1D5DB",
+                            700: "#374151",
+                            800: "#1F2937",
+                            900: "#111827",
+                        }
+                    },
+                    boxShadow: {
+                        'neon': '0 0 10px rgba(16, 185, 129, 0.3), 0 0 20px rgba(16, 185, 129, 0.1)',
+                        'glow': '0 0 15px rgba(0, 255, 157, 0.4)',
+                    }
+                },
+            },
+        };
+    </script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .text-outline {
+                -webkit-text-stroke: 1px currentColor;
+                color: transparent;
+            }
+            .bg-field-pattern {
+                background-image: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.1) 100%),
+                                repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(255,255,255,0.1) 50px);
+            }
+            .glass-panel {
+                @apply bg-white/90 backdrop-blur-xl border border-gray-200;
+            }
+        }
+    </style>
+</head>
+<body class="bg-ui-50 text-ui-900 font-sans min-h-screen overflow-x-hidden flex flex-col selection:bg-brand-neon selection:text-white">
+<nav class="sticky top-0 z-50 glass-panel border-b border-gray-200">
+<div class="w-full px-4 sm:px-6 lg:px-8">
+<div class="flex items-center justify-between h-16">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-brand-neon">sports_cricket</span>
+<span class="text-2xl font-display tracking-wider text-ui-900">E-CRICKET <span class="text-brand-neon">LIVE</span></span>
+</div>
+<div class="h-6 w-px bg-gray-200 hidden md:block"></div>
+<div class="hidden md:flex items-center gap-2 text-sm">
+<span class="text-gray-500 font-semibold">ROOM CODE:</span>
+<span class="font-mono font-bold tracking-widest bg-gray-100 px-2 py-1 rounded text-ui-800">P5JX7J</span>
+</div>
+</div>
+<div class="flex-1 max-w-2xl mx-4 hidden md:block">
+<div class="bg-gradient-to-r from-gray-200 via-brand-neon to-gray-200 rounded-lg p-[1px]">
+<div class="bg-white rounded-lg px-6 py-2 flex items-center justify-between">
+<div class="text-right">
+<div class="text-xs text-gray-500 font-bold tracking-wider">CPU</div>
+<div class="font-display text-2xl leading-none text-brand-neon">0/0</div>
+</div>
+<div class="flex flex-col items-center px-4">
+<div class="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold">Innings 1</div>
+<div class="text-xs text-gray-600 font-medium">(0/2 ov)</div>
+</div>
+<div class="text-left">
+<div class="text-xs text-gray-500 font-bold tracking-wider">ANIKETKS</div>
+<div class="font-display text-2xl leading-none text-ui-800">YET TO BAT</div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-3 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200 hover:bg-gray-200 transition-colors cursor-pointer">
+<div class="w-2 h-2 rounded-full bg-brand-neon shadow-glow animate-pulse"></div>
+<span class="text-sm font-bold tracking-wide text-ui-800">AniketKS</span>
+<span class="material-symbols-outlined text-sm text-gray-500">expand_more</span>
+</div>
+<button class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-1.5 rounded font-bold text-xs uppercase tracking-wider transition-all">
+                    Exit Match
+                </button>
+</div>
+</div>
+</div>
+</nav>
+<main class="flex-1 flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden">
+<section class="flex-1 relative flex flex-col bg-white p-4 lg:p-6 overflow-hidden">
+<div class="md:hidden mb-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
+<div class="flex justify-between items-center mb-2">
+<span class="text-brand-neon font-display text-3xl">0/0</span>
+<span class="text-gray-600 text-sm font-semibold">0.2 Overs</span>
+</div>
+<div class="text-xs text-gray-400 uppercase tracking-wider font-bold">Target: --</div>
+</div>
+<div class="absolute top-6 left-1/2 -translate-x-1/2 z-20 w-full max-w-lg px-4">
+<div class="bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg rounded-sm p-[1px]">
+<div class="bg-white/95 backdrop-blur px-6 py-2 rounded-sm flex items-center justify-center gap-2">
+<span class="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
+<span class="font-bold uppercase tracking-wider text-sm text-ui-800">You are BOWLING - Pick your number!</span>
+</div>
+</div>
+</div>
+<div class="relative flex-1 bg-[#2d5a27] rounded-2xl overflow-hidden shadow-inner border border-gray-200 bg-field-pattern group">
+<div class="absolute inset-4 border-2 border-white/20 rounded-full opacity-50"></div>
+<div class="absolute inset-16 border border-white/10 rounded-full border-dashed opacity-30"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-24 md:h-32 bg-[#e2c799] rounded shadow-lg flex items-center justify-between px-4 opacity-95">
+<div class="flex gap-1 h-12 md:h-16 items-end relative">
+<div class="w-1 md:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+<div class="w-1 md:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+<div class="w-1 md:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+<div class="absolute top-0 w-full h-[2px] bg-slate-600"></div>
+</div>
+<div class="absolute left-16 top-0 bottom-0 w-[1px] bg-white/40"></div>
+<div class="absolute right-16 top-0 bottom-0 w-[1px] bg-white/40"></div>
+<div class="text-center opacity-40 pointer-events-none">
+<span class="font-display text-4xl tracking-[0.2em] text-[#8b7355] block">PITCH</span>
+</div>
+<div class="flex gap-1 h-12 md:h-16 items-end relative">
+<div class="w-1 md:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+<div class="w-1 md:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+<div class="w-1 md:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+<div class="absolute top-0 w-full h-[2px] bg-slate-600"></div>
+</div>
+</div>
+<div class="absolute top-[20%] left-[20%] w-3 h-3 bg-brand-neon rounded-full shadow-[0_0_15px_#10B981]">
+<div class="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] text-white font-bold uppercase whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-ui-900 px-2 py-0.5 rounded shadow">Deep Mid Wicket</div>
+</div>
+<div class="absolute bottom-[30%] right-[25%] w-3 h-3 bg-white/70 rounded-full border border-white"></div>
+</div>
+<div class="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 w-full max-w-3xl px-4">
+<div class="flex justify-between items-end mb-2 text-xs font-mono text-gray-500 px-2 font-bold">
+<span>YOUR TURN TO BOWL</span>
+<span>05s</span>
+</div>
+<div class="w-full h-1.5 bg-gray-200 rounded-full mb-4 overflow-hidden">
+<div class="h-full bg-brand-neon w-3/4 shadow-neon"></div>
+</div>
+<div class="glass-panel rounded-2xl p-3 flex items-center justify-center gap-2 sm:gap-4 shadow-xl">
+<button class="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gray-50 border border-gray-200 hover:border-brand-neon hover:bg-brand-neon/10 hover:text-brand-neon text-gray-500 font-display text-2xl sm:text-4xl flex items-center justify-center transition-all active:scale-95 group relative">
+                    0
+                    <span class="absolute -bottom-2 opacity-0 group-hover:opacity-100 text-[9px] text-brand-neon font-sans uppercase tracking-wider font-bold transition-opacity">Dot</span>
+</button>
+<button class="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gray-50 border border-gray-200 hover:border-brand-neon hover:bg-brand-neon/10 hover:text-brand-neon text-gray-500 font-display text-2xl sm:text-4xl flex items-center justify-center transition-all active:scale-95">1</button>
+<button class="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gray-50 border border-gray-200 hover:border-brand-neon hover:bg-brand-neon/10 hover:text-brand-neon text-gray-500 font-display text-2xl sm:text-4xl flex items-center justify-center transition-all active:scale-95">2</button>
+<button class="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gray-50 border border-gray-200 hover:border-brand-neon hover:bg-brand-neon/10 hover:text-brand-neon text-gray-500 font-display text-2xl sm:text-4xl flex items-center justify-center transition-all active:scale-95">3</button>
+<button class="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-brand-neon border border-transparent text-white font-display text-2xl sm:text-4xl flex items-center justify-center shadow-lg hover:scale-105 transition-all active:scale-95 z-10">4</button>
+<button class="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gray-50 border border-gray-200 hover:border-brand-neon hover:bg-brand-neon/10 hover:text-brand-neon text-gray-500 font-display text-2xl sm:text-4xl flex items-center justify-center transition-all active:scale-95">5</button>
+<button class="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gray-50 border border-gray-200 hover:border-purple-600 hover:bg-purple-50 hover:text-purple-600 text-gray-500 font-display text-2xl sm:text-4xl flex items-center justify-center transition-all active:scale-95 group relative">
+                    6
+                    <span class="absolute -bottom-2 opacity-0 group-hover:opacity-100 text-[9px] text-purple-600 font-sans uppercase tracking-wider font-bold transition-opacity">Max</span>
+</button>
+</div>
+</div>
+</section>
+<aside class="w-full lg:w-[400px] bg-gray-50 border-l border-gray-200 flex flex-col h-full overflow-y-auto z-10 shadow-sm">
+<div class="p-6 border-b border-gray-200 bg-gray-50 sticky top-0 z-20">
+<div class="flex justify-between items-center mb-4">
+<span class="text-xs font-bold text-brand-neon uppercase tracking-widest flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-brand-neon animate-pulse"></span>
+                    Live Commentary
+                </span>
+<span class="text-[10px] text-gray-400 font-mono font-bold">ID: #882910</span>
+</div>
+<div class="flex items-center justify-between gap-4">
+<div class="text-left">
+<span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Batting</span>
+<span class="block font-display text-2xl text-brand-neon tracking-wide">CPU</span>
+</div>
+<div class="h-8 w-px bg-gray-200"></div>
+<div class="text-right">
+<span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Bowling</span>
+<span class="block font-display text-2xl text-ui-900 tracking-wide">ANIKETKS</span>
+</div>
+</div>
+</div>
+<div class="p-6 flex-1 space-y-6">
+<div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+<div class="bg-gradient-to-r from-gray-100 to-transparent p-3 border-b border-gray-100 flex justify-between items-center">
+<h3 class="font-display text-lg tracking-wide text-ui-900">HEAD TO HEAD</h3>
+<span class="material-symbols-outlined text-gray-400 text-sm">compare_arrows</span>
+</div>
+<div class="p-4 space-y-5">
+<div class="flex justify-between items-center">
+<span class="text-xs font-bold text-brand-neon uppercase tracking-tight">CPU</span>
+<span class="text-[10px] text-gray-300 font-bold uppercase tracking-[0.2em]">VS</span>
+<span class="text-xs font-bold text-ui-900 uppercase tracking-tight">ANIKETKS</span>
+</div>
+<div class="space-y-1.5">
+<div class="flex justify-between items-baseline">
+<span class="text-sm font-display text-brand-neon tracking-wide">7 WINS</span>
+<span class="text-[10px] uppercase font-bold text-gray-400 tracking-widest">W/L Record</span>
+<span class="text-sm font-display text-ui-900 tracking-wide">5 WINS</span>
+</div>
+<div class="flex h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-brand-neon w-[58%] border-r border-white/20"></div>
+<div class="h-full bg-ui-800 w-[42%]"></div>
+</div>
+</div>
+<div class="pt-1">
+<div class="flex items-center justify-between">
+<div class="text-lg font-display text-brand-neon">218</div>
+<div class="flex-1 flex items-center justify-center gap-2 px-3">
+<div class="h-px bg-gray-200 flex-1"></div>
+<span class="text-[9px] uppercase tracking-widest text-gray-400 font-bold whitespace-nowrap">Highest Score</span>
+<div class="h-px bg-gray-200 flex-1"></div>
+</div>
+<div class="text-lg font-display text-ui-900">194</div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between items-center text-xs font-mono font-bold">
+<span class="text-brand-neon">142.5</span>
+<span class="text-[9px] uppercase tracking-widest text-gray-400 font-sans font-bold">Avg Score</span>
+<span class="text-ui-900">138.2</span>
+</div>
+<div class="relative h-1.5 w-full bg-gray-100 rounded-full mt-1">
+<div class="absolute top-0 bottom-0 w-1 bg-brand-neon left-[65%] rounded-full shadow-[0_0_5px_#10B981] z-10"></div>
+<div class="absolute top-0 bottom-0 w-1 bg-ui-800 left-[62%] rounded-full opacity-60"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+<div class="bg-gradient-to-r from-brand-neon/5 to-transparent p-3 border-b border-gray-100 flex justify-between items-center">
+<h3 class="font-display text-lg tracking-wide text-ui-900">Batting Squad</h3>
+<span class="material-symbols-outlined text-brand-neon text-sm">sports_cricket</span>
+</div>
+<table class="w-full text-left text-sm">
+<thead>
+<tr class="text-[10px] text-gray-500 uppercase tracking-wider font-bold border-b border-gray-100 bg-gray-50/50">
+<th class="px-4 py-2 font-bold">Batter</th>
+<th class="px-2 py-2 text-center font-bold">R</th>
+<th class="px-2 py-2 text-center font-bold">B</th>
+<th class="px-2 py-2 text-center font-bold">4s</th>
+<th class="px-2 py-2 text-center font-bold">6s</th>
+<th class="px-2 py-2 text-right font-bold">SR</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 font-mono text-xs">
+<tr class="bg-brand-neon/5 relative group">
+<td class="px-4 py-3 font-bold text-brand-neon flex items-center gap-2">
+                            CPU <span class="material-symbols-outlined text-[10px]">star</span>
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-brand-neon"></div>
+</td>
+<td class="px-2 py-3 text-center text-ui-900 font-bold">0</td>
+<td class="px-2 py-3 text-center text-gray-500">0</td>
+<td class="px-2 py-3 text-center text-gray-400">0</td>
+<td class="px-2 py-3 text-center text-gray-400">0</td>
+<td class="px-2 py-3 text-right text-gray-500">0.0</td>
+</tr>
+<tr class="text-gray-400">
+<td class="px-4 py-3">P. Player</td>
+<td class="px-2 py-3 text-center">-</td>
+<td class="px-2 py-3 text-center">-</td>
+<td class="px-2 py-3 text-center">-</td>
+<td class="px-2 py-3 text-center">-</td>
+<td class="px-2 py-3 text-right">-</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+<div class="bg-gradient-to-r from-blue-50 to-transparent p-3 border-b border-gray-100 flex justify-between items-center">
+<h3 class="font-display text-lg tracking-wide text-ui-900">Bowling Attack</h3>
+<span class="material-symbols-outlined text-blue-600 text-sm">sports_baseball</span>
+</div>
+<table class="w-full text-left text-sm">
+<thead>
+<tr class="text-[10px] text-gray-500 uppercase tracking-wider font-bold border-b border-gray-100 bg-gray-50/50">
+<th class="px-4 py-2 font-bold">Bowler</th>
+<th class="px-2 py-2 text-center font-bold">O</th>
+<th class="px-2 py-2 text-center font-bold">R</th>
+<th class="px-2 py-2 text-center font-bold">W</th>
+<th class="px-2 py-2 text-right font-bold">Econ</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 font-mono text-xs">
+<tr class="bg-gray-50/80 relative">
+<td class="px-4 py-3 font-bold text-ui-900 flex items-center gap-2">
+                            AniketKS <span class="material-symbols-outlined text-[10px] text-brand-neon animate-spin">cyclone</span>
+</td>
+<td class="px-2 py-3 text-center text-ui-800">0.2</td>
+<td class="px-2 py-3 text-center text-gray-500">0</td>
+<td class="px-2 py-3 text-center text-brand-neon font-bold">0</td>
+<td class="px-2 py-3 text-right text-gray-500">0.0</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div>
+<h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">This Over</h3>
+<div class="flex gap-2">
+<div class="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-xs font-mono font-bold text-gray-400">.</div>
+<div class="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-xs font-mono font-bold text-gray-400">.</div>
+<div class="w-8 h-8 rounded-full border-2 border-brand-neon border-dashed flex items-center justify-center"></div>
+</div>
+</div>
+</div>
+<div class="p-6 mt-auto border-t border-gray-200 bg-gray-100/50">
+<div class="grid grid-cols-2 gap-3">
+<button class="flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-ui-700 py-2.5 rounded text-xs font-bold uppercase tracking-wider transition-colors border border-gray-200 shadow-sm">
+<span class="material-symbols-outlined text-sm">settings</span> Settings
+                </button>
+<button class="flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-ui-700 py-2.5 rounded text-xs font-bold uppercase tracking-wider transition-colors border border-gray-200 shadow-sm">
+<span class="material-symbols-outlined text-sm">equalizer</span> Stats
+                </button>
+</div>
+</div>
+</aside>
+</main>
+
+</body></html>

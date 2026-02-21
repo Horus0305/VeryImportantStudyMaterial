@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Player Profile - Mobile</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10b981", // Emerald 500
+                        "primary-dark": "#059669", // Emerald 600
+                        "background-light": "#f8fafc", // Slate 50
+                        "background-dark": "#0f172a", // Slate 900
+                        "card-light": "#ffffff",
+                        "card-dark": "#1e293b",
+                        "surface-light": "#f1f5f9",
+                        "surface-dark": "#334155",
+                    },
+                    fontFamily: {
+                        display: ["Teko", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                    },
+                },
+            },
+        };
+    </script>
+<style>.no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-body antialiased transition-colors duration-200">
+<nav class="sticky top-0 z-50 bg-white/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between">
+<button class="flex items-center text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">
+<span class="material-icons-outlined text-xl mr-1">arrow_back</span>
+<span class="text-xs font-bold tracking-wider">BACK TO HUB</span>
+</button>
+<div class="flex items-center space-x-4">
+<button class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">
+<span class="material-icons-outlined">notifications</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-display font-bold text-lg">A</div>
+</div>
+</nav>
+<header class="relative pt-8 pb-4 px-4 bg-gradient-to-b from-emerald-50 to-transparent dark:from-emerald-900/10 dark:to-transparent">
+<div class="flex flex-col items-center text-center">
+<div class="flex items-center space-x-3 mb-4">
+<span class="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Pro Cricket Player</span>
+<div class="flex items-center text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+<span class="w-2 h-2 bg-primary rounded-full mr-1.5 animate-pulse"></span>
+                    ONLINE
+                </div>
+</div>
+<div class="relative mb-4 group">
+<div class="w-24 h-24 bg-slate-900 dark:bg-slate-800 rounded-lg flex items-center justify-center shadow-lg relative overflow-hidden transform transition hover:scale-105 duration-300">
+<span class="font-display font-bold text-6xl text-primary">A</span>
+<div class="absolute -bottom-4 -right-4 w-12 h-12 bg-slate-800 dark:bg-slate-700 rotate-45"></div>
+</div>
+<div class="absolute -bottom-2 -right-2 bg-primary text-white p-1 rounded-md shadow-md flex items-center justify-center border-2 border-white dark:border-background-dark">
+<span class="material-icons-outlined text-sm">verified</span>
+</div>
+</div>
+<h1 class="font-display font-bold text-6xl leading-none tracking-tight mb-2">
+                ANIKET<span class="text-primary">KS</span>
+</h1>
+<button class="mt-4 bg-slate-900 dark:bg-slate-800 text-white hover:bg-slate-800 dark:hover:bg-slate-700 px-6 py-2 rounded text-xs font-bold tracking-wider flex items-center transition-colors shadow-lg shadow-slate-900/20">
+                EDIT PROFILE
+                <span class="material-icons-outlined text-sm ml-2">edit</span>
+</button>
+</div>
+</header>
+<div class="overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark sticky top-[60px] z-40">
+<div class="flex whitespace-nowrap px-4 space-x-6 min-w-max">
+<button class="py-3 border-b-2 border-primary text-primary font-bold text-xs tracking-wider">OVERALL</button>
+<button class="py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 font-bold text-xs tracking-wider hover:text-slate-700 dark:hover:text-slate-200">1V1 QUICK MATCH</button>
+<button class="py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 font-bold text-xs tracking-wider hover:text-slate-700 dark:hover:text-slate-200">TEAM MODE</button>
+<button class="py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 font-bold text-xs tracking-wider hover:text-slate-700 dark:hover:text-slate-200">TOURNAMENT</button>
+<button class="py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 font-bold text-xs tracking-wider hover:text-slate-700 dark:hover:text-slate-200">CPU MODE</button>
+</div>
+</div>
+<main class="p-4 space-y-8 pb-24">
+<section class="grid grid-cols-2 gap-3">
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800 shadow-sm">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Matches Played</p>
+<p class="font-display font-bold text-4xl text-slate-900 dark:text-white">69</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800 shadow-sm">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Career Wins</p>
+<p class="font-display font-bold text-4xl text-primary">26</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800 shadow-sm">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Win Rate</p>
+<div class="flex items-baseline">
+<p class="font-display font-bold text-4xl text-slate-900 dark:text-white">37.7</p>
+<span class="text-sm font-bold text-slate-400 ml-1">%</span>
+</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800 shadow-sm">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Major Titles</p>
+<div class="flex items-center">
+<p class="font-display font-bold text-4xl text-orange-400 mr-2">41</p>
+<span class="material-icons-outlined text-orange-400 text-xl">emoji_events</span>
+</div>
+</div>
+</section>
+<section>
+<div class="flex items-center mb-4">
+<div class="w-8 h-8 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center mr-3">
+<span class="material-icons-outlined text-slate-700 dark:text-slate-300 transform -rotate-45 text-sm">sports_cricket</span>
+</div>
+<h2 class="font-display font-bold text-2xl uppercase">Batting Performance</h2>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Runs</p>
+<p class="font-display font-bold text-3xl mt-1 text-slate-900 dark:text-white">929</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Highest Score</p>
+<p class="font-display font-bold text-3xl mt-1 text-slate-900 dark:text-white">62</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Batting Avg</p>
+<p class="font-display font-bold text-3xl mt-1 text-slate-900 dark:text-white">13.46</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Strike Rate</p>
+<p class="font-display font-bold text-3xl mt-1 text-slate-900 dark:text-white">332.9</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Fours</p>
+<p class="font-display font-bold text-3xl mt-1 text-slate-900 dark:text-white">25</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sixes</p>
+<p class="font-display font-bold text-3xl mt-1 text-slate-900 dark:text-white">69</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Fifties</p>
+<p class="font-display font-bold text-3xl mt-1 text-primary">7</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+<p class="text-[10px] uppercase font-bold text-slate-300 dark:text-slate-600 tracking-wider">Hundreds</p>
+<p class="font-display font-bold text-3xl mt-1 text-slate-300 dark:text-slate-600">0</p>
+</div>
+</div>
+</section>
+<section>
+<div class="flex items-center mb-4">
+<div class="w-8 h-8 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center mr-3">
+<span class="material-icons-outlined text-slate-700 dark:text-slate-300 text-sm">sports_baseball</span>
+</div>
+<h2 class="font-display font-bold text-2xl uppercase">Bowling Performance</h2>
+</div>
+<div class="grid grid-cols-1 gap-3">
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Wickets</p>
+<p class="font-display font-bold text-4xl mt-1 text-slate-900 dark:text-white">46</p>
+</div>
+<span class="material-icons-outlined text-slate-200 dark:text-slate-700 text-4xl">sports_baseball</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+<div class="relative z-10">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Best Figures</p>
+<p class="font-display font-bold text-4xl mt-1 text-primary">2/0</p>
+</div>
+<span class="material-icons-outlined absolute top-2 right-2 text-emerald-100 dark:text-emerald-900/30 text-4xl">star</span>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-4 rounded border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+<div class="relative z-10">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Bowling Avg</p>
+<p class="font-display font-bold text-4xl mt-1 text-slate-900 dark:text-white">19.93</p>
+</div>
+<span class="material-icons-outlined absolute top-2 right-2 text-slate-100 dark:text-slate-700/30 text-4xl">analytics</span>
+</div>
+</div>
+</div>
+</section>
+<section>
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center">
+<div class="w-8 h-8 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center mr-3">
+<span class="material-icons-outlined text-slate-700 dark:text-slate-300 text-sm">emoji_events</span>
+</div>
+<h2 class="font-display font-bold text-2xl uppercase">Tournament History</h2>
+</div>
+<button class="text-[10px] font-bold text-primary tracking-wider uppercase">View All</button>
+</div>
+<div class="flex overflow-x-auto no-scrollbar space-x-4 pb-2 -mx-4 px-4">
+<div class="min-w-[280px] bg-card-light dark:bg-card-dark rounded-lg p-5 border border-slate-100 dark:border-slate-800 shadow-sm relative">
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">19 Feb 2026</p>
+<h3 class="font-display font-bold text-2xl uppercase leading-none">Meet Cup</h3>
+<div class="flex items-center mt-2 text-orange-500 font-bold text-[10px] uppercase tracking-wide">
+<span class="material-icons-outlined text-xs mr-1">emoji_events</span>
+                                Champion
+                            </div>
+</div>
+<span class="material-icons-outlined text-slate-200 dark:text-slate-700 text-5xl">emoji_events</span>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-sm font-medium">
+<span class="text-slate-500 dark:text-slate-400">Runs</span>
+<span class="font-bold text-slate-900 dark:text-white">134</span>
+</div>
+<div class="flex justify-between text-sm font-medium">
+<span class="text-slate-500 dark:text-slate-400">Wickets</span>
+<span class="font-bold text-slate-900 dark:text-white">8</span>
+</div>
+</div>
+</div>
+<div class="min-w-[280px] bg-slate-900 dark:bg-slate-800 rounded-lg p-5 shadow-lg relative text-white">
+<div class="absolute top-0 right-0 p-5 opacity-10">
+<span class="material-icons-outlined text-6xl">crown</span>
+</div>
+<div class="flex justify-between items-start mb-6 relative z-10">
+<div>
+<p class="text-[10px] font-bold text-emerald-400 uppercase tracking-wide mb-1">18 Feb 2026</p>
+<h3 class="font-display font-bold text-2xl uppercase leading-none">AniketKS Classic</h3>
+<div class="flex items-center mt-2 text-orange-400 font-bold text-[10px] uppercase tracking-wide">
+<span class="material-icons-outlined text-xs mr-1">military_tech</span>
+                                MVP &amp; Winner
+                            </div>
+</div>
+</div>
+<div class="space-y-1 border-t border-slate-700 pt-3 relative z-10">
+<div class="flex justify-between text-sm font-medium">
+<span class="text-slate-400">Runs</span>
+<span class="font-bold">159</span>
+</div>
+<div class="flex justify-between text-sm font-medium">
+<span class="text-slate-400">Wickets</span>
+<span class="font-bold">6</span>
+</div>
+</div>
+</div>
+<div class="min-w-[280px] bg-card-light dark:bg-card-dark rounded-lg p-5 border border-slate-100 dark:border-slate-800 shadow-sm relative">
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">10 Feb 2026</p>
+<h3 class="font-display font-bold text-2xl uppercase leading-none">Atharva Trophy</h3>
+<div class="flex items-center mt-2 text-slate-400 font-bold text-[10px] uppercase tracking-wide">
+<span class="material-icons-outlined text-xs mr-1">close</span>
+                                Runner Up
+                            </div>
+</div>
+<span class="material-icons-outlined text-slate-200 dark:text-slate-700 text-5xl">military_tech</span>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-sm font-medium">
+<span class="text-slate-500 dark:text-slate-400">Runs</span>
+<span class="font-bold text-slate-900 dark:text-white">89</span>
+</div>
+<div class="flex justify-between text-sm font-medium">
+<span class="text-slate-500 dark:text-slate-400">Wickets</span>
+<span class="font-bold text-slate-900 dark:text-white">4</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section>
+<div class="flex items-center mb-4">
+<div class="w-8 h-8 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center mr-3">
+<span class="material-icons-outlined text-slate-700 dark:text-slate-300 text-sm">history</span>
+</div>
+<div>
+<h2 class="font-display font-bold text-2xl uppercase leading-none">Match Archive</h2>
+<p class="text-xs text-slate-500 dark:text-slate-400">Last 10 competitive matches</p>
+</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark rounded-lg border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+<div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center">
+<span class="w-5 h-5 rounded flex items-center justify-center bg-emerald-100 text-emerald-700 text-[10px] font-bold mr-2">W</span>
+<span class="text-xs font-bold text-slate-400 uppercase tracking-wide">VS CPU</span>
+</div>
+<span class="text-[10px] font-bold text-slate-400">21 Feb</span>
+</div>
+<div class="flex justify-between items-center">
+<div>
+<p class="font-bold text-sm text-slate-900 dark:text-white">Won by 1 wkt</p>
+<div class="mt-1">
+<span class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-500 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">POTM</span>
+</div>
+</div>
+<span class="material-icons-outlined text-slate-300 text-sm">chevron_right</span>
+</div>
+</div>
+<div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center">
+<span class="w-5 h-5 rounded flex items-center justify-center bg-emerald-100 text-emerald-700 text-[10px] font-bold mr-2">W</span>
+<span class="text-xs font-bold text-slate-400 uppercase tracking-wide">VS ATHARVA</span>
+</div>
+<span class="text-[10px] font-bold text-slate-400">20 Feb</span>
+</div>
+<div class="flex justify-between items-center">
+<div>
+<p class="font-bold text-sm text-slate-900 dark:text-white">Won by 32 runs</p>
+<div class="mt-1 flex space-x-1">
+<span class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">1V1</span>
+<span class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-500 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">POTM</span>
+</div>
+</div>
+<span class="material-icons-outlined text-slate-300 text-sm">chevron_right</span>
+</div>
+</div>
+<div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center">
+<span class="w-5 h-5 rounded flex items-center justify-center bg-red-100 text-red-700 text-[10px] font-bold mr-2">L</span>
+<span class="text-xs font-bold text-slate-400 uppercase tracking-wide">VS CPU</span>
+</div>
+<span class="text-[10px] font-bold text-slate-400">20 Feb</span>
+</div>
+<div class="flex justify-between items-center">
+<div>
+<p class="font-bold text-sm text-slate-900 dark:text-white">Cancelled</p>
+<p class="text-[10px] text-slate-400 mt-0.5">Host ended match</p>
+</div>
+<span class="material-icons-outlined text-slate-300 text-sm">chevron_right</span>
+</div>
+</div>
+<div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center">
+<span class="w-5 h-5 rounded flex items-center justify-center bg-red-100 text-red-700 text-[10px] font-bold mr-2">L</span>
+<span class="text-xs font-bold text-slate-400 uppercase tracking-wide">VS ATHARVA</span>
+</div>
+<span class="text-[10px] font-bold text-slate-400">20 Feb</span>
+</div>
+<div class="flex justify-between items-center">
+<div>
+<p class="font-bold text-sm text-slate-900 dark:text-white">Lost by 12 runs</p>
+<div class="mt-1">
+<span class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">1V1</span>
+</div>
+</div>
+<span class="material-icons-outlined text-slate-300 text-sm">chevron_right</span>
+</div>
+</div>
+<div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center">
+<span class="w-5 h-5 rounded flex items-center justify-center bg-orange-100 text-orange-700 text-[10px] font-bold mr-2">T</span>
+<span class="text-xs font-bold text-slate-400 uppercase tracking-wide">VS ATHARVA</span>
+</div>
+<span class="text-[10px] font-bold text-slate-400">19 Feb</span>
+</div>
+<div class="flex justify-between items-center">
+<div>
+<p class="font-bold text-sm text-slate-900 dark:text-white">Match Tied</p>
+<div class="mt-1">
+<span class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-500 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">POTM</span>
+</div>
+</div>
+<span class="material-icons-outlined text-slate-300 text-sm">chevron_right</span>
+</div>
+</div>
+<div class="p-4 text-center border-t border-slate-100 dark:border-slate-800">
+<button class="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase hover:text-primary transition-colors">View All Matches</button>
+</div>
+</div>
+</section>
+</main>
+<footer class="p-6 text-center border-t border-slate-200 dark:border-slate-800">
+<div class="flex items-center justify-center space-x-2 mb-2">
+<span class="font-display font-bold text-xl text-slate-900 dark:text-white">CRICKET<span class="text-primary">PRO</span></span>
+<span class="text-[10px] text-slate-400">v2.4.0</span>
+</div>
+<p class="text-[10px] text-slate-400">© 2026 Sports Interactive. All rights reserved.</p>
+</footer>
+
+</body></html>

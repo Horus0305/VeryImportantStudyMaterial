@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Match Setup Mobile Lobby</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10b981", // Emerald 500 equivalent from screenshot
+                        secondary: "#0f172a", // Slate 900
+                        "background-light": "#f8fafc",
+                        "background-dark": "#0f172a",
+                        "card-light": "#ffffff",
+                        "card-dark": "#1e293b",
+                        "accent-green": "#00c885", // The bright green from the screenshot
+                    },
+                    fontFamily: {
+                        display: ["Anton", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                    },
+                },
+            },
+        };
+    </script>
+<style>.no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-100 font-body antialiased pb-32">
+<header class="sticky top-0 z-40 bg-card-light dark:bg-card-dark border-b border-slate-200 dark:border-slate-700 shadow-sm px-4 py-3 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="text-accent-green transform -rotate-12">
+<span class="material-icons text-3xl">sports_cricket</span>
+</div>
+<span class="font-display text-xl italic tracking-wide text-slate-900 dark:text-white">E CRICKET</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+<span class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Code</span>
+<span class="font-mono font-bold text-slate-900 dark:text-white text-sm">NNQ0KA</span>
+</div>
+<button class="text-slate-400 hover:text-red-500 transition-colors">
+<span class="material-icons">logout</span>
+</button>
+</div>
+</header>
+<main class="px-4 py-6 max-w-md mx-auto">
+<div class="mb-4 relative flex items-center justify-between">
+<div class="flex items-center gap-3">
+<h1 class="font-display text-4xl uppercase text-slate-900 dark:text-white tracking-tight leading-none">Match Setup</h1>
+<span class="bg-accent-green text-white text-[10px] font-bold px-2 py-0.5 rounded-sm uppercase tracking-wider self-start mt-1">Lobby</span>
+</div>
+<div class="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2 py-1 rounded border border-slate-100 dark:border-slate-700">
+<span class="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse"></span>
+<span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">Live</span>
+</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden mb-6">
+<div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+<h2 class="font-display text-2xl uppercase tracking-wide">Squad List</h2>
+<span class="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-1 rounded">1/22 Players</span>
+</div>
+<div class="p-4 space-y-3">
+<div class="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+<div class="flex-shrink-0 w-64 flex items-center justify-between bg-slate-900 dark:bg-slate-800 text-white p-3 rounded-lg shadow-md border-l-4 border-accent-green relative overflow-hidden">
+<div class="flex items-center gap-3 z-10">
+<div class="w-10 h-10 bg-accent-green rounded-md flex items-center justify-center font-display text-xl text-white">
+                A
+            </div>
+<div>
+<div class="font-bold text-sm">AniketKS</div>
+<div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Room Host</div>
+</div>
+</div>
+<span class="z-10 bg-slate-700 text-[10px] font-bold px-2 py-0.5 rounded text-slate-300">HOST</span>
+<div class="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-white/5 to-transparent z-0"></div>
+</div>
+<div class="flex-shrink-0 w-64 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-3 flex flex-col items-center justify-center text-center bg-slate-50 dark:bg-slate-800/50">
+<span class="material-icons text-slate-300 dark:text-slate-600 text-3xl mb-1">groups</span>
+<span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Waiting for players...</span>
+</div>
+</div>
+<button class="w-full py-3 border border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 rounded-lg flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300 font-bold text-sm transition-all hover:bg-slate-50 dark:hover:bg-slate-700">
+<span class="material-icons text-lg">add</span>
+                    ADD CPU PLAYER
+                </button>
+</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden relative">
+<span class="material-icons absolute -top-4 -right-4 text-9xl text-slate-50 dark:text-slate-800 pointer-events-none opacity-50 rotate-12">settings</span>
+<div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 relative z-10">
+<h2 class="font-display text-2xl uppercase tracking-wide">Configuration</h2>
+</div>
+<div class="p-4 space-y-6 relative z-10">
+<div>
+<label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Game Mode</label>
+<div class="grid grid-cols-1 gap-2">
+<button class="relative bg-slate-900 dark:bg-slate-700 text-white py-3 px-4 rounded-lg font-bold text-sm border-2 border-accent-green shadow-lg flex items-center justify-center">
+                            1V1 QUICK MATCH
+                            <span class="absolute -top-2 -right-2 w-4 h-4 bg-accent-green rounded-full flex items-center justify-center shadow-sm">
+<span class="material-icons text-[10px] text-white">check</span>
+</span>
+</button>
+<div class="grid grid-cols-2 gap-2">
+<button class="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-3 px-2 rounded-lg font-bold text-xs border border-slate-200 dark:border-slate-600 hover:border-slate-300 uppercase">
+                                Tournament
+                            </button>
+<button class="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-3 px-2 rounded-lg font-bold text-xs border border-slate-200 dark:border-slate-600 hover:border-slate-300 uppercase">
+                                Team Mode
+                            </button>
+</div>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="flex-1">
+<label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Overs</label>
+<div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+<button class="flex-1 py-2 rounded bg-slate-900 text-white text-sm font-bold shadow-sm">2 OVERS</button>
+<button class="flex-1 py-2 rounded text-slate-500 dark:text-slate-400 text-sm font-bold hover:bg-white dark:hover:bg-slate-700/50">5 OVERS</button>
+</div>
+</div>
+</div>
+<div>
+<label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Wickets</label>
+<div class="flex gap-2">
+<button class="w-12 h-10 rounded bg-slate-900 text-white font-bold flex items-center justify-center shadow-sm border border-slate-900">1</button>
+<button class="w-12 h-10 rounded bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-600 flex items-center justify-center">2</button>
+<button class="w-12 h-10 rounded bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-600 flex items-center justify-center">3</button>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 flex gap-3 items-start">
+<div class="mt-0.5 relative flex items-center">
+<input checked="" class="w-5 h-5 text-accent-green rounded border-slate-300 focus:ring-accent-green focus:ring-opacity-50" type="checkbox"/>
+</div>
+<div>
+<div class="font-bold text-slate-900 dark:text-white text-sm">I WANT TO PLAY</div>
+<p class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">Uncheck this box if you wish to spectate or manage the match only.</p>
+</div>
+</div>
+<div>
+<label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">CPU Configuration (0)</label>
+<div class="flex gap-2">
+<button class="flex-1 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded text-xs font-bold text-slate-700 dark:text-slate-300 uppercase hover:bg-slate-50 dark:hover:bg-slate-700">
+                             Add CPU
+                         </button>
+<button class="flex-1 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded text-xs font-bold text-slate-300 dark:text-slate-600 uppercase cursor-not-allowed">
+                             Remove CPU
+                         </button>
+</div>
+</div>
+</div>
+<div class="bg-slate-900 dark:bg-slate-950 px-4 py-3 flex justify-between items-center">
+<div class="flex flex-col">
+<span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Settings</span>
+<span class="text-[10px] text-red-400 font-bold uppercase">Unsaved</span>
+</div>
+<button class="text-white text-xs font-bold uppercase tracking-wide hover:text-accent-green transition-colors">Apply Settings</button>
+</div>
+</div>
+</main>
+<div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background-light via-background-light to-transparent dark:from-background-dark dark:via-background-dark z-50">
+<div class="max-w-md mx-auto">
+<button class="w-full bg-accent-green hover:bg-emerald-500 text-white font-display text-2xl uppercase italic tracking-wider py-4 rounded-xl shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 transform transition hover:scale-[1.02] active:scale-[0.98]">
+                Start Match
+                <span class="material-icons transform -rotate-45">sports_cricket</span>
+</button>
+<div class="text-center mt-3">
+<span class="text-[10px] text-slate-400 dark:text-slate-600 font-medium">© 2026 Tournament Edition. Game responsibly.</span>
+</div>
+</div>
+</div>
+</body></html>

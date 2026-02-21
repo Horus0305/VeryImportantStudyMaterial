@@ -66,24 +66,24 @@ export default function LoginPage({ onAuth }: LoginPageProps) {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4">
             <div className="w-full max-w-md">
                 {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent mb-3">
-                         E Cricket
+                <div className="text-center mb-8 sm:mb-12">
+                    <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 mb-3 flex items-center justify-center gap-3">
+                        <span className="text-emerald-600">🏏</span> E Cricket
                     </h1>
-                    <p className="text-slate-300 text-base sm:text-lg font-medium">
-                        Tournament Edition
+                    <p className="text-slate-500 text-base sm:text-lg font-medium">
+                        Professional Edition
                     </p>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-5 sm:p-8 shadow-2xl">
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xl">
                     <div className="mb-6">
-                        <h2 className="text-2xl font-bold text-white mb-2">
+                        <h2 className="text-2xl font-bold text-slate-900 mb-2">
                             {isRegister ? 'Create Account' : 'Welcome Back'}
                         </h2>
-                        <p className="text-slate-400">
+                        <p className="text-slate-500">
                             {isRegister
                                 ? 'Register to start playing'
                                 : 'Login to join a match'}
@@ -93,31 +93,31 @@ export default function LoginPage({ onAuth }: LoginPageProps) {
                     <form onSubmit={handleSubmit}>
                         <div className="space-y-5">
                             <div className="space-y-2">
-                                <Label htmlFor="username" className="text-slate-300 font-medium">Username</Label>
+                                <Label htmlFor="username" className="text-slate-700 font-medium">Username</Label>
                                 <Input
                                     id="username"
                                     placeholder="Enter your username"
                                     value={username}
                                     onChange={e => setUsername(e.target.value)}
                                     autoFocus
-                                    className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500 focus:ring-orange-500/20"
+                                    className="bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="password" className="text-slate-300 font-medium">Password</Label>
+                                <Label htmlFor="password" className="text-slate-700 font-medium">Password</Label>
                                 <Input
                                     id="password"
                                     type="password"
                                     placeholder="Enter your password"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
-                                    className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500 focus:ring-orange-500/20"
+                                    className="bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
                                 />
                             </div>
 
                             {error && (
-                                <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3">
-                                    <p className="text-sm text-red-300 font-medium">{error}</p>
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                    <p className="text-sm text-red-600 font-medium">{error}</p>
                                 </div>
                             )}
                         </div>
@@ -125,7 +125,7 @@ export default function LoginPage({ onAuth }: LoginPageProps) {
                         <div className="flex flex-col gap-3 mt-6">
                             <Button
                                 type="submit"
-                                className="w-full py-4 sm:py-6 text-base sm:text-lg bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white shadow-lg"
+                                className="w-full py-6 text-base sm:text-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all font-semibold rounded-xl"
                                 disabled={isLoading}
                             >
                                 {isLoading ? 'Please wait...' : (isRegister ? ' Register' : ' Login')}
@@ -133,7 +133,7 @@ export default function LoginPage({ onAuth }: LoginPageProps) {
                             <Button
                                 type="button"
                                 variant="ghost"
-                                className="w-full text-slate-400 hover:text-white hover:bg-slate-800/50"
+                                className="w-full text-slate-500 hover:text-slate-900 hover:bg-slate-100/50"
                                 onClick={() => { setIsRegister(!isRegister); setError('') }}
                             >
                                 {isRegister

@@ -1,8 +1,3 @@
-/**
- * GameBoard — Live match view with score, ball buttons, and mini scorecard.
- * Designed to fit the full viewport without scrolling.
- * Includes: In-pitch score flash, celebrations, captain picker modal, countdown bar.
- */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -69,6 +64,8 @@ interface Props {
     countdown?: { role: string; seconds: number } | null
 }
 
+const DISPLAY_FONT = { fontFamily: "'Bebas Neue', 'Teko', sans-serif" }
+
 const ROLE_LABELS: Record<string, { text: string; icon: string; active: boolean }> = {
     BATTING: { text: 'You are BATTING – pick your number!', icon: '', active: true },
     BOWLING: { text: 'You are BOWLING – pick your number!', icon: '', active: true },
@@ -93,9 +90,7 @@ function makeParticles(count: number, colors: string[], edgeSpread: boolean = fa
         let vx = (Math.random() - 0.5) * 8;
 
         if (edgeSpread) {
-            // Pick left edge (0-15) or right edge (85-100)
             startX = side === 'left' ? Math.random() * 15 : 85 + Math.random() * 15;
-            // Left edge shoots right (positive vx), Right edge shoots left (negative vx)
             vx = side === 'left' ? Math.random() * 6 + 2 : -(Math.random() * 6 + 2);
         }
 
@@ -152,12 +147,9 @@ function CelebrationOverlay({ flash }: { flash: BallFlash | null }) {
             newLabel = { text: 'OUT!', color: '#ef4444', size: 'text-4xl' }
         }
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setParticles(newParticles)
-
         setLabel(newLabel)
 
-        // Auto-clear label after 1s
         const labelTimer = setTimeout(() => setLabel(null), 1000)
         return () => {
             clearTimeout(labelTimer)
@@ -165,7 +157,6 @@ function CelebrationOverlay({ flash }: { flash: BallFlash | null }) {
         }
     }, [flash])
 
-    // Animate particles
     useEffect(() => {
         if (particles.length === 0) return
         const animate = () => {
@@ -175,8 +166,8 @@ function CelebrationOverlay({ flash }: { flash: BallFlash | null }) {
                         ...p,
                         x: p.x + p.vx,
                         y: p.y + p.vy,
-                        vy: p.vy + 0.3,   // gentler gravity
-                        life: p.life - 1,  // 2× slower than before
+                        vy: p.vy + 0.3,
+                        life: p.life - 1,
                     }))
                     .filter(p => p.life > 0)
                 return next
@@ -185,22 +176,19 @@ function CelebrationOverlay({ flash }: { flash: BallFlash | null }) {
         }
         rafRef.current = requestAnimationFrame(animate)
         return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-    }, [particles.length > 0])  // eslint-disable-line react-hooks/exhaustive-deps
+    }, [particles.length > 0])
 
     return (
         <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
-            {/* Floating score label in center (Glow removed) */}
             {label && (
                 <div
                     className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
                                 font-black animate-pulse select-none ${label.size}`}
-                    style={{ color: label.color }}
+                    style={{ color: label.color, fontFamily: "'Bebas Neue', display" }}
                 >
                     {label.text}
                 </div>
             )}
-
-            {/* Particles rendered as SVG */}
             <svg className="absolute inset-0 w-full h-full">
                 {particles.map(p => {
                     const opacity = (p.life / p.maxLife)
@@ -242,8 +230,6 @@ function CaptainPickerModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-[2px] p-4 sm:p-6">
             <div className="bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-amber-500/50 rounded-2xl p-6 sm:p-8 shadow-[0_0_40px_rgba(245,158,11,0.2)] w-full max-w-sm sm:max-w-md md:max-w-lg flex flex-col max-h-full">
-
-                {/* Header */}
                 <div className="text-center mb-6 flex-shrink-0">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 border border-amber-500/30 mb-3 shadow-inner">
                         <span className="text-3xl sm:text-4xl">{type === 'batter' ? '🏏' : '🎳'}</span>
@@ -252,8 +238,6 @@ function CaptainPickerModal({
                         Pick Next {type === 'batter' ? 'Batter' : 'Bowler'}
                     </h3>
                     <p className="text-slate-400 text-xs sm:text-sm mt-1">Select an available player to continue</p>
-
-                    {/* Countdown bar */}
                     <div className="mt-4 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50 relative">
                         <div
                             className={`absolute inset-y-0 left-0 bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-1000 ease-linear ${seconds <= 2 ? 'animate-pulse bg-red-500 from-red-500 to-red-400' : ''}`}
@@ -265,7 +249,6 @@ function CaptainPickerModal({
                     </p>
                 </div>
 
-                {/* Grid List of Players */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto min-h-0 pr-1 custom-scrollbar">
                     {options.map(o => (
                         <button
@@ -299,8 +282,6 @@ function CaptainPickerModal({
                                     </div>
                                 )}
                             </div>
-
-                            {/* Hover effect gradient */}
                             {!o.disabled && (
                                 <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-amber-500/5 to-amber-500/0 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-[-100%] group-hover:translate-x-[100%] duration-1000" />
                             )}
@@ -312,12 +293,9 @@ function CaptainPickerModal({
     )
 }
 
-// ─── Captain Announcement Banner ─────────────────────────────────────────────
-
 function CaptainBanner({ type, captain, seconds }: { type: 'batter' | 'bowler'; captain: string; seconds: number }) {
     return (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 border border-amber-500/60 rounded-xl px-5 py-3 shadow-2xl flex items-center gap-3 animate-slide-down">
-            <span className="text-2xl">{type === 'batter' ? '' : ''}</span>
             <div>
                 <p className="text-amber-400 font-bold text-sm">
                     {captain} is picking the next {type === 'batter' ? 'batter' : 'bowler'}
@@ -349,18 +327,14 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
     }, [sendMsg])
 
     useEffect(() => {
-        // When countdown resets back to 10 for a new ball, re-enable the run buttons
         if (countdown?.seconds === 10) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setHasSent(false)
         }
     }, [countdown?.seconds])
 
     const need = state.target ? state.target - state.total_runs : null
-    // Disable buttons if we have already sent a move, OR if a celebration (ballFlash) is currently playing
     const canAct = role.active && !hasSent && !ballFlash
 
-    // Keyboard shortcut for ball moves
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!canAct) return
@@ -372,11 +346,9 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [canAct, sendMove])
 
-    // Captain countdown timer (visual only — real timeout is on backend)
     const isCaptainPending = state.needs_batter_choice || state.needs_bowler_choice
     useEffect(() => {
         if (isCaptainPending) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCaptainCountdown(5)
             captainTimerRef.current = setInterval(() => {
                 setCaptainCountdown(prev => {
@@ -396,327 +368,296 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
 
     const isBattingCaptain = state.my_role === 'BATTING_CAPTAIN_PICK'
     const isBowlingCaptain = state.my_role === 'BOWLING_CAPTAIN_PICK'
-
-    // Determine announcement for non-captain players
     const watchingCaptainType: 'batter' | 'bowler' | null =
         !isBattingCaptain && !isBowlingCaptain && isCaptainPending
             ? (state.needs_batter_choice ? 'batter' : 'bowler')
             : null
-    const watchingCaptain =
-        watchingCaptainType === 'batter' ? state.batting_captain :
-            watchingCaptainType === 'bowler' ? state.bowling_captain : null
+    const watchingCaptain = watchingCaptainType === 'batter' ? state.batting_captain : watchingCaptainType === 'bowler' ? state.bowling_captain : null
+
+    // Determine target texts
+    const targetText = state.target ? `Target: ${state.target} (Need ${need})` : '--'
 
     return (
-        <div className="w-full max-w-7xl mx-auto flex flex-col h-auto sm:h-[calc(100vh-4rem)] min-h-[calc(100dvh-4rem)] p-3 sm:p-4 gap-3 sm:gap-4 overflow-y-auto sm:overflow-hidden">
-
-            {/* Captain watching banner (for non-captain players) */}
+        <div className="flex-1 flex flex-col lg:flex-row h-full max-h-[calc(100vh-64px)] overflow-hidden bg-slate-50 min-h-0 text-slate-900 border-t border-slate-200">
             {watchingCaptainType && watchingCaptain && (
                 <CaptainBanner type={watchingCaptainType} captain={watchingCaptain} seconds={captainCountdown} />
             )}
 
-            {/* Row 1: Score Header + Target */}
-            <div className="flex flex-col gap-2 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm rounded-xl border border-slate-700/50 px-4 py-3 shadow-2xl flex-shrink-0">
-                <div className="flex justify-between items-start sm:items-center">
-                    <div>
-                        <p className="text-xs sm:text-base text-slate-300 font-medium break-words">
-                            Innings {state.innings} • <span className="text-orange-400 font-bold">{state.batting_side.join(', ')}</span>
-                            <span className="text-slate-500 ml-1">vs {state.bowling_side.join(', ')}</span>
-                        </p>
+            {/* Main Stage (Stadium Area) */}
+            <section className="flex-1 relative flex flex-col bg-white p-4 lg:p-6 overflow-y-auto lg:overflow-hidden min-h-0">
+
+                {/* Mobile Header Box */}
+                <div className="lg:hidden mb-4 bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-emerald-500 tracking-wider text-3xl" style={DISPLAY_FONT}>{state.total_runs}/{state.wickets}</span>
+                        <span className="text-slate-600 text-sm font-semibold">{state.overs} Overs</span>
                     </div>
-                    {isHost && (
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            className="h-6 text-[10px] px-2 sm:h-8 sm:text-xs"
-                            onClick={() => {
-                                if (confirm('Cancel this match? It will be a Tie.')) sendMsg({ action: 'CANCEL_MATCH' })
-                            }}
-                        >
-                            Cancel
-                        </Button>
+                    <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">Target: {targetText}</div>
+                </div>
+
+                {/* Banner - Role */}
+                {role.active && (
+                    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 w-full max-w-lg px-4 hidden lg:block">
+                        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg rounded-sm p-[1px]">
+                            <div className="bg-white/95 backdrop-blur px-6 py-2 rounded-sm flex items-center justify-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
+                                <span className="font-bold uppercase tracking-wider text-sm text-slate-800">{role.text}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {!role.active && role.text && (
+                    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 w-full max-w-lg px-4 hidden lg:block">
+                        <div className="bg-slate-300 text-slate-600 shadow-sm rounded-sm p-[1px]">
+                            <div className="bg-white/95 backdrop-blur px-6 py-2 rounded-sm flex items-center justify-center gap-2">
+                                <span className="font-bold uppercase tracking-wider text-sm">{role.text}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Match Control Buttons (Host) - Hidden since not in original, will add to right aside if needed, or keeping it clean */}
+
+                {/* Stadium Visual */}
+                <div className="\
+                    relative flex-1 rounded-2xl overflow-hidden shadow-inner border border-slate-200 group min-h-[300px]\
+                    bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.1)_100%),repeating-linear-gradient(0deg,transparent,transparent_49px,rgba(255,255,255,0.1)_50px)]\
+                    bg-[#2d5a27] text-white">
+                    <div className="absolute inset-4 border-2 border-white/20 rounded-full opacity-50"></div>
+                    <div className="absolute inset-16 border border-white/10 rounded-full border-dashed opacity-30"></div>
+
+                    {/* Central Pitch Box */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-24 sm:h-32 bg-[#e2c799] rounded shadow-lg flex items-center justify-between px-4 opacity-95">
+                        <div className="flex gap-1 h-12 sm:h-16 items-end relative">
+                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+                            <div className="absolute top-0 w-full h-[2px] bg-slate-600"></div>
+                        </div>
+                        <div className="absolute left-16 top-0 bottom-0 w-[1px] bg-white/40"></div>
+                        <div className="absolute right-16 top-0 bottom-0 w-[1px] bg-white/40"></div>
+
+                        <div className="text-center opacity-40 pointer-events-none select-none">
+                            <span className="text-4xl tracking-[0.2em] text-[#8b7355] block" style={DISPLAY_FONT}>PITCH</span>
+                        </div>
+
+                        <div className="flex gap-1 h-12 sm:h-16 items-end relative">
+                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+                            <div className="w-1 sm:w-1.5 h-full bg-slate-800 rounded-t shadow-sm"></div>
+                            <div className="absolute top-0 w-full h-[2px] bg-slate-600"></div>
+                        </div>
+                    </div>
+
+                    {/* Small aesthetic pitch markings */}
+                    <div className="absolute top-[20%] left-[20%] w-3 h-3 bg-emerald-500 rounded-full shadow-[0_0_15px_#10B981]">
+                    </div>
+                    <div className="absolute bottom-[30%] right-[25%] w-3 h-3 bg-white/70 rounded-full border border-white"></div>
+
+                    {/* Celebrations inside stadium */}
+                    <CelebrationOverlay flash={ballFlash} />
+
+                    {isBattingCaptain && state.available_batters && (
+                        <CaptainPickerModal type="batter" options={state.available_batters} seconds={captainCountdown} onPick={(player) => sendMsg({ action: 'PICK_BATTER', player })} stats={state.batting_card} />
+                    )}
+                    {isBowlingCaptain && state.available_bowlers && (
+                        <CaptainPickerModal type="bowler" options={state.available_bowlers} seconds={captainCountdown} onPick={(player) => sendMsg({ action: 'PICK_BOWLER', player })} stats={state.bowling_card} />
                     )}
                 </div>
 
-                <div className="flex justify-between items-end">
-                    {state.target ? (
-                        <p className="text-[10px] sm:text-sm">
-                            <span className="text-blue-300 font-bold block sm:inline"> Target: {state.target}</span>
-                            <span className="text-green-300 font-bold block sm:inline sm:ml-2">Need {need} run(s)</span>
-                        </p>
-                    ) : null}
-
-                    <div className="text-right">
-                        <span className="text-3xl sm:text-5xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-pink-500 to-red-500 bg-clip-text text-transparent block leading-none">
-                            {state.total_runs}/{state.wickets}
-                        </span>
-                        <span className="text-slate-400 text-xs sm:text-base font-medium block mt-1">
-                            ({state.overs}/{state.total_overs} ov)
-                        </span>
+                {/* Input Area */}
+                <div className="mt-6 w-full max-w-3xl mx-auto px-1 sm:px-4 z-10 shrink-0">
+                    {/* Countdown bar */}
+                    <div className={`w-full transition-opacity duration-300 ${countdown && !isCaptainPending ? 'opacity-100' : 'opacity-0'}`}>
+                        {countdown && !isCaptainPending && (
+                            <>
+                                <div className="flex justify-between items-end mb-2 text-xs font-mono px-2 font-bold uppercase" style={{ color: countdown.role === 'bat' ? '#10B981' : '#64748b' }}>
+                                    <span>Your turn to {countdown.role}</span>
+                                    <span>{countdown.seconds}s</span>
+                                </div>
+                                <div className="w-full h-1.5 bg-slate-200 rounded-full mb-4 overflow-hidden">
+                                    <div className={`h-full transition-all duration-1000 ease-linear ${countdown.role === 'bat' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-slate-500'}`} style={{ width: `${(countdown.seconds / 10) * 100}%` }} />
+                                </div>
+                            </>
+                        )}
+                        {/* Placeholder to prevent layout shift if countdown is hidden */}
+                        {(!countdown || isCaptainPending) && <div className="h-6 mb-4"></div>}
                     </div>
+
+                    <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl p-3 flex items-center justify-center gap-2 sm:gap-4 shadow-xl">
+                        {[0, 1, 2, 3, 4, 5, 6].map(n => (
+                            <button
+                                key={n}
+                                onClick={() => sendMove(n)}
+                                disabled={!canAct || isCaptainPending}
+                                className={`w-11 h-11 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all active:scale-95 group relative border text-xl sm:text-4xl shadow-sm
+                                    ${!canAct || isCaptainPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                                    ${n === 4
+                                        ? 'bg-emerald-500 border-transparent text-white shadow-lg hover:scale-105 z-10'
+                                        : n === 6
+                                            ? 'bg-slate-50 border-slate-200 hover:border-purple-600 hover:bg-purple-50 hover:text-purple-600 text-slate-500'
+                                            : 'bg-slate-50 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-500 text-slate-500'}
+                                `}
+                                style={DISPLAY_FONT}
+                            >
+                                {n}
+                                {n === 0 && <span className="absolute -bottom-3 opacity-0 group-hover:opacity-100 text-[9px] text-emerald-500 font-sans uppercase tracking-wider font-bold transition-opacity">Dot</span>}
+                                {n === 6 && <span className="absolute -bottom-3 opacity-0 group-hover:opacity-100 text-[9px] text-purple-600 font-sans uppercase tracking-wider font-bold transition-opacity">Max</span>}
+                            </button>
+                        ))}
+                    </div>
+
+                    {isHost && (
+                        <div className="mt-4 text-center">
+                            <Button variant="ghost" className="text-xs text-red-500 hover:bg-red-50 uppercase tracking-widest font-bold" onClick={() => { if (confirm('Cancel this match? It will be a Tie.')) sendMsg({ action: 'CANCEL_MATCH' }) }}>
+                                Exit Match
+                            </Button>
+                        </div>
+                    )}
                 </div>
-            </div>
+            </section>
 
-            {/* H2H collapsible — striker vs bowler in all modes (skip CPUs) */}
-            {state.striker && state.bowler &&
-                !state.striker.startsWith('CPU') && !state.bowler.startsWith('CPU') && (
-                    <HeadToHead
-                        player1={state.striker}
-                        player2={state.bowler}
-                        defaultOpen={false}
-                    />
-                )}
-
-            {/* Row 2: Main content — Stadium + Controls on left, Mini Scorecard on right */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-4 min-h-0 overflow-visible sm:overflow-hidden">
-                {/* Left Column: Stadium + Role + Buttons */}
-                <div className="lg:col-span-3 flex flex-col gap-3 min-h-0">
-
-                    {/* Stadium Visual — celebrations are INSIDE this div */}
-                    <div className="bg-gradient-to-b from-green-800 to-green-900 rounded-xl relative flex items-center justify-center flex-1 min-h-[160px] border border-green-700/50 overflow-hidden">
-                        <div className="absolute inset-4 border-2 border-white/15 border-dashed rounded-full" />
-
-                        {/* Pitch strip — only wickets / stumps, NO names */}
-                        <div className="w-full max-w-xs sm:max-w-sm h-14 sm:h-16 bg-gradient-to-b from-amber-700/80 to-amber-800/80 rounded-lg border border-amber-600 flex items-center justify-between px-3 sm:px-4 shadow-inner z-10">
-                            <div className="flex gap-0.5">
-                                {[0, 1, 2].map(i => (
-                                    <div key={i} className="w-1.5 h-8 bg-white rounded-sm shadow" />
-                                ))}
-                            </div>
-                            <div className="text-white/30 text-xs font-mono select-none">PITCH</div>
-                            <div className="flex gap-0.5">
-                                {[0, 1, 2].map(i => (
-                                    <div key={i} className="w-1.5 h-8 bg-white rounded-sm shadow" />
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Celebration / score flash overlay — fixed inside stadium */}
-                        <CelebrationOverlay flash={ballFlash} />
-
-                        {/* Captain picker — also rendered inside stadium overlay */}
-                        {isBattingCaptain && state.available_batters && (
-                            <CaptainPickerModal
-                                type="batter"
-                                options={state.available_batters}
-                                seconds={captainCountdown}
-                                onPick={(player) => sendMsg({ action: 'PICK_BATTER', player })}
-                                stats={state.batting_card}
-                            />
-                        )}
-                        {isBowlingCaptain && state.available_bowlers && (
-                            <CaptainPickerModal
-                                type="bowler"
-                                options={state.available_bowlers}
-                                seconds={captainCountdown}
-                                onPick={(player) => sendMsg({ action: 'PICK_BOWLER', player })}
-                                stats={state.bowling_card}
-                            />
-                        )}
+            {/* RIGHT COLUMN: INFO ASIDE */}
+            <aside className="w-full lg:w-[400px] xl:w-[450px] bg-slate-50 border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col min-h-0 lg:h-full z-10 shadow-sm custom-scrollbar overflow-y-auto pb-6 lg:pb-0">
+                {/* Score Status Header - Sticky on desktop */}
+                <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50 sticky top-0 z-20 shrink-0 hidden lg:block">
+                    <div className="flex justify-between items-center mb-4">
+                        <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Live Stats
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono font-bold">Innings {state.innings}</span>
                     </div>
-
-                    {/* Move Status Indicators */}
-                    <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-6 flex-shrink-0">
-                        <div className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg border text-xs sm:text-sm font-semibold transition-all ${state.bat_ready
-                            ? 'bg-green-500/20 border-green-500/40 text-green-300'
-                            : 'bg-slate-800/50 border-slate-700/50 text-slate-400'
-                            }`}>
-                            {state.bat_ready ? '' : '⏳'} Batter {state.bat_ready ? 'Ready' : 'Choosing...'}
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="text-left">
+                            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Batting</span>
+                            <span className="block text-2xl text-emerald-500 tracking-wide truncate max-w-[120px]" style={DISPLAY_FONT}>{state.batting_side[0] || 'Team A'}</span>
                         </div>
-                        <div className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg border text-xs sm:text-sm font-semibold transition-all ${state.bowl_ready
-                            ? 'bg-green-500/20 border-green-500/40 text-green-300'
-                            : 'bg-slate-800/50 border-slate-700/50 text-slate-400'
-                            }`}>
-                            {state.bowl_ready ? '' : '⏳'} Bowler {state.bowl_ready ? 'Ready' : 'Choosing...'}
+                        <div className="text-center shrink-0">
+                            <span className="block text-3xl font-black text-slate-900 leading-none" style={DISPLAY_FONT}>{state.total_runs}/{state.wickets}</span>
+                            <span className="block text-xs text-slate-500 font-bold">({state.overs} ov)</span>
+                        </div>
+                        <div className="text-right">
+                            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Bowling</span>
+                            <span className="block text-2xl text-slate-900 tracking-wide truncate max-w-[120px]" style={DISPLAY_FONT}>{state.bowling_side[0] || 'Team B'}</span>
                         </div>
                     </div>
-
-                    {/* Role & Number Buttons */}
-                    <div className="text-center space-y-3 flex-shrink-0">
-                        <Badge
-                            className={role.active
-                                ? 'text-sm sm:text-base px-4 sm:px-6 py-2 bg-gradient-to-r from-orange-500 to-pink-600 text-white border-0 shadow-lg shadow-orange-500/20 font-bold'
-                                : isBattingCaptain || isBowlingCaptain
-                                    ? 'text-sm sm:text-base px-4 sm:px-6 py-2 bg-gradient-to-r from-amber-500 to-yellow-600 text-white border-0 shadow-lg font-bold'
-                                    : 'text-sm sm:text-base px-4 sm:px-6 py-2 bg-slate-700/50 text-slate-300 border-slate-600 font-medium'}
-                        >
-                            {role.icon} {role.text}
-                        </Badge>
-
-                        <div className="grid grid-cols-4 sm:flex sm:justify-center gap-2 sm:gap-3">
-                            {[0, 1, 2, 3, 4, 5, 6].map(n => (
-                                <Button
-                                    key={n}
-                                    size="lg"
-                                    className={`w-14 h-14 sm:w-16 sm:h-16 text-xl sm:text-2xl font-black shadow-lg transition-all hover:scale-105 ${n === 6 ? 'bg-gradient-to-br from-yellow-400 to-orange-600 hover:from-yellow-500 hover:to-orange-700 text-white shadow-yellow-500/30' :
-                                        n === 4 ? 'bg-gradient-to-br from-green-400 to-emerald-600 hover:from-green-500 hover:to-emerald-700 text-white shadow-green-500/30' :
-                                            'bg-slate-800/70 border-2 border-slate-600 text-white hover:bg-slate-700 hover:border-slate-500'
-                                        }`}
-                                    disabled={!canAct || isCaptainPending}
-                                    onClick={() => sendMove(n)}
-                                >
-                                    {n}
-                                </Button>
-                            ))}
+                    {state.target && (
+                        <div className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-200/50 py-1 rounded">
+                            Target: {state.target} (Need {need})
                         </div>
-
-                        {/* Ball-pick countdown bar wrapper - fixed height prevents layout shift/flicker */}
-                        <div className={`w-full max-w-xs sm:max-w-sm mx-auto mt-1 min-h-[32px] transition-opacity duration-300 ${countdown && !isCaptainPending ? 'opacity-100' : 'opacity-0'}`}>
-                            {countdown && !isCaptainPending && (
-                                <>
-                                    <div className="flex justify-between text-xs font-mono mb-1">
-                                        <span className={countdown.role === 'bat' ? 'text-orange-400' : 'text-purple-400'}>
-                                            {countdown.role === 'bat' ? ' Your turn to bat' : countdown.role === 'bowl' ? ' Your turn to bowl' : ''}
-                                        </span>
-                                        <span className={`font-bold tabular-nums ${countdown.seconds <= 3 ? 'text-red-400 animate-pulse' : 'text-slate-300'
-                                            }`}>{countdown.seconds}s</span>
-                                    </div>
-                                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full rounded-full transition-all duration-1000 ease-linear ${countdown.role === 'bat' ? 'bg-orange-500' :
-                                                countdown.role === 'bowl' ? 'bg-purple-500' : 'bg-amber-400'
-                                                }`}
-                                            style={{ width: `${(countdown.seconds / 10) * 100}%` }}
-                                        />
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
+                    )}
                 </div>
 
-                {/* Right Column: Now Playing + Mini Scorecard */}
-                <div className="lg:col-span-2 flex flex-col gap-3 min-h-0 overflow-auto">
+                {/* Main scrollable stats content */}
+                <div className="p-4 sm:p-6 flex-1 space-y-4 sm:space-y-6">
+                    {/* H2H Collapsible Component */}
+                    {state.striker && state.bowler &&
+                        !state.striker.startsWith('CPU') && !state.bowler.startsWith('CPU') && (
+                            <HeadToHead
+                                player1={state.striker}
+                                player2={state.bowler}
+                                defaultOpen={false}
+                            />
+                        )}
 
-                    {/* Now Playing bar */}
-                    <div className="bg-gradient-to-r from-slate-800/70 to-slate-900/70 backdrop-blur-sm rounded-xl border border-slate-700/50 px-4 py-2.5 shadow-xl flex justify-between items-center gap-4 flex-shrink-0">
-                        <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-lg"></span>
-                            <div className="min-w-0">
-                                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Batting</p>
-                                <p className="text-sm font-black text-orange-300 truncate">{state.striker}</p>
-                            </div>
+                    {/* Batting Squad */}
+                    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                        <div className="bg-gradient-to-r from-emerald-50 to-transparent p-3 border-b border-slate-100 flex justify-between items-center">
+                            <h3 className="text-lg tracking-wide text-slate-900" style={DISPLAY_FONT}>Batting Squad</h3>
+                            <span className="text-emerald-500 text-lg">🏏</span>
                         </div>
-                        <div className="w-px h-8 bg-slate-700/80" />
-                        <div className="flex items-center gap-2 min-w-0 text-right flex-row-reverse">
-                            <span className="text-lg"></span>
-                            <div className="min-w-0">
-                                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold text-right">Bowling</p>
-                                <p className="text-sm font-black text-purple-300 truncate text-right">{state.bowler}</p>
-                            </div>
-                        </div>
+                        <table className="w-full text-left text-xs sm:text-sm">
+                            <thead>
+                                <tr className="text-[10px] text-slate-500 uppercase tracking-wider font-bold border-b border-slate-100 bg-slate-50/50">
+                                    <th className="px-3 sm:px-4 py-2 font-bold">Batter</th>
+                                    <th className="px-1 sm:px-2 py-2 text-center font-bold">R</th>
+                                    <th className="px-1 sm:px-2 py-2 text-center font-bold">B</th>
+                                    <th className="px-1 sm:px-2 py-2 text-center font-bold hidden sm:table-cell">4s</th>
+                                    <th className="px-1 sm:px-2 py-2 text-center font-bold hidden sm:table-cell">6s</th>
+                                    <th className="px-2 sm:px-2 py-2 text-right font-bold">SR</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-mono text-[10px] sm:text-xs">
+                                {state.batting_card.map((bc) => (
+                                    <tr key={bc.name} className={`${bc.name === state.striker ? 'bg-emerald-500/5' : ''} ${bc.is_out ? 'text-slate-400 line-through opacity-70' : 'text-slate-600'} relative group`}>
+                                        <td className={`px-3 sm:px-4 py-2.5 sm:py-3 font-bold flex items-center gap-1.5 ${bc.name === state.striker ? 'text-emerald-600' : 'text-slate-700'} truncate max-w-[100px] sm:max-w-[140px]`}>
+                                            {bc.name}
+                                            {bc.name === state.striker && <span className="text-emerald-500 text-[10px]">★</span>}
+                                            {bc.name === state.striker && <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>}
+                                        </td>
+                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center text-slate-900 font-bold">{bc.runs}</td>
+                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center">{bc.balls}</td>
+                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center hidden sm:table-cell">{bc.fours}</td>
+                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center hidden sm:table-cell">{bc.sixes}</td>
+                                        <td className="px-2 sm:px-2 py-2.5 sm:py-3 text-right">{bc.sr}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
 
-                    {/* Batting Card */}
-                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 shadow-2xl flex-1">
-                        <h4 className="font-bold text-base mb-2 text-green-400 flex items-center gap-2">
-                            <span>Batting</span>
-                        </h4>
-                        <div className="space-y-1 font-mono text-xs">
-                            <div className="flex gap-1 text-slate-400 font-bold border-b border-slate-700 pb-1">
-                                <span className="flex-1">Batter</span>
-                                <span className="w-7 text-right">R</span>
-                                <span className="w-7 text-right">B</span>
-                                <span className="w-6 text-right">4s</span>
-                                <span className="w-6 text-right">6s</span>
-                                <span className="w-10 text-right">SR</span>
-                            </div>
-                            {state.batting_card.map((bc: BatCard) => (
-                                <div
-                                    key={bc.name}
-                                    className={`flex gap-1 items-center rounded p-1.5 ${bc.name === state.striker
-                                        ? 'bg-yellow-500/20 text-yellow-300 font-bold border border-yellow-500/30'
-                                        : bc.is_out
-                                            ? 'text-slate-500 line-through'
-                                            : 'text-slate-300'
-                                        }`}
-                                >
-                                    <span className="flex-1 truncate text-white">
-                                        {bc.name}{bc.name === state.striker ? ' *' : ''}
-                                    </span>
-                                    <span className="w-7 text-right font-bold text-orange-300">{bc.runs}</span>
-                                    <span className="w-7 text-right">{bc.balls}</span>
-                                    <span className="w-6 text-right text-green-400">{bc.fours}</span>
-                                    <span className="w-6 text-right text-yellow-400">{bc.sixes}</span>
-                                    <span className="w-10 text-right text-cyan-300">{bc.sr}</span>
-                                </div>
-                            ))}
+                    {/* Bowling Attack */}
+                    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                        <div className="bg-gradient-to-r from-blue-50 to-transparent p-3 border-b border-slate-100 flex justify-between items-center">
+                            <h3 className="text-lg tracking-wide text-slate-900" style={DISPLAY_FONT}>Bowling Attack</h3>
+                            <span className="text-blue-600 text-lg">⚾</span>
                         </div>
+                        <table className="w-full text-left text-xs sm:text-sm">
+                            <thead>
+                                <tr className="text-[10px] text-slate-500 uppercase tracking-wider font-bold border-b border-slate-100 bg-slate-50/50">
+                                    <th className="px-3 sm:px-4 py-2 font-bold">Bowler</th>
+                                    <th className="px-1 sm:px-2 py-2 text-center font-bold">O</th>
+                                    <th className="px-1 sm:px-2 py-2 text-center font-bold">R</th>
+                                    <th className="px-1 sm:px-2 py-2 text-center font-bold text-emerald-600">W</th>
+                                    <th className="px-2 sm:px-2 py-2 text-right font-bold">Econ</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-mono text-[10px] sm:text-xs">
+                                {state.bowling_card.map((bw) => (
+                                    <tr key={bw.name} className={`${bw.name === state.bowler ? 'bg-slate-50/80' : ''} text-slate-600 relative`}>
+                                        <td className={`px-3 sm:px-4 py-2.5 sm:py-3 font-bold flex items-center gap-1.5 ${bw.name === state.bowler ? 'text-slate-900' : 'text-slate-700'} truncate max-w-[120px] sm:max-w-[150px]`}>
+                                            {bw.name}
+                                            {bw.name === state.bowler && <span className="text-emerald-500 text-[10px] animate-spin">⚡</span>}
+                                        </td>
+                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center">{bw.overs}</td>
+                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center">{bw.runs}</td>
+                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center text-emerald-600 font-bold">{bw.wickets}</td>
+                                        <td className="px-2 sm:px-2 py-2.5 sm:py-3 text-right">{bw.econ}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
 
-                    {/* Bowling Card */}
-                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 shadow-2xl flex-1">
-                        <h4 className="font-bold text-base mb-2 text-purple-400 flex items-center gap-2">
-                            <span>Bowling</span>
-                        </h4>
-                        <div className="space-y-1 font-mono text-xs">
-                            <div className="flex justify-between text-slate-400 font-bold border-b border-slate-700 pb-1">
-                                <span className="w-24">Bowler</span>
-                                <span className="w-10 text-right">O</span>
-                                <span className="w-8 text-right">R</span>
-                                <span className="w-8 text-right">W</span>
-                                <span className="w-10 text-right">Econ</span>
-                            </div>
-                            {state.bowling_card.map((bw: BowlCard) => (
-                                <div
-                                    key={bw.name}
-                                    className={`flex justify-between rounded p-1.5 ${bw.name === state.bowler
-                                        ? 'bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30'
-                                        : 'text-slate-300'
-                                        }`}
-                                >
-                                    <span className="w-24 truncate text-white">
-                                        {bw.name}{bw.name === state.bowler ? ' *' : ''}
-                                    </span>
-                                    <span className="w-10 text-right">{bw.overs}</span>
-                                    <span className="w-8 text-right">{bw.runs}</span>
-                                    <span className="w-8 text-right font-bold text-purple-400">{bw.wickets}</span>
-                                    <span className="w-10 text-right text-cyan-300">{bw.econ}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
+                    {/* Standings if tournament */}
                     {tournament?.standings?.length ? (
-                        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 shadow-2xl">
-                            <div className="flex items-center justify-between mb-2">
-                                <h4 className="font-bold text-base text-yellow-400 flex items-center gap-2">
-                                    <span>Standings</span>
-                                </h4>
-                                <span className="text-[10px] uppercase tracking-wider text-slate-400">{tournament.phase}</span>
+                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                            <div className="bg-gradient-to-r from-purple-50 to-transparent p-3 border-b border-slate-100 flex justify-between items-center">
+                                <h3 className="text-lg tracking-wide text-slate-900" style={DISPLAY_FONT}>Standings</h3>
+                                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{tournament.phase}</span>
                             </div>
-                            <div className="space-y-1 text-xs font-mono">
-                                {tournament.standings.slice(0, 6).map((s, i) => (
-                                    <div key={s.player} className="flex justify-between rounded p-1.5 bg-slate-800/30">
-                                        <span className="w-5 text-slate-500">{i + 1}</span>
-                                        <span className="flex-1 truncate text-slate-200">{s.player}</span>
-                                        <span className="w-8 text-center text-slate-300">{s.played}</span>
-                                        <span className="w-8 text-center text-green-400 font-bold">{s.won}</span>
-                                        <span className="w-8 text-center text-red-400">{s.lost}</span>
-                                        <span className="w-10 text-center text-yellow-400 font-bold">{s.points}</span>
-                                        <span className="w-14 text-right text-cyan-300">
+                            <div className="p-2 space-y-1 text-[10px] sm:text-xs font-mono">
+                                {tournament.standings.slice(0, 4).map((s, i) => (
+                                    <div key={s.player} className="flex justify-between items-center rounded p-1.5 sm:p-2 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                        <span className="w-4 text-slate-400 font-bold">{i + 1}</span>
+                                        <span className="flex-1 truncate text-slate-700 font-bold">{s.player}</span>
+                                        <div className="flex gap-2 sm:gap-4 shrink-0 px-2">
+                                            <span className="w-4 text-center text-emerald-500 font-bold">{s.won}</span>
+                                            <span className="w-4 text-center text-red-400">{s.lost}</span>
+                                        </div>
+                                        <span className="w-8 text-center text-slate-900 font-black">{s.points}</span>
+                                        <span className="w-10 sm:w-12 text-right text-slate-500">
                                             {s.nrr >= 0 ? '+' : ''}{s.nrr.toFixed(2)}
                                         </span>
                                     </div>
                                 ))}
                             </div>
-
-                            {tournament.upcoming_matches?.length ? (
-                                <div className="mt-3 border-t border-slate-700/60 pt-3">
-                                    <h5 className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-2">Upcoming</h5>
-                                    <div className="space-y-1 text-xs text-slate-300">
-                                        {tournament.upcoming_matches.slice(0, 5).map((m, idx) => (
-                                            <div key={`${m.label}-${idx}`} className="flex justify-between gap-2">
-                                                <span className="text-slate-500 uppercase tracking-wider">{m.label}</span>
-                                                <span className="flex-1 text-right">{m.teams?.length ? `${m.teams[0] ?? 'TBD'} vs ${m.teams[1] ?? 'TBD'}` : 'TBD'}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : null}
                         </div>
                     ) : null}
+
                 </div>
-            </div>
+            </aside>
         </div>
     )
 }

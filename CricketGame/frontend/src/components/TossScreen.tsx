@@ -23,7 +23,7 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
 
     return (
         <div className="w-full h-full flex items-center justify-center">
-            <div className="w-full max-w-lg bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-8 shadow-2xl text-center">
+            <div className="w-full max-w-lg bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200 p-8 shadow-xl text-center">
                 <div className="space-y-6">
                     {isHost && (
                         <div className="flex justify-end">
@@ -43,10 +43,10 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
 
                     {screen === 'toss' && (
                         <>
-                            <h2 className="text-3xl font-bold text-white">Toss Time!</h2>
+                            <h2 className="text-3xl font-bold text-slate-900">Toss Time!</h2>
                             {caller === username ? (
                                 <>
-                                    <p className="text-slate-300 text-lg">You call the toss!</p>
+                                    <p className="text-slate-600 text-lg">You call the toss!</p>
                                     <div className="flex gap-4 justify-center pt-2">
                                         <Button
                                             size="lg"
@@ -65,8 +65,8 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
                                     </div>
                                 </>
                             ) : (
-                                <p className="text-slate-300 text-lg">
-                                    Waiting for <span className="font-bold text-orange-400">{caller}</span> to call...
+                                <p className="text-slate-600 text-lg">
+                                    Waiting for <span className="font-bold text-orange-600">{caller}</span> to call...
                                 </p>
                             )}
                         </>
@@ -74,35 +74,35 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
 
                     {screen === 'toss_result' && (
                         <>
-                            <h2 className="text-3xl font-bold text-white">
+                            <h2 className="text-3xl font-bold text-slate-900">
                                 Coin: {coin?.toUpperCase()}
                             </h2>
-                            <p className="text-xl text-slate-200">
-                                <span className="font-bold text-yellow-400">{winner}</span> won the toss! 
+                            <p className="text-xl text-slate-700">
+                                <span className="font-bold text-yellow-600">{winner}</span> won the toss!
                             </p>
                         </>
                     )}
 
                     {screen === 'toss_choose' && (
                         <>
-                            <h2 className="text-3xl font-bold text-yellow-400">
-                                You won the toss! 
+                            <h2 className="text-3xl font-bold text-yellow-600">
+                                You won the toss!
                             </h2>
-                            <p className="text-slate-300 text-lg">Choose wisely:</p>
+                            <p className="text-slate-600 text-lg">Choose wisely:</p>
                             <div className="flex gap-4 justify-center pt-2">
                                 <Button
                                     size="lg"
                                     className="px-10 py-6 text-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
                                     onClick={() => sendMsg({ action: 'TOSS_CHOICE', choice: 'bat' })}
                                 >
-                                     Bat First
+                                    Bat First
                                 </Button>
                                 <Button
                                     size="lg"
                                     className="px-10 py-6 text-lg bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-lg"
                                     onClick={() => sendMsg({ action: 'TOSS_CHOICE', choice: 'bowl' })}
                                 >
-                                     Bowl First
+                                    Bowl First
                                 </Button>
                             </div>
                         </>
@@ -110,21 +110,21 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
 
                     {screen === 'toss_decision' && (
                         <>
-                            <h2 className="text-3xl font-bold text-white">{winner} won the toss</h2>
-                            <p className="text-xl text-slate-200">
-                                and chose to <span className="font-bold text-yellow-400">{choice?.toUpperCase()}</span> first
+                            <h2 className="text-3xl font-bold text-slate-900">{winner} won the toss</h2>
+                            <p className="text-xl text-slate-700">
+                                and chose to <span className="font-bold text-yellow-600">{choice?.toUpperCase()}</span> first
                             </p>
-                            <div className="text-sm text-slate-300 space-y-2 pt-4 bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                            <div className="text-sm text-slate-600 space-y-2 pt-4 bg-slate-50 rounded-lg p-4 border border-slate-200">
                                 <p className="flex items-center justify-center gap-2">
-                                    <span className="text-green-400"> Batting:</span>
-                                    <span className="font-medium text-white">{battingFirst?.join(', ')}</span>
+                                    <span className="text-green-600 font-semibold"> Batting:</span>
+                                    <span className="font-bold text-slate-900">{battingFirst?.join(', ')}</span>
                                 </p>
                                 <p className="flex items-center justify-center gap-2">
-                                    <span className="text-purple-400"> Bowling:</span>
-                                    <span className="font-medium text-white">{bowlingFirst?.join(', ')}</span>
+                                    <span className="text-purple-600 font-semibold"> Bowling:</span>
+                                    <span className="font-bold text-slate-900">{bowlingFirst?.join(', ')}</span>
                                 </p>
                             </div>
-                            <p className="text-sm text-blue-400 animate-pulse font-medium">
+                            <p className="text-sm text-blue-600 animate-pulse font-medium">
                                 Match starting...
                             </p>
                             {/* Pre-match H2H — first non-CPU player from each side */}

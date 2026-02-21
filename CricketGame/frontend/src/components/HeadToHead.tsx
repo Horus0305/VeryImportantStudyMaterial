@@ -41,7 +41,7 @@ export default function HeadToHead({ player1, player2, defaultOpen = false }: Pr
             setLoading(false)
             return
         }
-         
+
         setLoading(true)
         fetch(`${API}/api/head-to-head/${encodeURIComponent(player1)}/${encodeURIComponent(player2)}`)
             .then(r => r.json())
@@ -60,18 +60,18 @@ export default function HeadToHead({ player1, player2, defaultOpen = false }: Pr
     const totalMatches = (data.total_matches as number) || 0
 
     return (
-        <div className="w-full bg-gradient-to-br from-slate-800/70 to-slate-900/80 backdrop-blur-sm rounded-xl border border-slate-700/50 shadow-xl overflow-hidden">
+        <div className="w-full bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200 shadow-xl overflow-hidden">
             {/* Toggle Header */}
             <button
                 onClick={() => setOpen(prev => !prev)}
-                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-700/30 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors"
             >
                 <div className="flex items-center gap-2">
                     <span className="text-base">️</span>
-                    <span className="text-sm font-bold text-slate-200">Head to Head</span>
-                    <span className="text-xs text-slate-400 font-medium">({totalMatches} match{totalMatches !== 1 ? 'es' : ''})</span>
+                    <span className="text-sm font-bold text-slate-900">Head to Head</span>
+                    <span className="text-xs text-slate-500 font-medium">({totalMatches} match{totalMatches !== 1 ? 'es' : ''})</span>
                 </div>
-                <span className={`text-slate-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>
+                <span className={`text-slate-500 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>
                     ▼
                 </span>
             </button>
@@ -81,9 +81,9 @@ export default function HeadToHead({ player1, player2, defaultOpen = false }: Pr
                 <div className="px-4 pb-3 pt-1">
                     {/* Player Names Header */}
                     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mb-3">
-                        <span className="text-sm font-bold text-orange-400 truncate text-left">{player1}</span>
+                        <span className="text-sm font-bold text-orange-600 truncate text-left">{player1}</span>
                         <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest">vs</span>
-                        <span className="text-sm font-bold text-cyan-400 truncate text-right">{player2}</span>
+                        <span className="text-sm font-bold text-cyan-600 truncate text-right">{player2}</span>
                     </div>
 
                     {/* Stats Rows */}
@@ -130,13 +130,13 @@ function StatRow({
 
     return (
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-xs">
-            <span className={`text-left font-mono tabular-nums ${p1Better ? 'text-green-400 font-bold' : 'text-slate-300'}`}>
+            <span className={`text-left font-mono tabular-nums ${p1Better ? 'text-green-600 font-bold' : 'text-slate-600'}`}>
                 {v1}
             </span>
             <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider min-w-[70px] text-center">
                 {label}
             </span>
-            <span className={`text-right font-mono tabular-nums ${p2Better ? 'text-green-400 font-bold' : 'text-slate-300'}`}>
+            <span className={`text-right font-mono tabular-nums ${p2Better ? 'text-green-600 font-bold' : 'text-slate-600'}`}>
                 {v2}
             </span>
         </div>

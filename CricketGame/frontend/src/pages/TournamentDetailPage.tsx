@@ -1,37 +1,37 @@
 /**
- * TournamentDetailPage — Full tournament view with:
- *   1. Awards section (PotT, Orange Cap, Purple Cap, etc.)
- *   2. IPL-style playoff bracket (clickable match nodes)
- *   3. Points table
- *   4. All match scorecards (clickable)
+ * TournamentDetailPage — Responsive tournament view.
+ *
+ * MOBILE (< lg): Tabbed view → STANDINGS | BRACKET | MATCHES
+ * DESKTOP (lg+): Single continuous page → Honor Roll → Progression & Standings → Match Archive
+ *
+ * Design refs:
+ *   PC:     TournamentDetail PC/code.html
+ *   Mobile: TournamentDetail Mobile - {Standings, Brackets, Matches}
  */
-import { useEffect, useState, useRef, forwardRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { ArrowLeft, Trophy, ListOrdered, ChevronRight } from 'lucide-react'
+
+/* ─── Interfaces ─── */
 
 interface AwardStats {
     player: string
-    runs?: number
-    wickets?: number
-    sr?: number
-    average?: number
-    economy?: number
-    overs?: number
+    runs?: number; wickets?: number; sr?: number
+    average?: number; economy?: number; overs?: number
 }
-
 interface MatchSummary {
     match_id: string; mode: string; timestamp: string; end_timestamp?: string | null
     side_a: string[]; side_b: string[]
     result_text: string; winner: string | null
     potm: string | null; potm_stats: { summary: string } | null
+    scorecard_1?: { total_runs: number; wickets: number; overs: string }
+    scorecard_2?: { total_runs: number; wickets: number; overs: string }
 }
-
 interface StandingsEntry {
     player: string; played: number; won: number; lost: number
     tied: number; points: number; nrr: number
 }
-
 interface TournamentData {
     tournament_id: string; room_code: string; timestamp: string
     players: string[]; standings: StandingsEntry[]
@@ -45,6 +45,30 @@ interface TournamentData {
 }
 
 const API = (import.meta.env.VITE_API_BASE_URL ?? window.location.origin).replace(/\/$/, '')
+const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', 'Teko', sans-serif" }
+
+const INITIAL_COLORS = [
+    { bg: 'bg-orange-100', text: 'text-orange-600', border: 'border-orange-200' },
+    { bg: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-200' },
+    { bg: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200' },
+    { bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-200' },
+    { bg: 'bg-pink-100', text: 'text-pink-600', border: 'border-pink-200' },
+    { bg: 'bg-teal-100', text: 'text-teal-600', border: 'border-teal-200' },
+]
+function getPlayerColor(name: string, playerList: string[]) {
+    const idx = playerList.indexOf(name)
+    return INITIAL_COLORS[idx >= 0 ? idx % INITIAL_COLORS.length : 0]
+}
+function getInitials(name: string) {
+    const parts = name.split(' ')
+    return parts.length > 1 ? parts.map(p => p[0]).join('').toUpperCase().slice(0, 2) : name.charAt(0).toUpperCase()
+}
+
+type TabKey = 'standings' | 'bracket' | 'matches'
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ═══════════════════════════════════════════════════════════════ */
 
 export default function TournamentDetailPage() {
     const { tournamentId } = useParams()
@@ -52,486 +76,735 @@ export default function TournamentDetailPage() {
     const [data, setData] = useState<TournamentData | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [activeTab, setActiveTab] = useState<TabKey>('standings')
 
     useEffect(() => {
         const fetchTournament = async () => {
             try {
                 const res = await fetch(`${API}/api/tournament/${tournamentId}`)
-                if (res.ok) {
-                    setData(await res.json())
-                } else {
-                    setError('Tournament not found')
-                }
-            } catch {
-                setError('Cannot connect to server')
-            } finally {
-                setLoading(false)
-            }
+                if (res.ok) { setData(await res.json()) }
+                else { setError('Tournament not found') }
+            } catch { setError('Cannot connect to server') }
+            finally { setLoading(false) }
         }
         fetchTournament()
     }, [tournamentId])
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-                <div className="animate-pulse text-2xl text-orange-400 font-bold">Loading tournament...</div>
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-solid border-emerald-500 border-r-transparent" />
             </div>
         )
     }
-
     if (error || !data) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center gap-4">
-                <p className="text-red-400 text-xl">{error}</p>
-                <Button onClick={() => navigate(-1)} className="bg-slate-700 hover:bg-slate-600">← Go Back</Button>
+            <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
+                <p className="text-red-600 text-xl">{error}</p>
+                <Button onClick={() => navigate(-1)} variant="outline">← Go Back</Button>
             </div>
         )
     }
 
-    // Build a match lookup for the playoff tree
+    // Build playoff match lookup
     const matchLookup: Record<string, MatchSummary> = {}
     const usedMatchIds = new Set<string>()
-
-    // Match the playoff bracket entries to actual matches by participants
-    // Strategy: Iterate phases in REVERSE order (Final -> Q1) and pick the LATEST unused match
-    // This handles cases where teams played in Group stage (earlier) or matched up twice (Q1 + Final)
-    const getMatchTime = (match: MatchSummary) => match.end_timestamp ?? match.timestamp
-    const formatIstTime = (dateStr: string) =>
-        new Date(dateStr).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })
+    const getMatchTime = (m: MatchSummary) => m.end_timestamp ?? m.timestamp
 
     if (data.playoff_bracket && data.matches) {
-        // Sort matches by newest first
         const sortedMatches = [...data.matches].sort((a, b) =>
             new Date(getMatchTime(b)).getTime() - new Date(getMatchTime(a)).getTime()
         )
-
-        const reversePhases = ['final', 'qualifier_2', 'eliminator', 'qualifier_1']
-
-        for (const phase of reversePhases) {
+        for (const phase of ['final', 'qualifier_2', 'eliminator', 'qualifier_1']) {
             const bracket = data.playoff_bracket[phase]
             if (!bracket) continue
-
-            // Find all matches between these two participants
             const candidates = sortedMatches.filter(m =>
                 ((m.side_a.includes(bracket[0]) && m.side_b.includes(bracket[1]))
                     || (m.side_a.includes(bracket[1]) && m.side_b.includes(bracket[0])))
                 && !usedMatchIds.has(m.match_id)
             )
-
             if (candidates.length > 0) {
-                // Pick the most recent one (candidates[0])
-                const bestMatch = candidates[0]
-                matchLookup[phase] = bestMatch
-                usedMatchIds.add(bestMatch.match_id)
+                matchLookup[phase] = candidates[0]
+                usedMatchIds.add(candidates[0].match_id)
             }
         }
     }
 
+    const dateStr = new Date(data.timestamp).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric'
+    })
+
+    const tabs: { key: TabKey; label: string }[] = [
+        { key: 'standings', label: 'Standings' },
+        { key: 'bracket', label: 'Bracket' },
+        { key: 'matches', label: 'Matches' },
+    ]
+
+    const awards = buildAwards(data)
+    const sortedMatches = [...data.matches].sort((a, b) =>
+        new Date(getMatchTime(b)).getTime() - new Date(getMatchTime(a)).getTime()
+    )
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white p-4 sm:p-6">
-            <div className="w-full mx-auto px-4 md:px-8">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost" size="sm"
-                            onClick={() => navigate(-1)}
-                            className="text-blue-400 hover:text-blue-300 hover:bg-slate-800/50"
-                        >
-                            ← Back
-                        </Button>
-                        <div className="h-8 w-px bg-slate-700" />
-                        <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-400 to-pink-600 bg-clip-text text-transparent">
-                            🏆 Tournament
-                        </h1>
-                    </div>
-                    <Badge className="bg-slate-700/50 text-slate-300 border-slate-600/50 text-xs">
-                        {new Date(data.timestamp).toLocaleDateString()}
-                    </Badge>
-                </div>
-
-                {/* Champion Banner */}
-                {data.champion && (
-                    <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/30 rounded-2xl p-6 mb-6 text-center shadow-[0_0_50px_-12px_rgba(234,179,8,0.2)]">
-                        <div className="text-4xl mb-2 animate-bounce">👑</div>
-                        <div className="text-xs text-yellow-400 font-semibold uppercase tracking-wide">Champion</div>
-                        <div className="text-4xl font-black text-yellow-300 mt-2 uppercase tracking-wide drop-shadow-md">{data.champion}</div>
-                    </div>
-                )}
-
-                {/* Awards Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-                    <AwardCard
-                        icon="🌟" label="Player of Tournament" color="from-yellow-500/20 to-amber-500/20" borderColor="border-yellow-500/40"
-                        data={data.player_of_tournament}
-                        detail={data.player_of_tournament && data.player_of_tournament.runs !== undefined && data.player_of_tournament.wickets !== undefined
-                            ? `${data.player_of_tournament.runs} runs, ${data.player_of_tournament.wickets} wkts`
-                            : undefined}
-                    />
-                    <AwardCard
-                        icon="🟠" label="Orange Cap" color="from-orange-500/20 to-red-500/20" borderColor="border-orange-500/40"
-                        data={data.orange_cap}
-                        detail={data.orange_cap && data.orange_cap.runs !== undefined && data.orange_cap.sr !== undefined
-                            ? `${data.orange_cap.runs} runs (SR: ${data.orange_cap.sr})`
-                            : undefined}
-                    />
-                    <AwardCard
-                        icon="🟣" label="Purple Cap" color="from-purple-500/20 to-violet-500/20" borderColor="border-purple-500/40"
-                        data={data.purple_cap}
-                        detail={data.purple_cap && data.purple_cap.wickets !== undefined && data.purple_cap.economy !== undefined
-                            ? `${data.purple_cap.wickets} wickets (Econ: ${data.purple_cap.economy})`
-                            : undefined}
-                    />
-                    <AwardCard
-                        icon="⚡" label="Best Strike Rate" color="from-cyan-500/20 to-blue-500/20" borderColor="border-cyan-500/40"
-                        data={data.best_strike_rate}
-                        detail={data.best_strike_rate && data.best_strike_rate.sr !== undefined && data.best_strike_rate.runs !== undefined
-                            ? `SR: ${data.best_strike_rate.sr} (${data.best_strike_rate.runs} runs)`
-                            : undefined}
-                    />
-                    <AwardCard
-                        icon="📈" label="Best Average" color="from-green-500/20 to-emerald-500/20" borderColor="border-green-500/40"
-                        data={data.best_average}
-                        detail={data.best_average && data.best_average.average !== undefined && data.best_average.runs !== undefined
-                            ? `Avg: ${data.best_average.average} (${data.best_average.runs} runs)`
-                            : undefined}
-                    />
-                    <AwardCard
-                        icon="🎯" label="Best Economy" color="from-pink-500/20 to-rose-500/20" borderColor="border-pink-500/40"
-                        data={data.best_economy}
-                        detail={data.best_economy && data.best_economy.economy !== undefined && data.best_economy.overs !== undefined
-                            ? `Econ: ${data.best_economy.economy} (${data.best_economy.overs} ov)`
-                            : undefined}
-                    />
-                </div>
-
-                {/* Playoff Bracket + Points Table side by side */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8 mb-8">
-                    {/* Playoff Bracket Tree */}
-                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6 shadow-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+        <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-emerald-500 selection:text-white">
+            {/* ─── Sticky Header ─── */}
+            <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100">
+                <div className="w-full px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between h-14 lg:h-16">
+                        <div className="flex items-center gap-2 lg:gap-6">
+                            <button onClick={() => navigate(-1)} className="flex items-center text-sm font-bold uppercase tracking-wider text-slate-900 hover:text-emerald-500 transition-colors">
+                                <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                            </button>
+                            <div className="h-6 w-px bg-slate-200 hidden lg:block" />
+                            <span className="text-xl uppercase tracking-wider hidden lg:inline" style={DISPLAY_FONT}>Tournament Hub</span>
+                            <h1 className="uppercase text-lg tracking-wide lg:hidden" style={DISPLAY_FONT}>Tournament Hub</h1>
                         </div>
-                        <h3 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
-                            <span className="text-2xl">⚔️</span> Playoff Bracket
-                        </h3>
-                        <PlayoffTree
-                            bracket={data.playoff_bracket}
-                            results={data.playoff_results}
-                            matchLookup={matchLookup}
-                            onMatchClick={(matchId) => navigate(`/match/${matchId}`)}
-                        />
-                    </div>
-
-                    {/* Points Table */}
-                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-5 sm:p-6 shadow-2xl">
-                        <h3 className="text-xl sm:text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                            <span className="text-2xl">📊</span> Points Table
-                        </h3>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm sm:text-base min-w-[520px]">
-                                <thead>
-                                    <tr className="text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/50">
-                                        <th className="text-left py-3 px-3">#</th>
-                                        <th className="text-left py-3 px-3">Player</th>
-                                        <th className="text-center py-3">P</th>
-                                        <th className="text-center py-3">W</th>
-                                        <th className="text-center py-3">L</th>
-                                        <th className="text-center py-3">Pts</th>
-                                        <th className="text-center py-3">NRR</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.standings.map((s, i) => (
-                                        <tr key={s.player} className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors ${i < 4 ? 'bg-gradient-to-r from-emerald-500/5 to-transparent' : ''}`}>
-                                            <td className="py-3 px-3 text-slate-500 font-mono">{i + 1}</td>
-                                            <td className={`py-3 px-3 font-semibold ${i === 0 ? 'text-yellow-300' : i < 4 ? 'text-emerald-300' : 'text-slate-200'}`}>
-                                                {s.player} {i === 0 && '👑'} {i < 4 && i > 0 && '⭐'}
-                                            </td>
-                                            <td className="text-center py-3 text-slate-300">{s.played}</td>
-                                            <td className="text-center py-3 text-emerald-400 font-bold">{s.won}</td>
-                                            <td className="text-center py-3 text-red-400">{s.lost}</td>
-                                            <td className="text-center py-3 text-yellow-400 font-bold text-lg">{s.points}</td>
-                                            <td className={`text-center py-3 font-mono text-sm ${s.nrr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                {s.nrr > 0 ? '+' : ''}{s.nrr}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs lg:text-sm font-semibold text-slate-400">{dateStr}</span>
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                         </div>
                     </div>
                 </div>
+            </nav>
 
-                {/* All Matches List */}
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
-                    <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                        <span className="text-2xl">🏏</span> All Matches ({data.matches.length})
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {data.matches.map((m, i) => (
+            {/* ─── Hero Banner (shared mobile/desktop, mobile design style) ─── */}
+            <div className="relative w-full overflow-hidden bg-slate-900">
+                <div className="absolute inset-0">
+                    <img
+                        alt="Stadium Background"
+                        className="w-full h-full object-cover opacity-40 mix-blend-luminosity group-hover:scale-105 transition-all duration-700"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNm1cOrvI7AWq5pgPFjqlPLsdeLnOdrecqQTr_J5SFJ3l8JcOr-X5JYP_PvVQ8KK9R5s5mndBRzZQy2i0Mcn78rZ1oOFbasqfTNQvF03lyy8SfXrxDQ9uaWUei6ycT7FZQAxqkmsCgxfNOVNLdh_ld3LQ1CuS3Jdm-51lrdRrYgsEpD3W6yOKVFLbRLl8HSwDUuNpII-NEoSfryDiDhFgnqa_4-JGI4uUTAi0diWMcHkqFQPw15hjM_OKaA9joFglkTDp916DNV0s"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
+                </div>
+                <div className="absolute -right-10 -top-10 opacity-20">
+                    <img alt="Watermark" className="w-64 h-64 rounded-full"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOZAH5cPYarTf36I2V9juy-qmEvZlzdJLSQDGIQS_yOEc0ZcgmAib6Xiz1bRQgcYmVSzXp3DQKqzPNeid5wq9MobjnWHFvM0blBiieNs3vFoeSAhRS3Jq2tjX0COu8ODkzIFh8us2ytGoxeuSPLtNm_wYc4FwwH2iQnoIas1QYABidwtlTzbOIt-NFUVq_5Pw4EZ4pjWRiBVKN1LPRByHYGi9ocThQUXxEA8toeWCXstt3Lj9aA7vam0Fy-yfL6jA5Mv45KlHOd7WU"
+                    />
+                </div>
+                <div className="relative z-10 flex flex-col justify-end p-6 pb-8 lg:p-8 lg:p-16 min-h-[256px] lg:min-h-[400px]">
+                    <div className="mb-4">
+                        <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1 uppercase tracking-[0.2em]">
+                            {data.champion ? 'Current Champion' : 'Tournament'}
+                        </span>
+                    </div>
+                    <h2 className="text-6xl lg:text-9xl text-white uppercase tracking-tight leading-none mb-2" style={DISPLAY_FONT}>
+                        {data.champion?.toUpperCase() ?? 'IN PROGRESS'}
+                    </h2>
+                    <p className="text-slate-300 text-sm lg:text-lg font-light tracking-wide max-w-2xl border-l-4 border-emerald-500 pl-3 lg:pl-4 mt-4">
+                        {data.champion
+                            ? 'Dominating the pitch with strategic brilliance and unmatched skill. The crown returns to the king.'
+                            : `${data.players.length} players competing for the championship.`}
+                    </p>
+                </div>
+            </div>
+
+            {/* ═══════════════ MOBILE: Tabbed View ═══════════════ */}
+            <div className="lg:hidden">
+                {/* Sticky Tab Bar */}
+                <div className="sticky top-[56px] z-40 bg-white shadow-sm border-b border-gray-200">
+                    <div className="flex justify-between px-2">
+                        {tabs.map(tab => (
                             <button
-                                key={m.match_id}
-                                onClick={() => navigate(`/match/${m.match_id}`)}
-                                className="text-left bg-slate-800/50 hover:bg-slate-700/50 rounded-xl p-5 border border-slate-700/50 hover:border-orange-500/30 transition-all group cursor-pointer relative overflow-hidden"
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`flex-1 py-4 text-sm font-semibold uppercase tracking-wide border-b-2 transition-colors text-center ${activeTab === tab.key
+                                    ? 'border-emerald-500 text-emerald-500'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                    }`}
                             >
-                                <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/5 rounded-full -mr-10 -mt-10 pointer-events-none group-hover:bg-orange-500/10 transition-colors"></div>
-                                <div className="flex items-center justify-between mb-3 relative z-10">
-                                    <Badge variant="outline" className="border-slate-600 text-slate-400 text-[10px] h-5">Match #{i + 1}</Badge>
-                                    <span className="text-[10px] text-slate-600 font-mono">{formatIstTime(getMatchTime(m))}</span>
-                                </div>
-                                <div className="text-base font-bold text-white mb-2 relative z-10">
-                                    {m.side_a.join(', ')} <span className="text-slate-500 text-xs font-normal">vs</span> {m.side_b.join(', ')}
-                                </div>
-                                <div className="text-sm text-emerald-400 font-medium truncate mb-2 relative z-10">{m.result_text}</div>
-                                {m.potm && (
-                                    <div className="text-xs text-yellow-400 flex items-center gap-1 relative z-10">
-                                        <span>⭐</span> {m.potm}
-                                    </div>
-                                )}
-                                <div className="absolute bottom-4 right-4 text-orange-400 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
-                                    →
-                                </div>
+                                {tab.label}
                             </button>
                         ))}
                     </div>
                 </div>
+                {/* Tab Content */}
+                <div className="p-4 space-y-6 pb-20">
+                    {activeTab === 'standings' && <MobileStandingsTab data={data} awards={awards} />}
+                    {activeTab === 'bracket' && (
+                        <MobileBracketTab
+                            bracket={data.playoff_bracket}
+                            results={data.playoff_results}
+                            matchLookup={matchLookup}
+                            champion={data.champion}
+                            players={data.players}
+                            onMatchClick={(id) => navigate(`/match/${id}`)}
+                        />
+                    )}
+                    {activeTab === 'matches' && (
+                        <MobileMatchesTab
+                            matches={sortedMatches}
+                            totalCount={data.matches.length}
+                            players={data.players}
+                            onMatchClick={(id) => navigate(`/match/${id}`)}
+                        />
+                    )}
+                </div>
             </div>
+
+            {/* ═══════════════ DESKTOP: Continuous Page ═══════════════ */}
+            <main className="hidden lg:block w-full px-4 sm:px-6 lg:px-8 py-8 space-y-16">
+                {/* Honor Roll — 6-col editorial grid */}
+                <DesktopHonorRoll awards={awards} />
+
+                {/* Progression & Standings — bracket + full table */}
+                <DesktopProgressionStandings
+                    data={data}
+                    bracket={data.playoff_bracket}
+                    results={data.playoff_results}
+                    matchLookup={matchLookup}
+                    onMatchClick={(id) => navigate(`/match/${id}`)}
+                />
+
+                {/* Match Archive — horizontal rows */}
+                <DesktopMatchArchive
+                    matches={sortedMatches}
+                    totalCount={data.matches.length}
+                    onMatchClick={(id) => navigate(`/match/${id}`)}
+                />
+            </main>
+
+            {/* ─── Footer ─── */}
+            <footer className="mt-20 border-t border-slate-200 pt-12 pb-8 text-center">
+                <span className="text-xl uppercase tracking-wider text-slate-300" style={DISPLAY_FONT}>Tournament Hub</span>
+                <p className="text-slate-400 text-sm mt-2">© 2026 Tournament Edition. All stats are subject to verification.</p>
+            </footer>
         </div>
     )
 }
 
-/** Individual award card */
-function AwardCard({ icon, label, color, borderColor, data, detail }: {
-    icon: string; label: string; color: string; borderColor: string
-    data: AwardStats | null; detail?: string
-}) {
+/* ─── Helpers ─── */
+
+interface Award { label: string; icon: string; player?: string; detail?: string }
+
+function buildAwards(data: TournamentData): Award[] {
+    return [
+        { label: 'MVP', icon: '⭐', player: data.player_of_tournament?.player, detail: data.player_of_tournament ? `${data.player_of_tournament.runs ?? 0} R • ${data.player_of_tournament.wickets ?? 0} W` : undefined },
+        { label: 'Orange Cap', icon: '🏏', player: data.orange_cap?.player, detail: data.orange_cap ? `${data.orange_cap.runs ?? 0} Runs` : undefined },
+        { label: 'Purple Cap', icon: '🎯', player: data.purple_cap?.player, detail: data.purple_cap ? `${data.purple_cap.wickets ?? 0} Wickets` : undefined },
+        { label: 'Strike Rate', icon: '⚡', player: data.best_strike_rate?.player, detail: data.best_strike_rate ? `${data.best_strike_rate.sr ?? 0} SR` : undefined },
+        { label: 'Best Avg', icon: '📊', player: data.best_average?.player, detail: data.best_average ? `Avg ${data.best_average.average ?? 0}` : undefined },
+        { label: 'Economy', icon: '🎯', player: data.best_economy?.player, detail: data.best_economy ? `Econ ${data.best_economy.economy ?? 0}` : undefined },
+    ].filter(a => a.player)
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DESKTOP COMPONENTS
+   ═══════════════════════════════════════════════════════════════ */
+
+function DesktopHonorRoll({ awards }: { awards: Award[] }) {
+    if (awards.length === 0) return null
     return (
-        <div className={`bg-gradient-to-br ${color} rounded-xl border ${borderColor} p-4 text-center hover:scale-105 transition-transform duration-300 shadow-lg`}>
-            <div className="text-3xl mb-2 filter drop-shadow-sm">{icon}</div>
-            <div className="text-[10px] text-slate-300 uppercase tracking-wider font-bold mb-1 opacity-80">{label}</div>
-            {data ? (
-                <>
-                    <div className="text-base font-bold text-white truncate px-1">{data.player}</div>
-                    {detail && <div className="text-[11px] text-slate-100/80 mt-1 font-mono">{detail}</div>}
-                </>
-            ) : (
-                <div className="text-xs text-slate-400 py-1">TBD</div>
-            )}
-        </div>
+        <section>
+            <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-2">
+                <Trophy className="w-5 h-5 text-emerald-500" />
+                <h2 className="text-lg font-bold uppercase tracking-widest text-slate-900">Honor Roll</h2>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-slate-200 border border-slate-200">
+                {awards.map(a => (
+                    <div key={a.label} className="bg-white p-6 flex flex-col justify-between h-40 hover:bg-slate-50 transition-colors group">
+                        <div className="flex justify-between items-start">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{a.label}</span>
+                            <span className="text-2xl group-hover:scale-110 transition-transform">{a.icon}</span>
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold text-slate-900 leading-tight">{a.player}</div>
+                            {a.detail && <div className="text-xs text-slate-500 mt-1 font-mono">{a.detail}</div>}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
     )
 }
 
-/** IPL-style playoff bracket tree with dynamic connector lines */
-function PlayoffTree({ bracket, results, matchLookup, onMatchClick }: {
+function DesktopProgressionStandings({ data, bracket, results, matchLookup, onMatchClick }: {
+    data: TournamentData
     bracket: Record<string, string[] | null>
     results: Record<string, string>
     matchLookup: Record<string, MatchSummary>
-    onMatchClick: (matchId: string) => void
+    onMatchClick: (id: string) => void
 }) {
-    const containerRef = useRef<HTMLDivElement>(null)
-    const nodeRefs = useRef<Record<string, HTMLButtonElement | null>>({})
-    const [paths, setPaths] = useState<{ d: string; color: string; width: number; opacity: number }[]>([])
-
     const phases = [
-        { key: 'qualifier_1', label: 'Qualifier 1', position: 'top-left' },
-        { key: 'eliminator', label: 'Eliminator', position: 'bottom-left' },
-        { key: 'qualifier_2', label: 'Qualifier 2', position: 'center' },
-        { key: 'final', label: 'Final', position: 'right' },
+        { key: 'qualifier_1', label: 'Qualifier 1', color: 'border-emerald-500' },
+        { key: 'eliminator', label: 'Eliminator', color: 'border-slate-300' },
+        { key: 'qualifier_2', label: 'Qualifier 2', color: 'border-emerald-500' },
+        { key: 'final', label: 'The Final', color: '' },
     ]
 
-    const setNodeRef = (key: string) => (el: HTMLButtonElement | null) => {
-        nodeRefs.current[key] = el
-    }
-
-    // Calculate connector paths from the actual DOM positions
-    useEffect(() => {
-        if (!bracket) return
-
-        const calcPaths = () => {
-            const container = containerRef.current
-            if (!container) return
-
-            const cRect = container.getBoundingClientRect()
-            const getCenter = (key: string) => {
-                const el = nodeRefs.current[key]
-                if (!el) return null
-                const r = el.getBoundingClientRect()
-                return {
-                    right: r.right - cRect.left,
-                    left: r.left - cRect.left,
-                    midY: r.top + r.height / 2 - cRect.top,
-                }
-            }
-
-            const q1 = getCenter('qualifier_1')
-            const elim = getCenter('eliminator')
-            const q2 = getCenter('qualifier_2')
-            const final_ = getCenter('final')
-
-            if (!q1 || !elim || !q2 || !final_) return
-
-            const newPaths: typeof paths = []
-
-            // Helper for elbow connector
-            const drawElbow = (x1: number, y1: number, x2: number, y2: number) => {
-                const midX = (x1 + x2) / 2
-                return `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`
-            }
-
-            // Q1 winner → Final (top path)
-            // Starts from Q1 right, goes to Final left
-            newPaths.push({
-                d: drawElbow(q1.right, q1.midY, final_.left, final_.midY - 20),
-                color: '#22d3ee', width: 3, opacity: 0.6,
-            })
-
-            // Q1 loser → Q2
-            newPaths.push({
-                d: drawElbow(q1.right, q1.midY + 10, q2.left, q2.midY - 10),
-                color: '#94a3b8', width: 2, opacity: 0.4,
-            })
-
-            // Eliminator winner → Q2
-            newPaths.push({
-                d: drawElbow(elim.right, elim.midY, q2.left, q2.midY + 10),
-                color: '#22d3ee', width: 3, opacity: 0.6,
-            })
-
-            // Q2 winner → Final (bottom path)
-            newPaths.push({
-                d: drawElbow(q2.right, q2.midY, final_.left, final_.midY + 20),
-                color: '#22d3ee', width: 3, opacity: 0.6,
-            })
-
-            setPaths(newPaths)
-        }
-
-        // Run on mount + after a short delay (for layoout paint)
-        const timer = setTimeout(calcPaths, 100)
-        window.addEventListener('resize', calcPaths)
-        return () => {
-            clearTimeout(timer)
-            window.removeEventListener('resize', calcPaths)
-        }
-    }, [bracket, results])
-
-    if (!bracket) return <div className="text-slate-500 text-sm">No playoff data</div>
-
     return (
-        <div className="relative min-h-[320px] px-8" ref={containerRef}>
-            {/* SVG connecting paths */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
-                {paths.map((p, i) => (
-                    <path
-                        key={i}
-                        d={p.d}
-                        stroke={p.color}
-                        strokeWidth={p.width}
-                        fill="none"
-                        strokeLinecap="round"
-                        className="transition-all duration-500 ease-in-out"
-                        style={{ filter: 'drop-shadow(0 0 2px rgba(34, 211, 238, 0.3))' }}
-                    />
-                ))}
-            </svg>
+        <section>
+            <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-2">
+                <ListOrdered className="w-5 h-5 text-emerald-500" />
+                <h2 className="text-lg font-bold uppercase tracking-widest text-slate-900">Progression & Standings</h2>
+            </div>
+            <div className="bg-white border border-slate-200">
+                {/* Bracket Tree */}
+                <div className="p-8 border-b border-slate-200 bg-slate-50/50">
+                    <div className="relative w-full overflow-x-auto pb-4">
+                        <div className="min-w-[800px] flex justify-between relative h-[320px] px-12">
+                            {/* Left column: Q1 + Eliminator */}
+                            <div className="flex flex-col justify-between z-10 w-64 h-full py-10">
+                                {phases.slice(0, 2).map(phase => {
+                                    const teams = bracket[phase.key]
+                                    const winner = results[phase.key]
+                                    const match = matchLookup[phase.key]
+                                    return (
+                                        <div
+                                            key={phase.key}
+                                            className={`bg-white border-l-4 ${phase.color} shadow-sm p-4 relative group ${match ? 'cursor-pointer hover:shadow-md' : ''}`}
+                                            onClick={() => match && onMatchClick(match.match_id)}
+                                        >
+                                            <div className={`absolute -top-3 left-0 ${phase.key === 'qualifier_1' ? 'bg-slate-900' : 'bg-slate-400'} text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider`}>
+                                                {phase.label}
+                                            </div>
+                                            {teams ? teams.map(t => (
+                                                <div key={t} className={`flex justify-between items-center ${t === winner ? 'mb-2 font-bold text-slate-900' : 'text-slate-400 text-sm'}`}>
+                                                    <span className={t === winner ? 'text-emerald-600' : ''}>{t}</span>
+                                                    {t === winner
+                                                        ? <span className="bg-emerald-500 text-white text-xs px-1.5 rounded">W</span>
+                                                        : <span className="text-xs">L</span>
+                                                    }
+                                                </div>
+                                            )) : <div className="text-slate-400 text-xs py-2">TBD</div>}
+                                            {match?.result_text && (
+                                                <div className="mt-2 text-[10px] text-slate-400 border-t border-slate-100 pt-1 font-mono">{match.result_text}</div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
 
-            {/* Match Nodes positioned with CSS grid */}
-            <div className="relative z-10 grid grid-cols-3 gap-12 items-center h-full" style={{ minHeight: '300px' }}>
-                {/* Left column: Q1 + Eliminator */}
-                <div className="flex flex-col justify-between gap-12 h-full py-4">
-                    <BracketNode
-                        ref={setNodeRef('qualifier_1')}
-                        phase={phases[0]}
-                        bracket={bracket}
-                        results={results}
-                        matchLookup={matchLookup}
-                        onMatchClick={onMatchClick}
-                    />
-                    <BracketNode
-                        ref={setNodeRef('eliminator')}
-                        phase={phases[1]}
-                        bracket={bracket}
-                        results={results}
-                        matchLookup={matchLookup}
-                        onMatchClick={onMatchClick}
-                    />
-                </div>
+                            {/* Center: Q2 */}
+                            <div className="flex flex-col justify-end z-10 w-64 h-full py-10 mx-8">
+                                {(() => {
+                                    const phase = phases[2]
+                                    const teams = bracket[phase.key]
+                                    const winner = results[phase.key]
+                                    const match = matchLookup[phase.key]
+                                    return (
+                                        <div
+                                            className={`bg-white border-l-4 ${phase.color} shadow-sm p-4 relative ${match ? 'cursor-pointer hover:shadow-md' : ''}`}
+                                            onClick={() => match && onMatchClick(match.match_id)}
+                                        >
+                                            <div className="absolute -top-3 left-0 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
+                                                {phase.label}
+                                            </div>
+                                            {teams ? teams.map(t => (
+                                                <div key={t} className={`flex justify-between items-center ${t === winner ? 'mb-2 font-bold text-slate-900' : 'text-slate-400 text-sm'}`}>
+                                                    <span className={t === winner ? 'text-emerald-600' : ''}>{t}</span>
+                                                    {t === winner
+                                                        ? <span className="bg-emerald-500 text-white text-xs px-1.5 rounded">W</span>
+                                                        : <span className="text-xs">L</span>
+                                                    }
+                                                </div>
+                                            )) : <div className="text-slate-400 text-xs py-2">TBD</div>}
+                                            {match?.result_text && (
+                                                <div className="mt-2 text-[10px] text-slate-400 border-t border-slate-100 pt-1 font-mono">{match.result_text}</div>
+                                            )}
+                                        </div>
+                                    )
+                                })()}
+                            </div>
 
-                {/* Center column: Q2 */}
-                <div className="flex flex-col justify-center h-full">
-                    <div className="mt-24">
-                        <BracketNode
-                            ref={setNodeRef('qualifier_2')}
-                            phase={phases[2]}
-                            bracket={bracket}
-                            results={results}
-                            matchLookup={matchLookup}
-                            onMatchClick={onMatchClick}
-                        />
+                            {/* Right: Final */}
+                            <div className="flex flex-col justify-center z-10 w-64 h-full py-10">
+                                {(() => {
+                                    const teams = bracket['final']
+                                    const winner = results['final']
+                                    const match = matchLookup['final']
+                                    return (
+                                        <div
+                                            className={`bg-slate-900 border border-slate-800 shadow-lg p-5 relative scale-110 origin-left ${match ? 'cursor-pointer hover:shadow-xl' : ''}`}
+                                            onClick={() => match && onMatchClick(match.match_id)}
+                                        >
+                                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[10px] font-bold px-3 py-0.5 uppercase tracking-widest shadow-lg">
+                                                The Final
+                                            </div>
+                                            {teams ? (
+                                                <>
+                                                    {teams.map(t => (
+                                                        <div key={t} className={`flex justify-between items-center ${t === winner ? 'font-bold text-white text-lg' : 'mb-3 text-slate-400 text-sm border-b border-slate-700 pb-3'}`}>
+                                                            <div className="flex items-center gap-2">
+                                                                <span>{t}</span>
+                                                                {t === winner && <span className="text-emerald-500 text-sm">👑</span>}
+                                                            </div>
+                                                            {t === winner
+                                                                ? <span className="bg-emerald-500 text-white text-xs px-1.5 py-0.5 rounded">W</span>
+                                                                : <span className="text-xs">L</span>
+                                                            }
+                                                        </div>
+                                                    ))}
+                                                    <div className="mt-3 text-[10px] text-slate-500 border-t border-slate-700 pt-2 font-mono uppercase tracking-wide text-center">
+                                                        New Champion
+                                                    </div>
+                                                </>
+                                            ) : <div className="text-slate-400 text-xs py-4 text-center">TBD</div>}
+                                        </div>
+                                    )
+                                })()}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Right column: Final */}
-                <div className="flex flex-col justify-center h-full">
-                    <BracketNode
-                        ref={setNodeRef('final')}
-                        phase={phases[3]}
-                        bracket={bracket}
-                        results={results}
-                        matchLookup={matchLookup}
-                        onMatchClick={onMatchClick}
+                {/* Points Table */}
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-slate-200 bg-white text-xs font-bold uppercase tracking-wider text-slate-400">
+                                <th className="px-6 py-4 w-16">Pos</th>
+                                <th className="px-6 py-4">Club</th>
+                                <th className="px-4 py-4 text-center">P</th>
+                                <th className="px-4 py-4 text-center">W</th>
+                                <th className="px-4 py-4 text-center">L</th>
+                                <th className="px-4 py-4 text-center text-emerald-500">Pts</th>
+                                <th className="px-6 py-4 text-right">NRR</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                            {data.standings.map((s, i) => {
+                                const clr = getPlayerColor(s.player, data.players)
+                                return (
+                                    <tr key={s.player} className="hover:bg-slate-50 transition-colors group">
+                                        <td className="px-6 py-4 text-slate-400 font-mono">{String(i + 1).padStart(2, '0')}</td>
+                                        <td className="px-6 py-4 font-bold text-slate-900 flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded ${clr.bg} flex items-center justify-center ${clr.text}`} style={DISPLAY_FONT}>
+                                                {getInitials(s.player)}
+                                            </div>
+                                            {s.player}
+                                        </td>
+                                        <td className="px-4 py-4 text-center font-mono">{s.played}</td>
+                                        <td className="px-4 py-4 text-center font-bold text-slate-900">{s.won}</td>
+                                        <td className="px-4 py-4 text-center text-slate-400">{s.lost}</td>
+                                        <td className="px-4 py-4 text-center font-bold text-emerald-500 text-base">{s.points}</td>
+                                        <td className={`px-6 py-4 text-right font-mono ${s.nrr >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                            {s.nrr > 0 ? '+' : ''}{s.nrr.toFixed(3)}
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    )
+}
+
+function DesktopMatchArchive({ matches, totalCount, onMatchClick }: {
+    matches: MatchSummary[]; totalCount: number
+    onMatchClick: (id: string) => void
+}) {
+    return (
+        <section>
+            <div className="flex items-center justify-between mb-8 border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-3">
+                    <span className="text-emerald-500 text-xl">🏏</span>
+                    <h2 className="text-lg font-bold uppercase tracking-widest text-slate-900">Match Archive</h2>
+                </div>
+                <span className="text-sm font-semibold text-slate-400">{totalCount} Matches</span>
+            </div>
+            <div className="space-y-4">
+                {matches.map((m, i) => {
+                    const matchNum = matches.length - i
+                    const sideAName = m.side_a.join(', ')
+                    const sideBName = m.side_b.join(', ')
+                    const isWinnerA = m.winner && m.side_a.includes(m.winner)
+                    return (
+                        <div
+                            key={m.match_id}
+                            onClick={() => onMatchClick(m.match_id)}
+                            className="group flex flex-col md:flex-row items-center bg-white border border-slate-200 hover:border-emerald-500 transition-colors p-0 md:h-24 cursor-pointer"
+                        >
+                            {/* Match number */}
+                            <div className="flex-none w-full md:w-24 bg-slate-50 h-full flex flex-col justify-center items-center border-b md:border-b-0 md:border-r border-slate-200 p-2">
+                                <span className="text-xs font-bold text-slate-400 uppercase">Match</span>
+                                <span className="text-2xl text-slate-900" style={DISPLAY_FONT}>{String(matchNum).padStart(2, '0')}</span>
+                            </div>
+                            {/* Content */}
+                            <div className="flex-grow p-4 md:px-6 flex flex-col md:flex-row items-center justify-between w-full">
+                                {/* Teams */}
+                                <div className="flex items-center gap-8 w-full md:w-1/3 justify-center md:justify-start">
+                                    <div className="text-right">
+                                        <span className={`block font-bold text-lg ${isWinnerA ? 'text-slate-900' : 'text-slate-400'}`}>{sideAName}</span>
+                                        {isWinnerA && <span className="block text-xs font-mono text-emerald-500">Winner</span>}
+                                    </div>
+                                    <span className="text-slate-300 text-xl" style={DISPLAY_FONT}>VS</span>
+                                    <div className="text-left">
+                                        <span className={`block font-bold text-lg ${!isWinnerA && m.winner ? 'text-slate-900' : 'text-slate-400'}`}>{sideBName}</span>
+                                        {!isWinnerA && m.winner && <span className="block text-xs font-mono text-emerald-500">Winner</span>}
+                                    </div>
+                                </div>
+                                {/* Result */}
+                                <div className="my-4 md:my-0">
+                                    <span className="text-sm font-medium bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border border-emerald-100">
+                                        {m.result_text}
+                                    </span>
+                                </div>
+                                {/* PotM */}
+                                <div className="w-full md:w-1/3 flex justify-center md:justify-end items-center gap-2 text-sm text-slate-500">
+                                    {m.potm && (
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-amber-500">⭐</span>
+                                            <span className="font-medium text-slate-900">{m.potm}</span>
+                                            <span className="text-xs text-slate-400">(Top Batter)</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            {/* Chevron */}
+                            <div className="flex-none w-full md:w-12 h-8 md:h-full flex items-center justify-center bg-slate-50 group-hover:bg-emerald-500 transition-colors border-t md:border-t-0 md:border-l border-slate-200">
+                                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
+        </section>
+    )
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE COMPONENTS
+   ═══════════════════════════════════════════════════════════════ */
+
+function MobileStandingsTab({ data, awards }: { data: TournamentData; awards: Award[] }) {
+    return (
+        <div className="space-y-8">
+            {/* Honor Roll (horizontal scroll) */}
+            {awards.length > 0 && (
+                <section>
+                    <div className="flex items-center gap-2 mb-4">
+                        <Trophy className="w-4 h-4 text-emerald-500" />
+                        <h3 className="font-bold text-sm tracking-widest uppercase text-gray-800">Honor Roll</h3>
+                    </div>
+                    <div className="flex gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-2 -mx-4 px-4 snap-x">
+                        {awards.map(a => (
+                            <div key={a.label} className="min-w-[160px] snap-center bg-white border border-gray-100 p-4 rounded-lg shadow-sm">
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{a.label}</span>
+                                    <span className="text-sm">{a.icon}</span>
+                                </div>
+                                <div className="font-bold text-lg leading-tight mb-1 text-gray-900">{a.player}</div>
+                                {a.detail && <div className="text-xs text-gray-500 font-mono">{a.detail}</div>}
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            {/* Standings Table */}
+            <section>
+                <div className="flex items-center gap-2 mb-4">
+                    <ListOrdered className="w-4 h-4 text-emerald-500" />
+                    <h3 className="font-bold text-sm tracking-widest uppercase text-gray-800">Progression & Standings</h3>
+                </div>
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                    <table className="w-full text-xs sm:text-sm">
+                        <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-medium w-10">#</th>
+                                <th className="px-2 py-3 text-left font-medium">Club</th>
+                                <th className="px-2 py-3 text-center font-medium w-10">P</th>
+                                <th className="px-2 py-3 text-center font-medium w-10 text-emerald-500">PTS</th>
+                                <th className="px-4 py-3 text-right font-medium w-16">NRR</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {data.standings.map((s, i) => {
+                                const clr = getPlayerColor(s.player, data.players)
+                                return (
+                                    <tr key={s.player} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-4 py-3 text-gray-400 font-mono">{String(i + 1).padStart(2, '0')}</td>
+                                        <td className="px-2 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-6 h-6 rounded ${clr.bg} ${clr.text} flex items-center justify-center text-[10px] font-bold`}>
+                                                    {getInitials(s.player)}
+                                                </div>
+                                                <span className="font-semibold text-gray-900">{s.player}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-2 py-3 text-center text-gray-600">{s.played}</td>
+                                        <td className="px-2 py-3 text-center font-bold text-emerald-500">{s.points}</td>
+                                        <td className={`px-4 py-3 text-right font-mono ${s.nrr >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+                                            {s.nrr > 0 ? '+' : ''}{s.nrr.toFixed(3)}
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    )
+}
+
+function MobileBracketTab({ bracket, results, matchLookup, champion, players, onMatchClick }: {
+    bracket: Record<string, string[] | null>; results: Record<string, string>
+    matchLookup: Record<string, MatchSummary>; champion: string | null
+    players: string[]; onMatchClick: (id: string) => void
+}) {
+    if (!bracket) return <div className="text-gray-500 text-sm py-10 text-center">No playoff data</div>
+
+    const phases = [
+        { key: 'qualifier_1', label: 'Qualifier 1', badgeBg: 'bg-black' },
+        { key: 'eliminator', label: 'Eliminator', badgeBg: 'bg-gray-500' },
+        { key: 'qualifier_2', label: 'Qualifier 2', badgeBg: 'bg-black' },
+        { key: 'final', label: 'The Final', badgeBg: 'bg-emerald-500' },
+    ]
+
+    return (
+        <div className="space-y-0">
+            {phases.map((phase, idx) => {
+                const teams = bracket[phase.key]
+                const winner = results[phase.key]
+                const match = matchLookup[phase.key]
+                const isFinal = phase.key === 'final'
+
+                return (
+                    <div key={phase.key} className={`relative pl-6 ${idx < phases.length - 1 ? 'border-l-2 border-gray-200' : 'border-l-2 border-transparent'} pb-8`}>
+                        <span className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full ${isFinal ? 'bg-emerald-500 animate-pulse' : 'bg-gray-200'} border-2 border-white`} />
+                        <div className={`${phase.badgeBg} text-white text-[10px] font-bold uppercase py-1 px-2 inline-block rounded mb-2`}>
+                            {phase.label}
+                        </div>
+
+                        {isFinal ? (
+                            <div
+                                className={`bg-gray-900 text-white rounded-lg shadow-lg overflow-hidden relative ${match ? 'cursor-pointer' : ''}`}
+                                onClick={() => match && onMatchClick(match.match_id)}
+                            >
+                                <div className="p-4 relative z-10">
+                                    {teams ? teams.map(t => (
+                                        <div key={t} className={`flex justify-between items-center ${t === winner ? '' : 'mb-4 border-b border-gray-700 pb-3'}`}>
+                                            <div className="flex items-center gap-2">
+                                                <span className={t === winner ? 'font-bold text-xl' : 'text-gray-400'}>{t}</span>
+                                                {t === winner && <span className="text-emerald-500 text-sm">👑</span>}
+                                            </div>
+                                            {t === winner
+                                                ? <span className="bg-emerald-500 text-white text-xs w-6 h-6 flex items-center justify-center rounded font-bold">W</span>
+                                                : <span className="text-gray-500 text-xs font-medium">L</span>
+                                            }
+                                        </div>
+                                    )) : <div className="text-gray-400 text-xs py-2">TBD</div>}
+                                </div>
+                                {match?.result_text && (
+                                    <div className="bg-emerald-500 py-2 text-center text-[10px] uppercase tracking-widest font-semibold text-white">
+                                        {match.result_text}
+                                    </div>
+                                )}
+                                {!match && champion && (
+                                    <div className="bg-black/40 py-2 text-center text-[10px] uppercase tracking-widest font-semibold text-gray-400">
+                                        New Champion
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div
+                                className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 ${match ? 'cursor-pointer hover:shadow-md' : ''} transition-all`}
+                                onClick={() => match && onMatchClick(match.match_id)}
+                            >
+                                {teams ? teams.map(t => (
+                                    <div key={t} className={`flex justify-between items-center ${t !== winner && winner ? 'opacity-50' : ''} ${t === winner ? 'mb-2' : ''}`}>
+                                        <span className={`${t === winner ? 'font-bold text-gray-900' : 'text-gray-500'}`}>{t}</span>
+                                        {t === winner
+                                            ? <span className="bg-emerald-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded font-bold">W</span>
+                                            : winner ? <span className="text-gray-400 text-xs font-medium">L</span> : null
+                                        }
+                                    </div>
+                                )) : <div className="text-gray-400 text-[10px] py-2">TBD</div>}
+                                {match?.result_text && (
+                                    <div className="mt-2 text-[10px] text-gray-400 border-t border-gray-100 pt-2">{match.result_text}</div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
+function MobileMatchesTab({ matches, totalCount, players, onMatchClick }: {
+    matches: MatchSummary[]; totalCount: number; players: string[]
+    onMatchClick: (id: string) => void
+}) {
+    const [search, setSearch] = useState('')
+    const filtered = search
+        ? matches.filter(m =>
+            m.side_a.some(s => s.toLowerCase().includes(search.toLowerCase())) ||
+            m.side_b.some(s => s.toLowerCase().includes(search.toLowerCase())) ||
+            m.result_text.toLowerCase().includes(search.toLowerCase())
+        )
+        : matches
+
+    return (
+        <div className="space-y-4">
+            {/* Search */}
+            <div className="bg-white border border-gray-200 rounded-lg p-1.5 flex gap-2 shadow-sm">
+                <div className="relative flex-1">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+                    <input
+                        className="w-full bg-gray-50 border-none rounded-md py-1.5 pl-8 pr-3 text-xs focus:ring-1 focus:ring-emerald-500 text-gray-900 placeholder-gray-400"
+                        placeholder="Search team or player..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
                     />
+                </div>
+            </div>
+
+            {/* Match list */}
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                    <h3 className="font-bold text-xs uppercase tracking-widest text-gray-500">Recent Results</h3>
+                    <span className="text-[10px] font-medium bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">All {totalCount} Matches</span>
+                </div>
+                <div className="divide-y divide-gray-100">
+                    {filtered.map((m) => {
+                        const sideAName = m.side_a.join(', ')
+                        const sideBName = m.side_b.join(', ')
+                        const sideAClr = getPlayerColor(m.side_a[0], players)
+                        const sideBClr = getPlayerColor(m.side_b[0], players)
+                        const isWinnerA = m.winner && m.side_a.includes(m.winner)
+                        const dateStr = new Date(m.end_timestamp ?? m.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        const matchNum = matches.length - matches.indexOf(m)
+
+                        return (
+                            <div key={m.match_id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => onMatchClick(m.match_id)}>
+                                <div className="flex justify-between items-start mb-3">
+                                    <span className="text-[10px] font-mono text-gray-400">Match {matchNum} • {dateStr}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex-1 flex flex-col items-start gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-8 h-8 rounded-full ${sideAClr.bg} flex items-center justify-center ${sideAClr.text} font-bold text-xs border ${sideAClr.border}`}>
+                                                {getInitials(m.side_a[0])}
+                                            </div>
+                                            <span className={`text-sm ${isWinnerA ? 'font-bold text-gray-900' : 'font-semibold text-gray-500'}`}>{sideAName}</span>
+                                            {isWinnerA && <span className="text-emerald-500 text-sm">✅</span>}
+                                        </div>
+                                    </div>
+                                    <div className="text-gray-300 text-xs font-bold">vs</div>
+                                    <div className="flex-1 flex flex-col items-end gap-1">
+                                        <div className="flex items-center gap-2 flex-row-reverse">
+                                            <div className={`w-8 h-8 rounded-full ${sideBClr.bg} flex items-center justify-center ${sideBClr.text} font-bold text-xs border ${sideBClr.border}`}>
+                                                {getInitials(m.side_b[0])}
+                                            </div>
+                                            <span className={`text-sm ${!isWinnerA && m.winner ? 'font-bold text-gray-900' : 'font-semibold text-gray-500'}`}>{sideBName}</span>
+                                            {!isWinnerA && m.winner && <span className="text-emerald-500 text-sm">✅</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between items-center">
+                                    <p className="text-xs text-emerald-500 font-medium">{m.result_text}</p>
+                                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:translate-x-1 transition-transform" />
+                                </div>
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
         </div>
     )
 }
-
-/** A single bracket match node */
-const BracketNode = forwardRef<HTMLButtonElement, {
-    phase: { key: string; label: string }
-    bracket: Record<string, string[] | null>
-    results: Record<string, string>
-    matchLookup: Record<string, MatchSummary>
-    onMatchClick: (matchId: string) => void
-}>(({ phase, bracket, results, matchLookup, onMatchClick }, ref) => {
-    const teams = bracket[phase.key]
-    const winner = results[phase.key]
-    const match = matchLookup[phase.key]
-    const isFinal = phase.key === 'final'
-
-    return (
-        <button
-            ref={ref}
-            onClick={() => match && onMatchClick(match.match_id)}
-            disabled={!match}
-            className={`w-full rounded-xl border p-3 text-left transition-all ${isFinal
-                ? 'bg-gradient-to-br from-yellow-500/20 to-amber-500/20 border-yellow-500/40 hover:border-yellow-400/60 shadow-lg shadow-yellow-500/10'
-                : 'bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border-blue-500/30 hover:border-blue-400/50'
-                } ${match ? 'cursor-pointer hover:scale-105' : 'cursor-default opacity-60'}`}
-        >
-            <div className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-                style={{ color: isFinal ? '#fbbf24' : '#60a5fa' }}>
-                {phase.label}
-            </div>
-            {teams ? (
-                <div className="space-y-1">
-                    {teams.map(t => (
-                        <div key={t} className={`text-xs font-medium px-2 py-1 rounded ${winner === t
-                            ? 'bg-green-500/20 text-green-300 border border-green-500/30'
-                            : 'bg-slate-800/50 text-slate-300'
-                            }`}>
-                            {winner === t && '⭐ '}{t}
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="text-[10px] text-slate-500 py-2">TBD</div>
-            )}
-            {match?.result_text && (
-                <div className="text-[9px] text-slate-400 mt-1.5 truncate">{match.result_text}</div>
-            )}
-        </button>
-    )
-})
-BracketNode.displayName = 'BracketNode'

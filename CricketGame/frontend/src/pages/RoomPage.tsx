@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { LogOut, Copy, User } from 'lucide-react'
 import Lobby from '@/components/Lobby'
 import TossScreen from '@/components/TossScreen'
 import GameBoard from '@/components/GameBoard'
@@ -381,38 +381,36 @@ export default function RoomPage({ token, username, onLogout }: Props) {
 
     if (screen === 'home') {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
                 <div className="w-full max-w-lg space-y-6">
                     {/* Header */}
-                    <div className="text-center space-y-3">
-                        <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-                            E Cricket
+                    <div className="text-center space-y-3 mb-8">
+                        <h1 className="text-5xl font-extrabold text-slate-900 flex items-center justify-center gap-3">
+                            <span className="text-emerald-600">🏏</span> E Cricket
                         </h1>
-                        <p className="text-xl text-slate-300">Welcome, <span className="font-semibold text-orange-400">{username}</span>!</p>
+                        <p className="text-xl text-slate-600">Welcome, <span className="font-semibold text-emerald-700">{username}</span>!</p>
                     </div>
 
                     {/* Create Room Card */}
-                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6 shadow-2xl hover:shadow-orange-500/10 transition-all duration-300">
-                        <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                            <span className="text-2xl"></span>
+                    <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+                        <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                             Create a Room
                         </h3>
                         <Button
                             onClick={createRoom}
-                            className="w-full bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white font-semibold py-6 text-lg shadow-lg hover:shadow-orange-500/50 transition-all"
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-6 text-lg shadow-sm transition-all rounded-xl"
                             size="lg"
                         >
                             Create New Room
                         </Button>
-                        <p className="text-xs text-slate-400 mt-3 text-center">
+                        <p className="text-xs text-slate-500 mt-3 text-center">
                             You'll be the host. Share the room link with friends.
                         </p>
                     </div>
 
                     {/* Join Room Card */}
-                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6 shadow-2xl hover:shadow-blue-500/10 transition-all duration-300">
-                        <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                            <span className="text-2xl"></span>
+                    <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+                        <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                             Join a Room
                         </h3>
                         <div className="space-y-3">
@@ -421,12 +419,12 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                                 value={joinCode}
                                 onChange={e => setJoinCode(e.target.value.toUpperCase())}
                                 onKeyDown={e => e.key === 'Enter' && joinRoom()}
-                                className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20"
+                                className="bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/20"
                             />
                             <Button
                                 onClick={joinRoom}
                                 variant="secondary"
-                                className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white font-semibold py-6 text-lg shadow-lg hover:shadow-blue-500/50 transition-all"
+                                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-6 text-lg shadow-sm transition-all rounded-xl"
                             >
                                 Join Room
                             </Button>
@@ -438,22 +436,22 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                         <Button
                             variant="outline"
                             onClick={() => navigate('/profile')}
-                            className="flex items-center gap-2 bg-slate-800/50 border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50 hover:border-purple-500/50"
+                            className="flex items-center gap-2 bg-white border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                         >
                             View Profile
                         </Button>
                         <Button
                             variant="ghost"
                             onClick={onLogout}
-                            className="text-red-400 hover:text-red-300 hover:bg-slate-800/50"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
                             Logout
                         </Button>
                     </div>
 
                     {error && (
-                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
-                            <p className="text-red-300 font-medium">{error}</p>
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                            <p className="text-red-600 font-medium">{error}</p>
                         </div>
                     )}
                 </div>
@@ -462,73 +460,143 @@ export default function RoomPage({ token, username, onLogout }: Props) {
     }
 
     return (
-        <div className="min-h-[100dvh] sm:min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-y-auto sm:overflow-hidden">
-            {/* Top Bar */}
-            <div className="border-b border-slate-700/50 bg-slate-900/70 backdrop-blur-sm px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-lg flex-shrink-0">
-                <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold bg-gradient-to-r from-orange-400 to-pink-600 bg-clip-text text-transparent">  Cricket</span>
-                    {roomCode && (
-                        <Badge variant="outline" className="font-mono bg-slate-800/50 border-slate-600 text-orange-300">
-                            Room: {roomCode}
-                        </Badge>
-                    )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-slate-300 font-medium">{username}</span>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => { navigate('/'); setScreen('home'); }}
-                        className="text-slate-300 hover:text-white hover:bg-slate-800/50"
-                    >
-                        Home
-                    </Button>
-                    {screen === 'lobby' && (
-                        <div className="flex items-center gap-2">
-                            {serverIP && isLocalhost && (
-                                <span className="hidden sm:inline text-xs font-mono text-cyan-400 bg-slate-800/70 border border-slate-600 rounded px-2 py-1 select-all" title="LAN IP — share this with friends on the same network">
-                                    {shareLinkDisplay}
-                                </span>
-                            )}
-                            <Button variant="ghost" size="sm" className="text-white hover:bg-slate-800/50" onClick={() => {
-                                navigator.clipboard.writeText(shareLink).then(() => {
-                                    if (serverIP && isLocalhost) {
-                                        setError(` LAN link copied: ${shareLink}`)
-                                    } else if (isLocalhost) {
-                                        setError(`️ Copied localhost link — server IP unavailable. Link: ${shareLink}`)
-                                    } else {
-                                        setError(' Link copied!')
-                                    }
-                                    setTimeout(() => setError(''), 5000)
-                                }).catch(() => {
-                                    // Clipboard blocked — show the URL so user can copy manually
-                                    setError(` Copy manually: ${shareLink}`)
-                                    setTimeout(() => setError(''), 10000)
-                                })
-                            }}>
-                                Copy Link
-                            </Button>
+        <div className="min-h-[100dvh] sm:min-h-screen flex flex-col bg-slate-50 overflow-y-auto sm:overflow-hidden">
+            {/* Header Area */}
+            <div className="flex-shrink-0 z-20 relative">
+                {/* ─── Top Nav: Editorial Style ─── */}
+                <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200">
+                    <div className="w-full px-4 sm:px-6 lg:px-8">
+                        <div className="flex items-center justify-between h-14 lg:h-20">
+                            {/* Left: Brand + Room Code */}
+                            <div className="flex items-center gap-3 lg:gap-6">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-emerald-500 text-2xl lg:text-3xl -rotate-12">🏏</span>
+                                    <span className="text-xl lg:text-2xl uppercase tracking-wider italic" style={{ fontFamily: "'Anton', 'Bebas Neue', sans-serif" }}>E Cricket</span>
+                                </div>
+                                {roomCode && (
+                                    <>
+                                        <div className="h-8 w-px bg-slate-200 hidden lg:block" />
+                                        {/* Desktop room code */}
+                                        <div className="hidden lg:flex items-center bg-slate-100 rounded px-3 py-1.5 border border-slate-200">
+                                            <span className="text-xs font-bold text-slate-500 uppercase mr-2 tracking-wider">Room Code</span>
+                                            <span className="font-mono font-bold text-slate-900 tracking-widest">{roomCode}</span>
+                                        </div>
+                                        {/* Mobile room code */}
+                                        <div className="lg:hidden flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Code</span>
+                                            <span className="font-mono font-bold text-slate-900 text-sm">{roomCode}</span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Right: User + Actions */}
+                            <div className="flex items-center gap-3 lg:gap-6">
+                                {/* Desktop: full actions */}
+                                <div className="hidden lg:flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded bg-emerald-500 text-white flex items-center justify-center font-bold text-sm" style={{ fontFamily: "'Anton', sans-serif" }}>
+                                            {username.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span className="text-sm font-bold text-slate-900">{username}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => { navigate('/'); setScreen('home'); }}
+                                        className="text-sm font-medium text-slate-500 hover:text-emerald-500 transition-colors"
+                                    >
+                                        Home
+                                    </button>
+                                    {serverIP && isLocalhost && (
+                                        <div className="flex items-center bg-slate-50 rounded border border-slate-200 pl-3 pr-1 py-1 gap-2">
+                                            <span className="text-xs font-mono text-slate-400 truncate max-w-[100px]">{shareLinkDisplay}</span>
+                                            <button
+                                                className="text-xs font-bold uppercase tracking-wider bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-500 px-3 py-1 rounded transition-all shadow-sm"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(shareLink).then(() => {
+                                                        if (serverIP && isLocalhost) {
+                                                            setError(`LAN link copied: ${shareLink}`)
+                                                        } else if (isLocalhost) {
+                                                            setError(`Copied localhost link — server IP unavailable. Link: ${shareLink}`)
+                                                        } else {
+                                                            setError('Link copied!')
+                                                        }
+                                                        setTimeout(() => setError(''), 5000)
+                                                    }).catch(() => {
+                                                        setError(`Copy manually: ${shareLink}`)
+                                                        setTimeout(() => setError(''), 10000)
+                                                    })
+                                                }}
+                                            >
+                                                Copy Link
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                {/* Mobile: logout icon */}
+                                <button
+                                    onClick={onLogout}
+                                    className="text-slate-400 hover:text-red-500 transition-colors lg:hidden"
+                                >
+                                    <LogOut className="w-5 h-5" />
+                                </button>
+                                {/* Desktop: logout button */}
+                                <button
+                                    onClick={onLogout}
+                                    className="hidden lg:flex text-sm font-bold text-red-500 hover:text-red-700 uppercase tracking-widest border border-red-100 bg-red-50 hover:bg-red-100 px-4 py-2 rounded transition-colors"
+                                >
+                                    Logout
+                                </button>
+                            </div>
                         </div>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onLogout}
-                        className="text-red-400 hover:text-red-300 hover:bg-slate-800/50"
-                    >
-                        Logout
-                    </Button>
-                </div>
+                    </div>
+                </nav>
+
+                {/* Sub-Header for lobby (mobile copy link + home) */}
+                {screen === 'lobby' && (
+                    <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2 flex items-center justify-between text-sm lg:hidden">
+                        <div className="flex items-center gap-2 text-slate-600">
+                            <User className="w-4 h-4" />
+                            <span className="font-medium text-xs">{username}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                className="text-emerald-600 hover:text-emerald-700 font-medium text-xs flex items-center gap-1 transition-colors"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(shareLink).then(() => {
+                                        if (serverIP && isLocalhost) {
+                                            setError(`LAN link copied: ${shareLink}`)
+                                        } else {
+                                            setError('Link copied!')
+                                        }
+                                        setTimeout(() => setError(''), 5000)
+                                    }).catch(() => {
+                                        setError(`Copy manually: ${shareLink}`)
+                                        setTimeout(() => setError(''), 10000)
+                                    })
+                                }}
+                            >
+                                <Copy className="w-3.5 h-3.5" />
+                                Copy Link
+                            </button>
+                            <button
+                                onClick={() => { navigate('/'); setScreen('home'); }}
+                                className="text-slate-600 hover:text-slate-900 font-semibold text-xs"
+                            >
+                                Home
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {error && (
-                <div className="bg-red-500/10 border-b border-red-500/30 text-red-300 text-center py-2 text-sm">
+                <div className="bg-red-50 border-b border-red-200 text-red-600 text-center py-2 text-sm font-medium">
                     {error}
                 </div>
             )}
 
             {/* Screen Router */}
-            <div className="flex-1 min-h-0 overflow-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto">
                 {screen === 'lobby' && lobby && (
                     <Lobby
                         lobby={lobby}
@@ -572,6 +640,16 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                     />
                 )}
             </div>
+
+            {/* Editorial Footer (desktop lobby only) */}
+            {screen === 'lobby' && (
+                <footer className="hidden lg:flex mt-auto border-t border-slate-200 py-8 bg-white">
+                    <div className="w-full px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <span className="text-lg uppercase tracking-wider text-slate-300" style={{ fontFamily: "'Anton', sans-serif" }}>E Cricket Hub</span>
+                        <p className="text-slate-400 text-xs">© 2026 Tournament Edition. Game responsibly.</p>
+                    </div>
+                </footer>
+            )}
         </div>
     )
 }

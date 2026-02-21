@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tournament Hub Mobile - Bracket View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#00d287", // Emerald green
+                        secondary: "#111827",
+                        "background-light": "#F9FAFB",
+                        "background-dark": "#111827",
+                        "surface-light": "#FFFFFF",
+                        "surface-dark": "#1F2937",
+                        "text-light": "#111827",
+                        "text-dark": "#F9FAFB",
+                    },
+                    fontFamily: {
+                        display: ["Anton", "sans-serif"],
+                        sans: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                    },
+                },
+            },
+        };
+        // Tab switching logic (default active is bracket now)
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.add('hidden');
+            });
+            document.getElementById(tabId + '-content').classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('border-primary', 'text-primary');
+                el.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            });
+            document.getElementById(tabId + '-tab').classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            document.getElementById(tabId + '-tab').classList.add('border-primary', 'text-primary');
+        }
+    </script>
+<style>
+        .custom-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .custom-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }.bracket-connector-r {
+            position: absolute;
+            right: -24px;
+            top: 50%;
+            width: 24px;
+            height: 1px;
+            background-color: #e5e7eb;}
+        .dark .bracket-connector-r {
+            background-color: #374151;}
+        .bracket-connector-v {
+            position: absolute;
+            right: -24px;
+            width: 1px;
+            background-color: #e5e7eb;
+        }
+        .dark .bracket-connector-v {
+             background-color: #374151;
+        }
+        .bracket-connector-active {
+            background-color: #00d287 !important;z-index: 10;
+        }
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark font-sans antialiased min-h-screen pb-safe">
+<header class="sticky top-0 z-50 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<button class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+<span class="material-symbols-outlined text-xl">arrow_back</span>
+</button>
+<h1 class="font-display uppercase text-xl tracking-wide">Tournament Hub</h1>
+</div>
+<div class="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            Feb 19, 2026 <span class="w-2 h-2 rounded-full bg-primary block"></span>
+</div>
+</header>
+<main class="pb-20">
+<div class="relative w-full h-64 overflow-hidden bg-gray-900">
+<img alt="Abstract stadium background" class="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVYfgRWpwONvquVeBtxqpf4KN8ItW_ZHjqYlBCcWDco-ZvYaMN0ITTuTRseo_dpAdO6LiPakj0dUR0EntlCPd_pGhBc3m1gyAExEpSwOChwsml0UywdPSac6mVLuVIXauTqTKahaU5NoquxG9IEE_G8czXn9Yz6V3vDfG_dEDUMtsf0wJrrR4PFOyBl0No3buTQnRfxasi9zRXTX6Qe_cj-tKobg4G-rYY9L-SuhSqt3Y2dBtHO9P8Uyv9h5LBtfDv57BOnLX-iloJ"/>
+<div class="absolute -right-10 -top-10 opacity-20">
+<img alt="Champion Logo Watermark" class="w-64 h-64 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOZAH5cPYarTf36I2V9juy-qmEvZlzdJLSQDGIQS_yOEc0ZcgmAib6Xiz1bRQgcYmVSzXp3DQKqzPNeid5wq9MobjnWHFvM0blBiieNs3vFoeSAhRS3Jq2tjX0COu8ODkzIFh8us2ytGoxeuSPLtNm_wYc4FwwH2iQnoIas1QYABidwtlTzbOIt-NFUVq_5Pw4EZ4pjWRiBVKN1LPRByHYGi9ocThQUXxEA8toeWCXstt3Lj9aA7vam0Fy-yfL6jA5Mv45KlHOd7WU"/>
+</div>
+<div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
+<div class="relative z-10 h-full flex flex-col justify-end p-6 pb-8">
+<div class="mb-4">
+<span class="bg-primary text-white text-xs font-bold px-2 py-1 uppercase tracking-wider">Current Champion</span>
+</div>
+<h2 class="font-display text-6xl text-white leading-none mb-2">MEET</h2>
+<div class="flex gap-3 mt-2 border-l-2 border-primary pl-3">
+<p class="text-gray-300 text-sm leading-relaxed max-w-xs">
+                        Dominating the pitch with strategic brilliance and unmatched skill. The crown returns to the king.
+                    </p>
+</div>
+</div>
+</div>
+<div class="sticky top-[60px] z-40 bg-surface-light dark:bg-surface-dark shadow-sm border-b border-gray-200 dark:border-gray-800">
+<div class="flex justify-between px-2">
+<button class="tab-btn flex-1 py-4 text-sm font-semibold uppercase tracking-wide border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors text-center" id="standings-tab" onclick="switchTab('standings')">
+                    Standings
+                </button>
+<button class="tab-btn flex-1 py-4 text-sm font-semibold uppercase tracking-wide border-b-2 border-primary text-primary transition-colors text-center" id="bracket-tab" onclick="switchTab('bracket')">
+                    Bracket
+                </button>
+<button class="tab-btn flex-1 py-4 text-sm font-semibold uppercase tracking-wide border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors text-center" id="matches-tab" onclick="switchTab('matches')">
+                    Matches
+                </button>
+</div>
+</div>
+<div class="bg-gray-50 dark:bg-black/20 min-h-[500px]">
+<div class="tab-content hidden p-4 space-y-6" id="standings-content">
+<div class="text-center text-gray-400 py-10">Standings Content Hidden for Preview</div>
+</div>
+<div class="tab-content block animate-fade-in" id="bracket-content">
+<div class="overflow-x-auto custom-scrollbar w-full p-4">
+<div class="min-w-[600px] flex gap-8 py-4 items-center">
+<div class="flex flex-col justify-center w-48 gap-16">
+<h3 class="font-display uppercase text-gray-400 dark:text-gray-500 text-xs tracking-widest text-center mb-4 absolute top-4 left-4 w-48">Playoffs</h3>
+<div class="relative bg-surface-light dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-0 overflow-hidden group hover:shadow-md transition-all">
+<div class="px-3 py-2 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/30">
+<span class="text-[9px] font-bold text-primary uppercase">Qualifier 1</span>
+<span class="text-[9px] text-gray-500">Feb 17</span>
+</div>
+<div class="p-2 space-y-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center text-[9px] font-bold">A</div>
+<span class="text-xs font-bold text-gray-900 dark:text-white">AniketKS</span>
+</div>
+<span class="material-symbols-outlined text-primary text-[14px]">check</span>
+</div>
+<div class="flex items-center justify-between opacity-50">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center text-[9px] font-bold">M</div>
+<span class="text-xs font-medium text-gray-900 dark:text-white">Meet</span>
+</div>
+</div>
+</div>
+<div class="bracket-connector-r bracket-connector-active"></div>
+<div class="bracket-connector-v bracket-connector-active" style="height: 120%; top: 50%; right: -24px;"></div>
+</div>
+<div class="relative bg-surface-light dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-0 overflow-hidden group hover:shadow-md transition-all">
+<div class="px-3 py-2 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/30">
+<span class="text-[9px] font-bold text-gray-400 uppercase">Eliminator</span>
+<span class="text-[9px] text-gray-500">Feb 17</span>
+</div>
+<div class="p-2 space-y-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[9px] font-bold">A</div>
+<span class="text-xs font-bold text-gray-900 dark:text-white">Atharva</span>
+</div>
+<span class="material-symbols-outlined text-primary text-[14px]">check</span>
+</div>
+<div class="flex items-center justify-between opacity-50">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 flex items-center justify-center text-[9px] font-bold">?</div>
+<span class="text-xs font-medium text-gray-900 dark:text-white">TBD</span>
+</div>
+</div>
+</div>
+<div class="bracket-connector-r bracket-connector-active"></div>
+<div class="bracket-connector-v bracket-connector-active" style="height: 120%; bottom: 50%; right: -24px; top: auto;"></div>
+</div>
+</div>
+<div class="flex flex-col justify-center w-48 pt-0">
+<h3 class="font-display uppercase text-gray-400 dark:text-gray-500 text-xs tracking-widest text-center mb-4 absolute top-4 left-[250px] w-48">Qualifier 2</h3>
+<div class="relative bg-surface-light dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-0 overflow-hidden group hover:shadow-md transition-all">
+<div class="px-3 py-2 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/30">
+<span class="text-[9px] font-bold text-gray-400 uppercase">Qualifier 2</span>
+<span class="text-[9px] text-gray-500">Feb 18</span>
+</div>
+<div class="p-2 space-y-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center text-[9px] font-bold">M</div>
+<span class="text-xs font-bold text-gray-900 dark:text-white">Meet</span>
+</div>
+<span class="material-symbols-outlined text-primary text-[14px]">check</span>
+</div>
+<div class="flex items-center justify-between opacity-50">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[9px] font-bold">A</div>
+<span class="text-xs font-medium text-gray-900 dark:text-white">Atharva</span>
+</div>
+</div>
+</div>
+<div class="absolute -left-6 top-1/2 w-6 h-[2px] bg-primary"></div>
+<div class="bracket-connector-r bracket-connector-active"></div>
+</div>
+</div>
+<div class="flex flex-col justify-center w-56">
+<h3 class="font-display uppercase text-primary text-sm tracking-widest text-center mb-4 absolute top-4 left-[480px] w-56">The Final</h3>
+<div class="relative bg-gray-900 rounded-lg shadow-xl overflow-hidden border border-gray-800 transform scale-100">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/20 to-purple-900/40"></div>
+<div class="absolute -right-4 -bottom-4 text-white opacity-5">
+<span class="material-symbols-outlined text-8xl">emoji_events</span>
+</div>
+<div class="relative z-10">
+<div class="px-3 py-2 bg-black/40 border-b border-gray-800 flex justify-between items-center">
+<span class="text-[10px] font-bold text-primary uppercase tracking-widest">Final Match</span>
+<span class="text-[9px] text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">Feb 19</span>
+</div>
+<div class="p-3 space-y-3">
+<div class="flex items-center justify-between border-b border-gray-800 pb-2">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-orange-100 text-orange-600 flex items-center justify-center text-[10px] font-bold">A</div>
+<div>
+<span class="text-[10px] text-gray-400 block leading-none mb-0.5">Finalist</span>
+<span class="text-sm font-medium text-white opacity-70">AniketKS</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center text-[10px] font-bold shadow-[0_0_10px_rgba(168,85,247,0.5)]">M</div>
+<div>
+<span class="text-[10px] text-primary font-bold block leading-none mb-0.5">Winner</span>
+<span class="text-base font-bold text-white flex items-center gap-1">
+                                                         Meet
+                                                         <span class="material-symbols-outlined text-primary text-[14px]">verified</span>
+</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-primary py-1.5 text-center">
+<span class="text-[9px] text-white font-bold uppercase tracking-[0.1em]">Won by 6 wickets</span>
+</div>
+</div>
+<div class="absolute -left-6 top-1/2 w-6 h-[2px] bg-primary"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="tab-content hidden p-4 space-y-4" id="matches-content">
+<div class="text-center text-gray-400 py-10">Matches Content Hidden for Preview</div>
+</div>
+</div>
+</main>
+<footer class="py-8 text-center border-t border-gray-200 dark:border-gray-800 mt-4 bg-surface-light dark:bg-surface-dark">
+<h4 class="font-display text-gray-300 dark:text-gray-600 text-xl uppercase mb-2">Tournament Hub</h4>
+<p class="text-[10px] text-gray-400 dark:text-gray-600">© 2026 Tournament Edition. All stats are subject to verification.</p>
+</footer>
+</body></html>
