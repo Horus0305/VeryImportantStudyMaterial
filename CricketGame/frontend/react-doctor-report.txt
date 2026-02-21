@@ -1,0 +1,96 @@
+react-doctor v0.0.29
+
+✔ Select projects to scan › frontend
+Scanning /app/CricketGame/frontend...
+
+- Detecting framework. Found Vite.
+[32m✔[39m Detecting framework. Found Vite.
+- Detecting React version. Found React ^19.2.0.
+[32m✔[39m Detecting React version. Found React ^19.2.0.
+- Detecting language. Found TypeScript.
+[32m✔[39m Detecting language. Found TypeScript.
+- Detecting React Compiler. Not found.
+[32m✔[39m Detecting React Compiler. Not found.
+- Found 23 source files.
+[32m✔[39m Found 23 source files.
+
+- Running lint checks...
+- Running lint checks.
+[32m✔[39m Running lint checks.
+- Detecting dead code...
+[32m✔[39m Detecting dead code.
+  ✗ fetch() inside useEffect — use a data fetching library (react-query, SWR) or server component (6)
+    Use `useQuery()` from @tanstack/react-query, `useSWR()`, or fetch in a Server Component instead
+    src/pages/TournamentDetailPage.tsx: 81
+    src/components/HeadToHead.tsx: 38
+    src/pages/ProfilePage.tsx: 85, 115
+    src/pages/MatchDetailPage.tsx: 49
+    src/pages/RoomPage.tsx: 263
+
+  ⚠ 4 setState calls in a single useEffect — consider using useReducer or deriving state (6)
+    Combine into useReducer: `const [state, dispatch] = useReducer(reducer, initialState)`
+    src/components/GameBoard.tsx: 117, 363
+    src/pages/TournamentDetailPage.tsx: 81
+    src/components/HeadToHead.tsx: 38
+    src/pages/ProfilePage.tsx: 85
+    src/pages/MatchDetailPage.tsx: 49
+
+  ⚠ Component "GameBoard" is 372 lines — consider breaking it into smaller focused components (4)
+    Extract logical sections into focused components: `<UserHeader />`, `<UserActions />`, etc.
+    src/components/GameBoard.tsx: 317
+    src/components/Lobby.tsx: 50
+    src/pages/ProfilePage.tsx: 71
+    src/pages/RoomPage.tsx: 87
+
+  ⚠ Enforce a clickable non-interactive element has at least one keyboard event listener. (7)
+    Visible, non-interactive elements with click handlers must have one of `keyup`, `keydown`, or `keypress` listener.
+    src/pages/TournamentDetailPage.tsx: 352, 385, 416, 514, 673, 703, 773
+
+  ⚠ Static HTML elements with event handlers require a role. (7)
+    Add a role attribute to this element, or use a semantic HTML element instead.
+    src/pages/TournamentDetailPage.tsx: 352, 385, 416, 514, 673, 703, 773
+
+  ⚠ A form label must be associated with a control. (4)
+    Either give the label a `htmlFor` attribute with the id of the associated control, or wrap the label around the control.
+    src/components/Lobby.tsx: 216, 275, 312, 334
+
+  ⚠ useState initialized from prop "defaultOpen" — if this value should stay in sync with the prop, derive it during render instead (2)
+    Remove useState and compute the value inline: `const value = transform(propName)`
+    src/components/HeadToHead.tsx: 35
+    src/pages/ProfilePage.tsx: 80
+
+  ⚠ Component "ProfilePage" has 11 useState calls — consider useReducer for related state (3)
+    Group related state: `const [state, dispatch] = useReducer(reducer, { field1, field2, ... })`
+    src/pages/ProfilePage.tsx: 71
+    src/pages/RoomPage.tsx: 87
+    src/pages/LoginPage.tsx: 12
+
+  ⚠ Array index "idx" used as key — causes bugs when list is reordered or filtered
+    Use a stable unique identifier: `key={item.id}` or `key={item.slug}` — index keys break on reorder/filter
+    src/components/Scorecard.tsx: 421
+
+  ⚠ The `autoFocus` attribute is found here, which can cause usability issues for sighted and non-sighted users.
+    Remove the `autoFocus` attribute.
+    src/pages/LoginPage.tsx: 102
+
+  ⚠ Unused file (2)
+    This file is not imported by any other file in the project.
+    src/components/ui/dialog.tsx
+    src/components/ui/tabs.tsx
+
+  ⚠ Unused export: buttonVariants (5)
+    src/components/ui/button.tsx
+    src/components/ui/badge.tsx
+    src/components/ui/card.tsx
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ React Doctor (www.react.doctor)                                     │
+  │                                                                     │
+  │ You are offline, could not calculate score. Reconnect to calculate. │
+  │                                                                     │
+  │ ✗ 6 errors  ⚠ 42 warnings  across 14/23 files  in 3.0s              │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  Full diagnostics written to /tmp/react-doctor-612e1b23-0efe-4ca5-9d96-cf731f2519db
+
+  Share your results: https://www.react.doctor/share?p=frontend&e=6&w=42&f=14
