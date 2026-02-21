@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import secrets
 import json
 
 from ..data.database import get_db
+from ..core.config import ADMIN_SECRET
 from ..core.auth import register_player, login_player, get_player_stats, decode_token, create_token
 from ..data.models import Player, MatchHistory, TournamentHistory, FormatStats
 
@@ -62,7 +64,15 @@ def _merge_format_stats(keeper: FormatStats, src: FormatStats) -> None:
         keeper.best_bowling_runs    = src.best_bowling_runs
 
 @router.get("/migrate-formats")
-def migrate_formats(db: Session = Depends(get_db)):
+def migrate_formats(
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    db: Session = Depends(get_db),
+):
+    if not secrets.compare_digest(x_admin_secret, ADMIN_SECRET):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid admin secret"
+        )
+
     stats_merged_2v2 = 0
     stats_deduped = 0
     legacy_rows = db.query(FormatStats).filter(FormatStats.format == "2v2").all()
