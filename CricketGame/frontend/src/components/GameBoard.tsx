@@ -150,6 +150,12 @@ function CelebrationOverlay({ flash }: { flash: BallFlash | null }) {
         setParticles(newParticles)
         setLabel(newLabel)
 
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            if (flash.is_out || flash.runs === 4 || flash.runs === 6 || flash.hat_trick || flash.milestone) {
+                try { navigator.vibrate(200) } catch {}
+            }
+        }
+
         const labelTimer = setTimeout(() => setLabel(null), 1000)
         return () => {
             clearTimeout(labelTimer)
@@ -517,10 +523,10 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                                 disabled={!canAct || isCaptainPending}
                                 className={`flex-1 sm:flex-initial aspect-square sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all active:scale-95 group relative border text-2xl sm:text-4xl shadow-sm
                                     ${!canAct || isCaptainPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                                    ${n === 4
+                                    ${n === 6
                                         ? 'bg-emerald-500 border-transparent text-white shadow-lg shadow-emerald-500/30 transform scale-110 border-2 border-emerald-400 hover:scale-[1.15] z-10'
-                                        : n === 6
-                                            ? 'bg-slate-100 border-slate-200 hover:border-purple-600 hover:bg-purple-50 hover:text-purple-600 text-slate-700'
+                                        : n === 4
+                                            ? 'bg-blue-50 border-blue-200 hover:border-blue-500 hover:bg-blue-100 hover:text-blue-600 text-slate-700'
                                             : 'bg-slate-100 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-500 text-slate-700'}
                                 `}
                                 style={DISPLAY_FONT}
@@ -663,7 +669,7 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                                 <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{tournament.phase}</span>
                             </div>
                             <div className="p-2 space-y-1 text-[10px] sm:text-xs font-mono">
-                                {tournament.standings.slice(0, 4).map((s, i) => (
+                                {tournament.standings.map((s, i) => (
                                     <div key={s.player} className="flex justify-between items-center rounded p-1.5 sm:p-2 bg-slate-50/50 hover:bg-slate-50 transition-colors">
                                         <span className="w-4 text-slate-400 font-bold">{i + 1}</span>
                                         <span className="flex-1 truncate text-slate-700 font-bold">{s.player}</span>
@@ -675,6 +681,26 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                                         <span className="w-10 sm:w-12 text-right text-slate-500">
                                             {s.nrr >= 0 ? '+' : ''}{s.nrr.toFixed(2)}
                                         </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {/* Upcoming Matches */}
+                    {tournament?.upcoming_matches?.length ? (
+                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                            <div className="bg-gradient-to-r from-orange-50 to-transparent p-3 border-b border-slate-100 flex justify-between items-center">
+                                <h3 className="text-lg tracking-wide text-slate-900" style={DISPLAY_FONT}>Upcoming</h3>
+                            </div>
+                            <div className="p-2 space-y-1 text-[10px] sm:text-xs font-mono">
+                                {tournament.upcoming_matches.map((m, i) => (
+                                    <div key={i} className="flex justify-between items-center rounded p-2 bg-slate-50/50">
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-slate-700">{m.teams[0] || 'TBD'}</span>
+                                            <span className="font-bold text-slate-700">{m.teams[1] || 'TBD'}</span>
+                                        </div>
+                                        <Badge variant="outline" className="text-[9px] uppercase">{m.label.replace('_', ' ')}</Badge>
                                     </div>
                                 ))}
                             </div>

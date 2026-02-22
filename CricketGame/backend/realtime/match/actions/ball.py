@@ -125,6 +125,39 @@ async def resolve_pending_ball(manager, room, innings) -> bool:
         potm_data = compute_potm(match)
         final["potm"] = potm_data
 
+        # ── Super Over Check ─────────────────────────────────────────────────
+        if room.tournament and final["winner"] == "TIE" and room.tournament.phase != "group":
+            await manager.broadcast(room, {
+                "type": "SUPER_OVER_START",
+                "msg": "Match Tied! Starting Super Over.",
+                "scorecard": final
+            })
+
+            # Reset match for Super Over (1 over, 2 wickets)
+            match.current_innings = 0
+            match.total_overs = 1
+            match.total_wickets = 2
+            match.is_finished = False
+            match.winner = None
+            match.result_text = ""
+
+            # Swap batting order: Team batting 2nd in main match bats 1st in Super Over
+            new_bat = match.bowling_first
+            new_bowl = match.batting_first
+            match.batting_first = new_bat
+            match.bowling_first = new_bowl
+
+            match.start_innings_1()
+
+            await asyncio.sleep(3)
+            await manager._send_match_state(room)
+
+            from .captain import _trigger_captain_picks_if_needed
+            await _trigger_captain_picks_if_needed(manager, room, match.active_innings)
+            start_ball_countdowns(manager, room, match.active_innings)
+            await manager._maybe_cpu_move(room, match.active_innings)
+            return True
+
         if room.tournament:
             tournament_payload = manager._apply_tournament_result(room, match)
             await manager.broadcast(room, {"type": "MATCH_OVER", **final, "tournament": tournament_payload})

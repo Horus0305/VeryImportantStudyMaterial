@@ -11,9 +11,10 @@ interface Props {
     username: string
     sendMsg: (msg: Record<string, unknown>) => void
     isHost: boolean
+    teams?: Record<string, string[]>
 }
 
-export default function TossScreen({ screen, tossData, username, sendMsg, isHost }: Props) {
+export default function TossScreen({ screen, tossData, username, sendMsg, isHost, teams }: Props) {
     const caller = tossData.caller as string | undefined
     const winner = tossData.winner as string | undefined
     const coin = tossData.coin as string | undefined
@@ -40,6 +41,17 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
                         </div>
                     )}
                     <div className="text-6xl"></div>
+
+                    {teams && (
+                        <div className="mb-6 pb-4 border-b border-slate-100">
+                            <h1 className="text-xs font-black uppercase tracking-widest text-slate-400">Match Up</h1>
+                            <div className="flex items-center justify-center gap-4 mt-2">
+                                <span className="text-xl sm:text-2xl font-bold text-slate-900">{teams.A?.join(', ') || 'Team A'}</span>
+                                <span className="text-xs sm:text-sm font-bold text-emerald-500 bg-emerald-50 px-2 py-1 rounded">VS</span>
+                                <span className="text-xl sm:text-2xl font-bold text-slate-900">{teams.B?.join(', ') || 'Team B'}</span>
+                            </div>
+                        </div>
+                    )}
 
                     {screen === 'toss' && (
                         <>

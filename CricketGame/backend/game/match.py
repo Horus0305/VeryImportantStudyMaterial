@@ -115,11 +115,18 @@ class Match:
         }
 
     def get_nrr_data(self) -> dict:
+        def get_overs(innings):
+            if not innings:
+                return 0
+            if innings.wickets_fallen == self.total_wickets:
+                return self.total_overs
+            return innings.overs_completed + innings.balls_in_over / 6
+
         return {
             "runs_scored_1": self.innings_1.total_runs if self.innings_1 else 0,
-            "overs_faced_1": self.innings_1.overs_completed + self.innings_1.balls_in_over / 6 if self.innings_1 else 0,
+            "overs_faced_1": get_overs(self.innings_1),
             "runs_scored_2": self.innings_2.total_runs if self.innings_2 else 0,
-            "overs_faced_2": self.innings_2.overs_completed + self.innings_2.balls_in_over / 6 if self.innings_2 else 0,
+            "overs_faced_2": get_overs(self.innings_2),
         }
 
     def _other_side_player(self, player: str) -> str:
