@@ -191,9 +191,16 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                 break
 
             case 'MATCH_OVER':
-                setScorecardData(msg)
-                setScreen('scorecard')
-                setMatchState(null)
+                setTimeout(() => {
+                    setScorecardData(msg)
+                    setScreen('scorecard')
+                    setMatchState(null)
+                }, 4000)
+                break
+
+            case 'SUPER_OVER_START':
+                setError(`🔥 ${msg.msg as string}`)
+                setTimeout(() => setError(''), 5000)
                 break
 
             case 'MATCH_CANCELLED':
@@ -612,6 +619,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                         username={username}
                         sendMsg={sendMsg}
                         isHost={lobby?.host === username}
+                        teams={lobby?.teams}
                     />
                 )}
 

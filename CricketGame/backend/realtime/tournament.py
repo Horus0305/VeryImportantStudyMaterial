@@ -17,6 +17,8 @@ def build_tournament_payload(tournament: Tournament, skip_current: bool) -> dict
     else:
         phases = [Tournament.PHASE_Q1, Tournament.PHASE_ELIM, Tournament.PHASE_Q2, Tournament.PHASE_FINAL]
         for key in phases:
+            if key in tournament.playoff_results:
+                continue
             pair = tournament.playoff_matches.get(key)
             teams = list(pair) if pair else []
             upcoming.append({"label": key, "teams": teams})
@@ -144,7 +146,8 @@ def apply_tournament_result(manager, room, match: Match) -> dict:
         return {}
     winner = match.winner if match.winner != "TIE" else match.side_a[0]
     nrr = match.get_nrr_data()
-    p1, p2 = match.side_a[0], match.side_b[0]
+    p1 = match.batting_first[0] if match.batting_first else match.side_a[0]
+    p2 = match.bowling_first[0] if match.bowling_first else match.side_b[0]
 
     if t.phase == Tournament.PHASE_GROUP:
         t.record_group_result(p1, p2, winner, nrr)

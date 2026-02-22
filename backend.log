@@ -1,0 +1,23 @@
+INFO:     Started server process [5756]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+✅ CPU Learning Processor started
+🏏 Cricket Server ready!
+INFO:     127.0.0.1:52602 - "POST /auth/register HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52604 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49724 - "GET /network/local-ip HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49740 - "POST /rooms?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUZXN0VXNlcjYyODgiLCJleHAiOjE3NzE4NjIyMzR9.6pm7lwDHm9lavHtIJXT4DJKpCBrpI3B0gf-mWWlTftE HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49750 - "WebSocket /ws/P5BUGQ?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUZXN0VXNlcjYyODgiLCJleHAiOjE3NzE4NjIyMzR9.6pm7lwDHm9lavHtIJXT4DJKpCBrpI3B0gf-mWWlTftE" [accepted]
+INFO:     connection open
+INFO:     connection closed
+✅ TestUser6288 joined room P5BUGQ
+❌ TestUser6288 left room P5BUGQ
+🗑 Room P5BUGQ deleted (empty)
+INFO:     127.0.0.1:43726 - "POST /auth/register HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43738 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43754 - "GET /network/local-ip HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43764 - "POST /rooms?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUZXN0VXNlcjUxMzciLCJleHAiOjE3NzE4NjIyNzB9.pPLbiTRe1wdt62VOH8Bd4ktZ53H7Hd21zUs_2yeocME HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43772 - "WebSocket /ws/74CZ9Q?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUZXN0VXNlcjUxMzciLCJleHAiOjE3NzE4NjIyNzB9.pPLbiTRe1wdt62VOH8Bd4ktZ53H7Hd21zUs_2yeocME" [accepted]
+INFO:     connection open
+INFO:     connection closed
