@@ -636,6 +636,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                         username={username}
                         sendMsg={sendMsg}
                         isHost={lobby?.host === username}
+                        lobbyPlayers={lobby?.players?.map(p => p.username)}
                     />
                 )}
 

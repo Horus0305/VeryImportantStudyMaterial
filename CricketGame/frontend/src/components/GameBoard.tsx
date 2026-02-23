@@ -357,6 +357,24 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
         }
     }, [state.innings, state.my_role])
 
+    // Reset hasSent when ballFlash clears (ball resolved, ready for next input)
+    useEffect(() => {
+        if (!ballFlash) {
+            setHasSent(false)
+        }
+    }, [ballFlash])
+
+    // Reset hasSent when server states we're waiting for moves again
+    const prevBatReady = useRef(state.bat_ready)
+    const prevBowlReady = useRef(state.bowl_ready)
+    useEffect(() => {
+        // When ready flags go from true→false, a new ball cycle has begun
+        if (prevBatReady.current && !state.bat_ready) setHasSent(false)
+        if (prevBowlReady.current && !state.bowl_ready) setHasSent(false)
+        prevBatReady.current = state.bat_ready
+        prevBowlReady.current = state.bowl_ready
+    }, [state.bat_ready, state.bowl_ready])
+
     const need = state.target ? state.target - state.total_runs : null
     const canAct = role.active && !hasSent && !ballFlash
 
@@ -532,7 +550,7 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                                     ${n === 4
                                         ? 'bg-emerald-500 border-transparent text-white shadow-lg shadow-emerald-500/30 transform scale-110 border-2 border-emerald-400 hover:scale-[1.15] z-10'
                                         : n === 6
-                                            ? 'bg-slate-100 border-slate-200 hover:border-purple-600 hover:bg-purple-50 hover:text-purple-600 text-slate-700'
+                                            ? 'bg-purple-500 border-transparent text-white shadow-lg shadow-purple-500/30 transform scale-110 border-2 border-purple-400 hover:scale-[1.15] z-10'
                                             : 'bg-slate-100 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-500 text-slate-700'}
                                 `}
                                 style={DISPLAY_FONT}
