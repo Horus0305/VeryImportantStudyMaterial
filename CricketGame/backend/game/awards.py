@@ -14,7 +14,7 @@ def compute_potm(match: Match) -> dict:
         runs_conceded = 0
         overs_bowled = 0.0
 
-        for inn in [match.innings_1, match.innings_2]:
+        for inn in [match.innings_1, match.innings_2, getattr(match, "innings_3", None), getattr(match, "innings_4", None)]:
             if not inn:
                 continue
             if player_name in inn.batting_cards:

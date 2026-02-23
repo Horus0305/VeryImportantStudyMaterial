@@ -167,6 +167,8 @@ export default function Scorecard({ data, onBack }: Props) {
     const resultText = (data.result_text as string) ?? ''
     const scorecard1 = data.scorecard_1 as InningsData | undefined
     const scorecard2 = data.scorecard_2 as InningsData | undefined
+    const scorecard3 = data.scorecard_3 as InningsData | undefined
+    const scorecard4 = data.scorecard_4 as InningsData | undefined
     const potm = data.potm as PotmData | undefined
     const tournament = data.tournament as TournamentPayload | undefined
     const standings = tournament?.standings ?? []
@@ -177,9 +179,13 @@ export default function Scorecard({ data, onBack }: Props) {
 
     const batTeam1 = (data.bat_team_1 as string[]) ?? sideA
     const batTeam2 = (data.bat_team_2 as string[]) ?? sideB
+    const batTeam3 = (data.bat_team_3 as string[]) ?? []
+    const batTeam4 = (data.bat_team_4 as string[]) ?? []
 
     const battingTeam1 = batTeam1.length ? batTeam1.join(', ') : 'Team A'
     const battingTeam2 = batTeam2.length ? batTeam2.join(', ') : 'Team B'
+    const battingTeam3 = batTeam3.length ? batTeam3.join(', ') : 'Team A'
+    const battingTeam4 = batTeam4.length ? batTeam4.join(', ') : 'Team B'
 
     // Split result cleverly for display font
     const resultParts = resultText.split(/(won)/i)
@@ -270,6 +276,18 @@ export default function Scorecard({ data, onBack }: Props) {
                                     <div className="mt-2 text-[10px] text-slate-400 uppercase tracking-widest text-right">
                                         {scorecard1.overs} Overs
                                     </div>
+                                    {scorecard3 && (
+                                        <div className="flex justify-between items-center text-emerald-300 mt-2 border-t border-emerald-500/50 pt-2">
+                                            <span className="font-medium uppercase tracking-wider text-xs">{battingTeam3} (SO)</span>
+                                            <span className="font-mono text-sm font-bold text-white">{scorecard3.total_runs}/{scorecard3.wickets}</span>
+                                        </div>
+                                    )}
+                                    {scorecard4 && (
+                                        <div className="flex justify-between items-center text-emerald-300 mt-1">
+                                            <span className="font-medium uppercase tracking-wider text-xs">{battingTeam4} (SO)</span>
+                                            <span className="font-mono text-sm font-bold text-white">{scorecard4.total_runs}/{scorecard4.wickets}</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -371,6 +389,24 @@ export default function Scorecard({ data, onBack }: Props) {
                                 label={`${battingTeam2} Innings`}
                                 teamInitial={battingTeam2.charAt(0).toUpperCase()}
                                 initialBg="bg-slate-100 text-slate-600"
+                                potmName={potm?.player}
+                            />
+                        )}
+                        {scorecard3 && (
+                            <InningsSection
+                                innings={scorecard3}
+                                label={`SUPER OVER - ${battingTeam3}`}
+                                teamInitial={battingTeam3.charAt(0).toUpperCase()}
+                                initialBg="bg-purple-100 text-purple-600"
+                                potmName={potm?.player}
+                            />
+                        )}
+                        {scorecard4 && (
+                            <InningsSection
+                                innings={scorecard4}
+                                label={`SUPER OVER - ${battingTeam4}`}
+                                teamInitial={battingTeam4.charAt(0).toUpperCase()}
+                                initialBg="bg-pink-100 text-pink-600"
                                 potmName={potm?.player}
                             />
                         )}

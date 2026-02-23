@@ -270,3 +270,6 @@ class Innings:
             "overs": self.overs_display,
             "target": self.target,
         }
+
+    def get_boundary_count(self) -> int:
+        return sum(card.fours + card.sixes for card in self.batting_cards.values())

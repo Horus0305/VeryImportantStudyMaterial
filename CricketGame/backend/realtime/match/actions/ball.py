@@ -120,6 +120,50 @@ async def resolve_pending_ball(manager, room, innings) -> bool:
             await manager._auto_play_cpu_match(room)
             return True
 
+        if match.current_innings == 2 and match.innings_1.total_runs == innings.total_runs and room.tournament and room.tournament.phase != "group":
+            scorecard = innings.get_scorecard()
+            target = innings.total_runs + 1
+            await manager.broadcast(room, {
+                "type": "INNINGS_BREAK",
+                "scorecard": scorecard,
+                "target": target,
+                "msg": "SUPER OVER: INNINGS 1",
+            })
+            room.auto_move_strikes = {}
+            match.start_innings_3()
+            await asyncio.sleep(2)
+            new_innings = match.active_innings
+            await manager._send_match_state(room)
+            if new_innings:
+                from .captain import _trigger_captain_picks_if_needed
+                await _trigger_captain_picks_if_needed(manager, room, new_innings)
+                start_ball_countdowns(manager, room, new_innings)
+            await manager._maybe_cpu_move(room, new_innings)
+            await manager._auto_play_cpu_match(room)
+            return True
+
+        if match.current_innings == 3:
+            scorecard = innings.get_scorecard()
+            target = innings.total_runs + 1
+            await manager.broadcast(room, {
+                "type": "INNINGS_BREAK",
+                "scorecard": scorecard,
+                "target": target,
+                "msg": "SUPER OVER: INNINGS 2",
+            })
+            room.auto_move_strikes = {}
+            match.start_innings_4()
+            await asyncio.sleep(2)
+            new_innings = match.active_innings
+            await manager._send_match_state(room)
+            if new_innings:
+                from .captain import _trigger_captain_picks_if_needed
+                await _trigger_captain_picks_if_needed(manager, room, new_innings)
+                start_ball_countdowns(manager, room, new_innings)
+            await manager._maybe_cpu_move(room, new_innings)
+            await manager._auto_play_cpu_match(room)
+            return True
+
         # ── Match over ───────────────────────────────────────────────────────
         final = match.determine_result()
         potm_data = compute_potm(match)

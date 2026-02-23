@@ -21,6 +21,9 @@ class Match:
         self.bowling_first: Optional[List[str]] = None
         self.innings_1: Optional[Innings] = None
         self.innings_2: Optional[Innings] = None
+        self.innings_3: Optional[Innings] = None
+        self.innings_4: Optional[Innings] = None
+        self.is_super_over: bool = False
         self.current_innings: int = 0
         self.winner: Optional[str] = None
         self.result_text = ""
@@ -80,43 +83,104 @@ class Match:
             is_team_mode=(self.mode == "team"),
         )
 
+    def start_innings_3(self) -> None:
+        self.is_super_over = True
+        self.current_innings = 3
+        # team that batted 2nd (the chasing team) gets to bat 1st in Super Over
+        self.innings_3 = Innings(
+            batting_side=self.bowling_first,
+            bowling_side=self.batting_first,
+            total_overs=1,
+            total_wickets=2,
+            is_team_mode=(self.mode == "team"),
+        )
+
+    def start_innings_4(self) -> None:
+        self.current_innings = 4
+        target = self.innings_3.total_runs + 1
+        self.innings_4 = Innings(
+            batting_side=self.batting_first,
+            bowling_side=self.bowling_first,
+            total_overs=1,
+            total_wickets=2,
+            target=target,
+            is_team_mode=(self.mode == "team"),
+        )
+
     @property
     def active_innings(self) -> Optional[Innings]:
         if self.current_innings == 1:
             return self.innings_1
         elif self.current_innings == 2:
             return self.innings_2
+        elif self.current_innings == 3:
+            return self.innings_3
+        elif self.current_innings == 4:
+            return self.innings_4
         return None
 
     def determine_result(self) -> dict:
-        s1 = self.innings_1.total_runs
-        s2 = self.innings_2.total_runs
         bat_first_label = ", ".join(self.batting_first)
         bat_second_label = ", ".join(self.bowling_first)
 
-        if s2 > s1:
-            remaining_wickets = self.total_wickets - self.innings_2.wickets_fallen
-            self.winner = bat_second_label
-            self.result_text = f"{bat_second_label} won by {remaining_wickets} wicket(s)"
-        elif s1 > s2:
-            margin = s1 - s2
-            self.winner = bat_first_label
-            self.result_text = f"{bat_first_label} won by {margin} run(s)"
+        if not self.is_super_over:
+            s1 = self.innings_1.total_runs
+            s2 = self.innings_2.total_runs
+
+            if s2 > s1:
+                remaining_wickets = self.total_wickets - self.innings_2.wickets_fallen
+                self.winner = bat_second_label
+                self.result_text = f"{bat_second_label} won by {remaining_wickets} wicket(s)"
+            elif s1 > s2:
+                margin = s1 - s2
+                self.winner = bat_first_label
+                self.result_text = f"{bat_first_label} won by {margin} run(s)"
+            else:
+                self.winner = "TIE"
+                self.result_text = "Match Tied!"
         else:
-            self.winner = "TIE"
-            self.result_text = "Match Tied!"
+            s3 = self.innings_3.total_runs
+            s4 = self.innings_4.total_runs if getattr(self, "innings_4", None) else 0
+
+            if s4 > s3:
+                self.winner = bat_first_label
+                self.result_text = f"SUPER OVER: {bat_first_label} won!"
+            elif s3 > s4:
+                self.winner = bat_second_label
+                self.result_text = f"SUPER OVER: {bat_second_label} won!"
+            else:
+                bound_team1 = self.innings_1.get_boundary_count() + (self.innings_4.get_boundary_count() if getattr(self, "innings_4", None) else 0)
+                bound_team2 = self.innings_2.get_boundary_count() + (self.innings_3.get_boundary_count() if getattr(self, "innings_3", None) else 0)
+
+                if bound_team1 > bound_team2:
+                    self.winner = bat_first_label
+                    self.result_text = f"{bat_first_label} won on boundary count ({bound_team1}-{bound_team2})"
+                elif bound_team2 > bound_team1:
+                    self.winner = bat_second_label
+                    self.result_text = f"{bat_second_label} won on boundary count ({bound_team2}-{bound_team1})"
+                else:
+                    self.winner = bat_first_label
+                    self.result_text = f"{bat_first_label} won by tiebreaker"
 
         self.is_finished = True
-        return {
+        result = {
             "winner": self.winner,
             "result_text": self.result_text,
-            "scorecard_1": self.innings_1.get_scorecard(),
-            "scorecard_2": self.innings_2.get_scorecard(),
+            "scorecard_1": self.innings_1.get_scorecard() if getattr(self, "innings_1", None) else {},
+            "scorecard_2": self.innings_2.get_scorecard() if getattr(self, "innings_2", None) else {},
             "side_a": self.side_a,
             "side_b": self.side_b,
             "bat_team_1": self.batting_first,
             "bat_team_2": self.bowling_first,
         }
+
+        if self.is_super_over:
+            result["scorecard_3"] = self.innings_3.get_scorecard() if getattr(self, "innings_3", None) else {}
+            result["scorecard_4"] = self.innings_4.get_scorecard() if getattr(self, "innings_4", None) else {}
+            result["bat_team_3"] = self.bowling_first
+            result["bat_team_4"] = self.batting_first
+
+        return result
 
     def get_nrr_data(self) -> dict:
         return {

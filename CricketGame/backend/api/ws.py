@@ -26,6 +26,12 @@ async def websocket_endpoint(ws: WebSocket, room_code: str, token: str = Query(.
 
     await room_manager.broadcast_lobby(room)
 
+    if room.match and room.match.active_innings:
+        await room_manager._send_match_state(room)
+    elif room.tournament:
+        payload = room_manager._build_tournament_payload(room.tournament, skip_current=False)
+        await room_manager.send(player, {"type": "TOURNAMENT_STANDINGS", **payload})
+
     try:
         while True:
             msg = await ws.receive_json()

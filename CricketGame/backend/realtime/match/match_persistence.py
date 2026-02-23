@@ -66,6 +66,17 @@ def save_match_history(manager, room, match: Match, potm_data: dict, tournament_
             tournament_id=tournament_id,
             end_timestamp=datetime.utcnow(),
         )
+
+        if match.is_super_over:
+            if potm_data:
+                potm_data["super_over_data"] = {
+                    "scorecard_3": match.innings_3.get_scorecard() if getattr(match, "innings_3", None) else {},
+                    "scorecard_4": match.innings_4.get_scorecard() if getattr(match, "innings_4", None) else {},
+                    "bat_team_3": match.bowling_first,
+                    "bat_team_4": match.batting_first,
+                }
+            history.potm_stats = json.dumps(potm_data)
+
         db.add(history)
         db.commit()
 

@@ -440,6 +440,18 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
             {/* Main Stage (Stadium Area) */}
             <section className="flex-1 relative flex flex-col bg-white p-4 lg:p-6">
 
+                {/* Current Playoff Match Banner */}
+                {tournament && tournament.phase !== 'group' && tournament.phase !== 'complete' && (
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg p-3 shadow-md mb-4 border border-orange-400/50">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs lg:text-sm uppercase tracking-widest font-black text-white drop-shadow-sm">
+                                🏆 {tournament.phase === 'qualifier_1' ? 'QUALIFIER 1' : tournament.phase === 'eliminator' ? 'ELIMINATOR' : tournament.phase === 'qualifier_2' ? 'QUALIFIER 2' : 'FINAL'}
+                            </span>
+                            <span className="text-[10px] text-orange-900 bg-white/90 px-2 py-1 rounded font-bold uppercase tracking-widest">⚡ LIVE PLAYOFF</span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Mobile Score Header */}
                 <div className="lg:hidden mb-3 bg-slate-50 rounded-lg p-4 border border-slate-200">
                     <div className="flex justify-between items-center mb-2">
@@ -592,7 +604,9 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                             Live Stats
                         </span>
-                        <span className="text-[10px] text-slate-400 font-mono font-bold">Innings {state.innings}</span>
+                        <span className="text-[10px] text-slate-400 font-mono font-bold">
+                            {state.innings === 3 ? 'SUPER OVER - Inn 1' : state.innings === 4 ? 'SUPER OVER - Inn 2' : `Innings ${state.innings}`}
+                        </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                         <div className="text-left">
@@ -696,20 +710,6 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                         </table>
                     </div>
 
-                    {/* Current Playoff Match Banner */}
-                    {tournament && tournament.phase !== 'group' && tournament.phase !== 'complete' && (
-                        <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg p-3 shadow-md">
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] uppercase tracking-widest font-black text-white/80">
-                                    {tournament.phase === 'qualifier_1' ? 'QUALIFIER 1' : tournament.phase === 'eliminator' ? 'ELIMINATOR' : tournament.phase === 'qualifier_2' ? 'QUALIFIER 2' : 'FINAL'}
-                                </span>
-                                <span className="text-[10px] text-white/70 font-bold">⚡ LIVE</span>
-                            </div>
-                            <div className="text-white font-bold text-sm mt-1" style={DISPLAY_FONT}>
-                                {state.batting_side[0] || 'Team A'} vs {state.bowling_side[0] || 'Team B'}
-                            </div>
-                        </div>
-                    )}
 
                     {/* Standings if tournament */}
                     {tournament?.standings?.length ? (
