@@ -186,6 +186,7 @@ async def cpu_call_toss(manager, room) -> None:
         "call": call,
         "coin": result["coin"],
         "winner": result["winner"],
+        "side_a": match.side_a, "side_b": match.side_b,
     })
     if manager._is_cpu(room, result["winner"]):
         await cpu_choose_toss(manager, room)
@@ -207,6 +208,7 @@ async def cpu_choose_toss(manager, room) -> None:
         "choice": choice,
         "batting_first": match.batting_first,
         "bowling_first": match.bowling_first,
+        "side_a": match.side_a, "side_b": match.side_b,
     })
     match.start_innings_1()
     await asyncio.sleep(2)

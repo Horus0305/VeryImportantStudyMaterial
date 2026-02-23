@@ -472,7 +472,13 @@ export default function ProfilePage({ token, username, onRename }: Props) {
                                             const gotPurple = t.purple_cap?.player === username
 
                                             return (
-                                                <div key={t.tournament_id} className={`snap-center min-w-[280px] lg:min-w-0 rounded-lg lg:rounded-none p-5 lg:p-6 relative overflow-hidden transition-all border ${isChamp ? 'bg-slate-900 text-white border-slate-800 shadow-xl' : 'bg-white border-slate-200 lg:hover:shadow-lg'}`}>
+                                                <div
+                                                    key={t.tournament_id}
+                                                    onClick={() => navigate(`/tournament/${t.tournament_id}`)}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/tournament/${t.tournament_id}`)}
+                                                    className={`snap-center min-w-[280px] lg:min-w-0 rounded-lg lg:rounded-none p-5 lg:p-6 relative overflow-hidden transition-all border cursor-pointer active:scale-[0.98] ${isChamp ? 'bg-slate-900 text-white border-slate-800 shadow-xl hover:shadow-2xl' : 'bg-white border-slate-200 lg:hover:shadow-lg hover:border-emerald-300'}`}>
                                                     <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                                                         <span className="text-6xl">{isChamp ? '👑' : '🏆'}</span>
                                                     </div>

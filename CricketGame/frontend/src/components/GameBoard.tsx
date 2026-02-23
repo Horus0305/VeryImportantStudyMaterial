@@ -123,28 +123,40 @@ function CelebrationOverlay({ flash }: { flash: BallFlash | null }) {
 
         const side = Math.random() > 0.5 ? 'left' : 'right'
 
+        // Haptic feedback for key events (4, 6, wicket)
+        const triggerHaptic = (pattern: number | number[]) => {
+            try { navigator?.vibrate?.(pattern) } catch { /* unsupported */ }
+        }
+
         if (flash.hat_trick) {
             newParticles = makeParticles(80, ['#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#22c55e'], true, side)
             newLabel = { text: 'HAT-TRICK! ', color: '#f59e0b', size: 'text-5xl' }
+            triggerHaptic([100, 50, 100, 50, 200])  // Triple burst
         } else if (flash.milestone === 100) {
             newParticles = makeParticles(70, ['#fbbf24', '#f59e0b', '#ef4444', '#ec4899'], true, side)
             newLabel = { text: 'CENTURY! ', color: '#fbbf24', size: 'text-5xl' }
+            triggerHaptic([150, 50, 150, 50, 300])  // Grand celebration
         } else if (flash.milestone === 50) {
             newParticles = makeParticles(50, ['#a3e635', '#22c55e', '#06b6d4'], true, side)
             newLabel = { text: 'FIFTY! ', color: '#a3e635', size: 'text-4xl' }
+            triggerHaptic([100, 50, 150])  // Double tap
         } else if (flash.is_out) {
             newParticles = makeParticles(30, ['#ef4444', '#f97316', '#dc2626'], true, side)
             newLabel = { text: 'WICKET!', color: '#ef4444', size: 'text-4xl' }
+            triggerHaptic([200, 100, 200])  // Strong double pulse for wicket
         } else if ((flash.runs ?? 0) === 6) {
             newParticles = makeParticles(60, ['#fcd34d', '#f59e0b', '#fbbf24', '#fff'], true, side)
             newLabel = { text: 'SIX! ', color: '#fcd34d', size: 'text-5xl' }
+            triggerHaptic([50, 30, 50, 30, 150])  // Burst crescendo for SIX
         } else if ((flash.runs ?? 0) === 4) {
             newParticles = makeParticles(40, ['#4ade80', '#22c55e', '#86efac', '#fff'], true, side)
             newLabel = { text: 'FOUR! ', color: '#4ade80', size: 'text-4xl' }
+            triggerHaptic([80, 40, 120])  // Quick double tap for FOUR
         } else if ((flash.runs ?? 0) > 0) {
             newLabel = { text: `+${flash.runs}`, color: '#e2e8f0', size: 'text-3xl' }
         } else {
             newLabel = { text: 'OUT!', color: '#ef4444', size: 'text-4xl' }
+            triggerHaptic([200, 100, 200])  // Wicket pulse
         }
 
         setParticles(newParticles)
@@ -655,6 +667,21 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                         </table>
                     </div>
 
+                    {/* Current Playoff Match Banner */}
+                    {tournament && tournament.phase !== 'group' && tournament.phase !== 'complete' && (
+                        <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg p-3 shadow-md">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] uppercase tracking-widest font-black text-white/80">
+                                    {tournament.phase === 'qualifier_1' ? 'QUALIFIER 1' : tournament.phase === 'eliminator' ? 'ELIMINATOR' : tournament.phase === 'qualifier_2' ? 'QUALIFIER 2' : 'FINAL'}
+                                </span>
+                                <span className="text-[10px] text-white/70 font-bold">⚡ LIVE</span>
+                            </div>
+                            <div className="text-white font-bold text-sm mt-1" style={DISPLAY_FONT}>
+                                {state.batting_side[0] || 'Team A'} vs {state.bowling_side[0] || 'Team B'}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Standings if tournament */}
                     {tournament?.standings?.length ? (
                         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
@@ -663,9 +690,9 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                                 <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{tournament.phase}</span>
                             </div>
                             <div className="p-2 space-y-1 text-[10px] sm:text-xs font-mono">
-                                {tournament.standings.slice(0, 4).map((s, i) => (
-                                    <div key={s.player} className="flex justify-between items-center rounded p-1.5 sm:p-2 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                                        <span className="w-4 text-slate-400 font-bold">{i + 1}</span>
+                                {tournament.standings.map((s, i) => (
+                                    <div key={s.player} className={`flex justify-between items-center rounded p-1.5 sm:p-2 hover:bg-slate-50 transition-colors ${i < 4 ? 'bg-emerald-50/30' : 'bg-slate-50/50'}`}>
+                                        <span className={`w-4 font-bold ${i < 4 ? 'text-emerald-500' : 'text-slate-400'}`}>{i + 1}</span>
                                         <span className="flex-1 truncate text-slate-700 font-bold">{s.player}</span>
                                         <div className="flex gap-2 sm:gap-4 shrink-0 px-2">
                                             <span className="w-4 text-center text-emerald-500 font-bold">{s.won}</span>
@@ -674,6 +701,28 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                                         <span className="w-8 text-center text-slate-900 font-black">{s.points}</span>
                                         <span className="w-10 sm:w-12 text-right text-slate-500">
                                             {s.nrr >= 0 ? '+' : ''}{s.nrr.toFixed(2)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {/* Upcoming Matches */}
+                    {tournament?.upcoming_matches?.length ? (
+                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                            <div className="bg-gradient-to-r from-blue-50 to-transparent p-3 border-b border-slate-100 flex justify-between items-center">
+                                <h3 className="text-lg tracking-wide text-slate-900" style={DISPLAY_FONT}>Upcoming</h3>
+                                <span className="text-blue-500 text-lg">📅</span>
+                            </div>
+                            <div className="p-2 space-y-1 text-[10px] sm:text-xs">
+                                {tournament.upcoming_matches.slice(0, 5).map((m, idx) => (
+                                    <div key={`${m.label}-${idx}`} className="flex items-center justify-between rounded p-1.5 sm:p-2 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                        <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold min-w-[50px]">
+                                            {m.label === 'group' ? `M${idx + 1}` : m.label === 'qualifier_1' ? 'Q1' : m.label === 'eliminator' ? 'ELIM' : m.label === 'qualifier_2' ? 'Q2' : 'FINAL'}
+                                        </span>
+                                        <span className="flex-1 text-right text-slate-700 font-medium truncate">
+                                            {m.teams?.length === 2 ? `${m.teams[0]} vs ${m.teams[1]}` : 'TBD'}
                                         </span>
                                     </div>
                                 ))}

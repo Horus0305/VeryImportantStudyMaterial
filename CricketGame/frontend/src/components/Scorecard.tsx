@@ -393,15 +393,19 @@ export default function Scorecard({ data, onBack }: Props) {
                                         <span className="w-8 text-center">W</span>
                                         <span className="w-8 text-center">L</span>
                                         <span className="w-10 text-center">Pts</span>
+                                        <span className="w-12 text-right">NRR</span>
                                     </div>
                                     {standings.map((s, i) => (
-                                        <div key={s.player} className="flex justify-between rounded p-1.5 bg-slate-50 border border-slate-100">
-                                            <span className="w-5 text-slate-500">{i + 1}</span>
+                                        <div key={s.player} className={`flex justify-between rounded p-1.5 border border-slate-100 ${i < 4 ? 'bg-emerald-50/30' : 'bg-slate-50'}`}>
+                                            <span className={`w-5 ${i < 4 ? 'text-emerald-500 font-bold' : 'text-slate-500'}`}>{i + 1}</span>
                                             <span className="flex-1 truncate text-slate-900 font-medium">{s.player}</span>
                                             <span className="w-8 text-center text-slate-600">{s.played}</span>
                                             <span className="w-8 text-center text-green-600 font-bold">{s.won}</span>
                                             <span className="w-8 text-center text-red-600">{s.lost}</span>
                                             <span className="w-10 text-center text-orange-600 font-bold">{s.points}</span>
+                                            <span className={`w-12 text-right ${s.nrr >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                {s.nrr >= 0 ? '+' : ''}{typeof s.nrr === 'number' ? s.nrr.toFixed(2) : s.nrr}
+                                            </span>
                                         </div>
                                     ))}
                                 </div>

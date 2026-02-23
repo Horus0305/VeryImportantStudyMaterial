@@ -112,6 +112,8 @@ class Match:
             "result_text": self.result_text,
             "scorecard_1": self.innings_1.get_scorecard(),
             "scorecard_2": self.innings_2.get_scorecard(),
+            "side_a": self.side_a,
+            "side_b": self.side_b,
         }
 
     def get_nrr_data(self) -> dict:
@@ -120,6 +122,7 @@ class Match:
             "overs_faced_1": self.innings_1.overs_completed + self.innings_1.balls_in_over / 6 if self.innings_1 else 0,
             "runs_scored_2": self.innings_2.total_runs if self.innings_2 else 0,
             "overs_faced_2": self.innings_2.overs_completed + self.innings_2.balls_in_over / 6 if self.innings_2 else 0,
+            "batting_first_player": self.batting_first[0] if self.batting_first else None,
         }
 
     def _other_side_player(self, player: str) -> str:

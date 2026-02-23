@@ -5,8 +5,6 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { LogOut, Copy, User } from 'lucide-react'
 import Lobby from '@/components/Lobby'
 import TossScreen from '@/components/TossScreen'
@@ -191,9 +189,12 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                 break
 
             case 'MATCH_OVER':
+                // Delay transition to scorecard so the last ball celebration finishes
                 setScorecardData(msg)
-                setScreen('scorecard')
-                setMatchState(null)
+                setTimeout(() => {
+                    setScreen('scorecard')
+                    setMatchState(null)
+                }, 2500)
                 break
 
             case 'MATCH_CANCELLED':
@@ -380,80 +381,103 @@ export default function RoomPage({ token, username, onLogout }: Props) {
     // ── Render ──
 
     if (screen === 'home') {
+        const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-                <div className="w-full max-w-lg space-y-6">
-                    {/* Header */}
-                    <div className="text-center space-y-3 mb-8">
-                        <h1 className="text-5xl font-extrabold text-slate-900 flex items-center justify-center gap-3">
-                            <span className="text-emerald-600">🏏</span> E Cricket
-                        </h1>
-                        <p className="text-xl text-slate-600">Welcome, <span className="font-semibold text-emerald-700">{username}</span>!</p>
-                    </div>
+            <div className="min-h-[100dvh] sm:min-h-screen bg-slate-50 flex items-center justify-center relative overflow-hidden px-4 py-8">
+                {/* Subtle decorative gradients */}
+                <div className="absolute top-[-30%] right-[-20%] w-[500px] h-[500px] bg-emerald-200/30 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute bottom-[-20%] left-[-15%] w-[400px] h-[400px] bg-blue-200/20 rounded-full blur-3xl pointer-events-none" />
 
-                    {/* Create Room Card */}
-                    <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-                        <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                            Create a Room
-                        </h3>
-                        <Button
-                            onClick={createRoom}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-6 text-lg shadow-sm transition-all rounded-xl"
-                            size="lg"
-                        >
-                            Create New Room
-                        </Button>
-                        <p className="text-xs text-slate-500 mt-3 text-center">
-                            You'll be the host. Share the room link with friends.
+                <div className="relative z-10 w-full max-w-lg space-y-5 sm:space-y-6">
+                    {/* Hero Header */}
+                    <div className="text-center mb-2 sm:mb-4">
+                        <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl shadow-lg shadow-emerald-500/20 mb-4 rotate-[-6deg] hover:rotate-0 transition-transform duration-500">
+                            <span className="text-2xl sm:text-3xl -rotate-12">🏏</span>
+                        </div>
+                        <h1 className="text-4xl sm:text-5xl text-slate-900 uppercase tracking-tight leading-none" style={DISPLAY_FONT}>
+                            E <span className="text-emerald-600">Cricket</span>
+                        </h1>
+                        <p className="text-sm text-slate-500 mt-2">
+                            Welcome, <span className="font-bold text-emerald-700">{username}</span>!
                         </p>
                     </div>
 
+                    {/* Create Room Card */}
+                    <div className="group bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-sm hover:shadow-md hover:border-emerald-300 transition-all duration-300">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                                <span className="text-xl">⚡</span>
+                            </div>
+                            <div>
+                                <h3 className="text-lg sm:text-xl text-slate-900 uppercase tracking-wide" style={DISPLAY_FONT}>Create a Room</h3>
+                                <p className="text-[11px] sm:text-xs text-slate-400">Host a new match. Share the code with friends.</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={createRoom}
+                            className="w-full py-3.5 sm:py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold uppercase tracking-widest text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-600/15 hover:shadow-emerald-500/25 transition-all duration-300 active:scale-[0.98]"
+                        >
+                            🏏 Create New Room
+                        </button>
+                    </div>
+
                     {/* Join Room Card */}
-                    <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-                        <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                            Join a Room
-                        </h3>
+                    <div className="group bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-300">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                <span className="text-xl">🎯</span>
+                            </div>
+                            <div>
+                                <h3 className="text-lg sm:text-xl text-slate-900 uppercase tracking-wide" style={DISPLAY_FONT}>Join a Room</h3>
+                                <p className="text-[11px] sm:text-xs text-slate-400">Enter the room code to join an existing match.</p>
+                            </div>
+                        </div>
                         <div className="space-y-3">
-                            <Input
+                            <input
                                 placeholder="Enter room code (e.g. ABC123)"
                                 value={joinCode}
                                 onChange={e => setJoinCode(e.target.value.toUpperCase())}
                                 onKeyDown={e => e.key === 'Enter' && joinRoom()}
-                                className="bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/20"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 sm:py-3.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-sm font-mono tracking-widest text-center uppercase"
                             />
-                            <Button
+                            <button
                                 onClick={joinRoom}
-                                variant="secondary"
-                                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-6 text-lg shadow-sm transition-all rounded-xl"
+                                className="w-full py-3.5 sm:py-4 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white font-bold uppercase tracking-widest text-xs sm:text-sm rounded-xl shadow-md shadow-slate-900/10 hover:shadow-slate-800/20 transition-all duration-300 active:scale-[0.98]"
                             >
-                                Join Room
-                            </Button>
+                                🎯 Join Room
+                            </button>
                         </div>
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3 justify-center pt-2">
-                        <Button
-                            variant="outline"
+                    <div className="flex gap-3 justify-center pt-1">
+                        <button
                             onClick={() => navigate('/profile')}
-                            className="flex items-center gap-2 bg-white border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50 hover:border-slate-300 transition-all text-xs sm:text-sm font-medium shadow-sm"
                         >
-                            View Profile
-                        </Button>
-                        <Button
-                            variant="ghost"
+                            <span className="text-base sm:text-lg">👤</span> Profile
+                        </button>
+                        <button
                             onClick={onLogout}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-red-50 border border-red-200 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-100 hover:border-red-300 transition-all text-xs sm:text-sm font-medium"
                         >
-                            Logout
-                        </Button>
+                            <span className="text-base sm:text-lg">🚪</span> Logout
+                        </button>
                     </div>
 
                     {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-                            <p className="text-red-600 font-medium">{error}</p>
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4 flex items-center justify-center gap-2">
+                            <span className="text-red-500 text-base">⚠</span>
+                            <p className="text-xs sm:text-sm text-red-600 font-medium">{error}</p>
                         </div>
                     )}
+
+                    {/* Footer */}
+                    <div className="text-center pt-1 pb-2">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+                            © 2026 Sports Interactive
+                        </p>
+                    </div>
                 </div>
             </div>
         )

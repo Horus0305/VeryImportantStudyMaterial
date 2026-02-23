@@ -59,9 +59,10 @@ async def initiate_toss(manager, room) -> None:
             toss_caller = human_captain
     room.toss_state = {"caller": toss_caller, "phase": "calling"}
 
+    match_info = {"side_a": match.side_a, "side_b": match.side_b}
     if room.cpu_enabled and manager._is_cpu(room, caller) and not human_captain:
         for username, p in room.players.items():
-            await manager.send(p, {"type": "TOSS_WAITING", "caller": toss_caller})
+            await manager.send(p, {"type": "TOSS_WAITING", "caller": toss_caller, **match_info})
         await asyncio.sleep(0.3)
         await manager._cpu_call_toss(room)
         asyncio.create_task(_cpu_call_timeout(manager, room, caller))
@@ -69,9 +70,9 @@ async def initiate_toss(manager, room) -> None:
 
     for username, p in room.players.items():
         if username == toss_caller:
-            await manager.send(p, {"type": "TOSS_CALLER", "caller": toss_caller})
+            await manager.send(p, {"type": "TOSS_CALLER", "caller": toss_caller, **match_info})
         else:
-            await manager.send(p, {"type": "TOSS_WAITING", "caller": toss_caller})
+            await manager.send(p, {"type": "TOSS_WAITING", "caller": toss_caller, **match_info})
 
 
 async def toss_call(manager, room, player, msg: dict) -> None:
@@ -99,6 +100,7 @@ async def toss_call(manager, room, player, msg: dict) -> None:
         "type": "TOSS_RESULT",
         "caller": toss["caller"], "call": call,
         "coin": result["coin"], "winner": result["winner"],
+        "side_a": match.side_a, "side_b": match.side_b,
     })
 
     winner = result["winner"]
@@ -143,6 +145,7 @@ async def toss_choice(manager, room, player, msg: dict) -> None:
         "winner": match.toss_winner, "choice": choice,
         "batting_first": match.batting_first,
         "bowling_first": match.bowling_first,
+        "side_a": match.side_a, "side_b": match.side_b,
     })
 
     match.start_innings_1()
