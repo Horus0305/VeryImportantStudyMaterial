@@ -114,6 +114,8 @@ class Match:
             "scorecard_2": self.innings_2.get_scorecard(),
             "side_a": self.side_a,
             "side_b": self.side_b,
+            "bat_team_1": self.batting_first,
+            "bat_team_2": self.bowling_first,
         }
 
     def get_nrr_data(self) -> dict:

@@ -123,9 +123,20 @@ function CelebrationOverlay({ flash }: { flash: BallFlash | null }) {
 
         const side = Math.random() > 0.5 ? 'left' : 'right'
 
-        // Haptic feedback for key events (4, 6, wicket)
+        // Haptic feedback for key events (4, 6, wicket) with iOS visual fallback
         const triggerHaptic = (pattern: number | number[]) => {
-            try { navigator?.vibrate?.(pattern) } catch { /* unsupported */ }
+            try {
+                if (navigator?.vibrate && navigator.vibrate(pattern)) {
+                    // Supported and successfully called
+                } else {
+                    // Fallback for iOS/unsupported devices: visual screen shake
+                    document.body.classList.remove('haptic-shake')
+                    // Force reflow
+                    void document.body.offsetWidth
+                    document.body.classList.add('haptic-shake')
+                    setTimeout(() => document.body.classList.remove('haptic-shake'), 200)
+                }
+            } catch { /* ignore */ }
         }
 
         if (flash.hat_trick) {

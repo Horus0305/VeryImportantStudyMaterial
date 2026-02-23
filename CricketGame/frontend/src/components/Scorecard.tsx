@@ -175,8 +175,11 @@ export default function Scorecard({ data, onBack }: Props) {
     const sideA = (data.side_a as string[]) ?? []
     const sideB = (data.side_b as string[]) ?? []
 
-    const battingTeam1 = sideA.length ? sideA.join(', ') : 'Team A'
-    const battingTeam2 = sideB.length ? sideB.join(', ') : 'Team B'
+    const batTeam1 = (data.bat_team_1 as string[]) ?? sideA
+    const batTeam2 = (data.bat_team_2 as string[]) ?? sideB
+
+    const battingTeam1 = batTeam1.length ? batTeam1.join(', ') : 'Team A'
+    const battingTeam2 = batTeam2.length ? batTeam2.join(', ') : 'Team B'
 
     // Split result cleverly for display font
     const resultParts = resultText.split(/(won)/i)

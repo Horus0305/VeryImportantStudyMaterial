@@ -340,10 +340,53 @@ function DesktopProgressionStandings({ data, bracket, results, matchLookup, onMa
             <div className="bg-white border border-slate-200">
                 {/* Bracket Tree */}
                 <div className="p-8 border-b border-slate-200 bg-slate-50/50">
-                    <div className="relative w-full overflow-x-auto pb-4">
-                        <div className="min-w-[800px] flex justify-between relative h-[320px] px-12">
+                    <div className="relative w-full overflow-x-auto pb-8">
+                        {/* Fixed size wrapper ensures SVG coordinates never misalign */}
+                        <div className="w-[960px] flex relative h-[360px] px-8 mx-auto" style={{ gap: '64px' }}>
+
+                            {/* ── SVG Connector Lines ── */}
+                            <svg className="absolute inset-0 z-0 pointer-events-none" width="960" height="360" viewBox="0 0 960 360">
+                                <defs>
+                                    <marker id="arrowEmerald" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+                                        <path d="M0,0 L6,2 L0,4" fill="#10b981" />
+                                    </marker>
+                                    <marker id="arrowAmber" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+                                        <path d="M0,0 L6,2 L0,4" fill="#f59e0b" />
+                                    </marker>
+                                </defs>
+
+                                {/* Y-Coordinates based on py-12 (48px) spacing and standard card heights */}
+                                {/* Q1 Winner → Final (Top Left to Middle Right) */}
+                                <path
+                                    d="M 288 100 C 480 100, 480 180, 666 180"
+                                    fill="none" stroke="#10b981" strokeWidth="2.5"
+                                    opacity="0.9" markerEnd="url(#arrowEmerald)"
+                                />
+
+                                {/* Q1 Loser → Q2 (Top Left to Bottom Middle) */}
+                                <path
+                                    d="M 288 110 C 320 110, 320 280, 346 280"
+                                    fill="none" stroke="#f59e0b" strokeWidth="2"
+                                    opacity="0.8" markerEnd="url(#arrowAmber)"
+                                />
+
+                                {/* Eliminator Winner → Q2 (Bottom Left to Bottom Middle) */}
+                                <path
+                                    d="M 288 280 L 346 280"
+                                    fill="none" stroke="#10b981" strokeWidth="2.5"
+                                    opacity="0.9" markerEnd="url(#arrowEmerald)"
+                                />
+
+                                {/* Q2 Winner → Final (Bottom Middle to Middle Right) */}
+                                <path
+                                    d="M 608 280 C 640 280, 640 180, 666 180"
+                                    fill="none" stroke="#10b981" strokeWidth="2.5"
+                                    opacity="0.9" markerEnd="url(#arrowEmerald)"
+                                />
+                            </svg>
+
                             {/* Left column: Q1 + Eliminator */}
-                            <div className="flex flex-col justify-between z-10 w-64 h-full py-10">
+                            <div className="flex flex-col justify-between z-10 w-64 h-full py-12">
                                 {phases.slice(0, 2).map(phase => {
                                     const teams = bracket[phase.key]
                                     const winner = results[phase.key]
@@ -358,16 +401,16 @@ function DesktopProgressionStandings({ data, bracket, results, matchLookup, onMa
                                                 {phase.label}
                                             </div>
                                             {teams ? teams.map(t => (
-                                                <div key={t} className={`flex justify-between items-center ${t === winner ? 'mb-2 font-bold text-slate-900' : 'text-slate-400 text-sm'}`}>
+                                                <div key={t} className={`flex justify-between items-center ${t === winner ? 'mb-1 font-bold text-slate-900' : 'mb-1 text-slate-400 text-sm'}`}>
                                                     <span className={t === winner ? 'text-emerald-600' : ''}>{t}</span>
                                                     {t === winner
-                                                        ? <span className="bg-emerald-500 text-white text-xs px-1.5 rounded">W</span>
-                                                        : <span className="text-xs">L</span>
+                                                        ? <span className="bg-emerald-500 text-white text-[10px] font-bold px-1.5 rounded">W</span>
+                                                        : <span className="text-[10px] font-bold">L</span>
                                                     }
                                                 </div>
                                             )) : <div className="text-slate-400 text-xs py-2">TBD</div>}
                                             {match?.result_text && (
-                                                <div className="mt-2 text-[10px] text-slate-400 border-t border-slate-100 pt-1 font-mono">{match.result_text}</div>
+                                                <div className="mt-2 text-[10px] text-slate-400 border-t border-slate-100 pt-1 font-mono leading-tight">{match.result_text}</div>
                                             )}
                                         </div>
                                     )
@@ -375,7 +418,7 @@ function DesktopProgressionStandings({ data, bracket, results, matchLookup, onMa
                             </div>
 
                             {/* Center: Q2 */}
-                            <div className="flex flex-col justify-end z-10 w-64 h-full py-10 mx-8">
+                            <div className="flex flex-col justify-end z-10 w-64 h-full py-12">
                                 {(() => {
                                     const phase = phases[2]
                                     const teams = bracket[phase.key]
@@ -390,16 +433,16 @@ function DesktopProgressionStandings({ data, bracket, results, matchLookup, onMa
                                                 {phase.label}
                                             </div>
                                             {teams ? teams.map(t => (
-                                                <div key={t} className={`flex justify-between items-center ${t === winner ? 'mb-2 font-bold text-slate-900' : 'text-slate-400 text-sm'}`}>
+                                                <div key={t} className={`flex justify-between items-center ${t === winner ? 'mb-1 font-bold text-slate-900' : 'mb-1 text-slate-400 text-sm'}`}>
                                                     <span className={t === winner ? 'text-emerald-600' : ''}>{t}</span>
                                                     {t === winner
-                                                        ? <span className="bg-emerald-500 text-white text-xs px-1.5 rounded">W</span>
-                                                        : <span className="text-xs">L</span>
+                                                        ? <span className="bg-emerald-500 text-white text-[10px] font-bold px-1.5 rounded">W</span>
+                                                        : <span className="text-[10px] font-bold">L</span>
                                                     }
                                                 </div>
                                             )) : <div className="text-slate-400 text-xs py-2">TBD</div>}
                                             {match?.result_text && (
-                                                <div className="mt-2 text-[10px] text-slate-400 border-t border-slate-100 pt-1 font-mono">{match.result_text}</div>
+                                                <div className="mt-2 text-[10px] text-slate-400 border-t border-slate-100 pt-1 font-mono leading-tight">{match.result_text}</div>
                                             )}
                                         </div>
                                     )
@@ -407,14 +450,14 @@ function DesktopProgressionStandings({ data, bracket, results, matchLookup, onMa
                             </div>
 
                             {/* Right: Final */}
-                            <div className="flex flex-col justify-center z-10 w-64 h-full py-10">
+                            <div className="flex flex-col justify-center z-10 w-64 h-full py-12">
                                 {(() => {
                                     const teams = bracket['final']
                                     const winner = results['final']
                                     const match = matchLookup['final']
                                     return (
                                         <div
-                                            className={`bg-slate-900 border border-slate-800 shadow-lg p-5 relative scale-110 origin-left ${match ? 'cursor-pointer hover:shadow-xl' : ''}`}
+                                            className={`bg-slate-900 border border-slate-800 shadow-lg p-5 relative scale-[1.05] origin-left ${match ? 'cursor-pointer hover:shadow-xl' : ''}`}
                                             onClick={() => match && onMatchClick(match.match_id)}
                                         >
                                             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[10px] font-bold px-3 py-0.5 uppercase tracking-widest shadow-lg">
@@ -429,8 +472,8 @@ function DesktopProgressionStandings({ data, bracket, results, matchLookup, onMa
                                                                 {t === winner && <span className="text-emerald-500 text-sm">👑</span>}
                                                             </div>
                                                             {t === winner
-                                                                ? <span className="bg-emerald-500 text-white text-xs px-1.5 py-0.5 rounded">W</span>
-                                                                : <span className="text-xs">L</span>
+                                                                ? <span className="bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">W</span>
+                                                                : <span className="text-[10px] font-bold">L</span>
                                                             }
                                                         </div>
                                                     ))}
