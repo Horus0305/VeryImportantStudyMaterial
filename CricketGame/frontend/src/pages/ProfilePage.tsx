@@ -540,7 +540,11 @@ export default function ProfilePage({ token, username, onRename }: Props) {
                                 <div className="p-8 text-center text-sm font-medium text-slate-500">No matches found for this mode.</div>
                             ) : matchHistory.map((m) => {
                                 const opponent = m.side_a.includes(username) ? m.side_b.join(', ') : m.side_a.join(', ')
-                                const isWin = m.winner?.includes(username)
+                                const winnerNames = (m.winner ?? '')
+                                    .split(',')
+                                    .map(n => n.trim())
+                                    .filter(Boolean)
+                                const isWin = winnerNames.includes(username)
                                 const isTie = m.winner === 'TIE'
                                 const isCancelled = m.winner === null && m.result_text.toLowerCase().includes('cancelled')
                                 const displayMode = m.mode === '2v2' ? 'TEAM' : m.mode.toUpperCase()

@@ -1,5 +1,6 @@
+import copy
 import random
-from typing import Optional, List
+from typing import Any, Dict, List, Optional
 from .innings import Innings
 
 
@@ -24,10 +25,51 @@ class Match:
         self.innings_3: Optional[Innings] = None
         self.innings_4: Optional[Innings] = None
         self.is_super_over: bool = False
+        self.super_over_round: int = 0
+        self.super_over_rounds: List[Dict[str, Any]] = []
         self.current_innings: int = 0
         self.winner: Optional[str] = None
         self.result_text = ""
         self.is_finished = False
+        # When True, tournament standings should not consume this match for NRR.
+        self.nrr_locked = False
+
+    def snapshot_super_over_round(self) -> Optional[Dict[str, Any]]:
+        """Capture the completed super-over round (innings 3 + 4)."""
+        if not self.innings_3 or not self.innings_4:
+            return None
+
+        round_no = self.super_over_round if self.super_over_round > 0 else len(self.super_over_rounds) + 1
+        if self.super_over_rounds and self.super_over_rounds[-1].get("round") == round_no:
+            return self.super_over_rounds[-1]
+
+        score_3 = self.innings_3.total_runs
+        score_4 = self.innings_4.total_runs
+        bat_first_label = ", ".join(self.batting_first or [])
+        bat_second_label = ", ".join(self.bowling_first or [])
+
+        round_winner: Optional[str] = None
+        is_tied_round = score_3 == score_4
+        if score_4 > score_3:
+            round_winner = bat_first_label
+        elif score_3 > score_4:
+            round_winner = bat_second_label
+
+        snapshot: Dict[str, Any] = {
+            "round": round_no,
+            "scorecard_3": self.innings_3.get_scorecard(),
+            "scorecard_4": self.innings_4.get_scorecard(),
+            "bat_team_3": list(self.bowling_first or []),
+            "bat_team_4": list(self.batting_first or []),
+            "is_tied_round": is_tied_round,
+            "round_winner": round_winner,
+        }
+        self.super_over_rounds.append(snapshot)
+        return snapshot
+
+    def get_super_over_timeline(self) -> List[Dict[str, Any]]:
+        """Return a detached copy of all recorded super-over rounds."""
+        return copy.deepcopy(self.super_over_rounds)
 
     def do_toss(self, caller: Optional[str] = None) -> dict:
         if caller:
@@ -85,6 +127,7 @@ class Match:
 
     def start_innings_3(self) -> None:
         self.is_super_over = True
+        self.super_over_round += 1
         self.current_innings = 3
         # team that batted 2nd (the chasing team) gets to bat 1st in Super Over
         self.innings_3 = Innings(
@@ -149,18 +192,8 @@ class Match:
                 self.winner = bat_second_label
                 self.result_text = f"SUPER OVER: {bat_second_label} won!"
             else:
-                bound_team1 = self.innings_1.get_boundary_count() + (self.innings_4.get_boundary_count() if getattr(self, "innings_4", None) else 0)
-                bound_team2 = self.innings_2.get_boundary_count() + (self.innings_3.get_boundary_count() if getattr(self, "innings_3", None) else 0)
-
-                if bound_team1 > bound_team2:
-                    self.winner = bat_first_label
-                    self.result_text = f"{bat_first_label} won on boundary count ({bound_team1}-{bound_team2})"
-                elif bound_team2 > bound_team1:
-                    self.winner = bat_second_label
-                    self.result_text = f"{bat_second_label} won on boundary count ({bound_team2}-{bound_team1})"
-                else:
-                    self.winner = bat_first_label
-                    self.result_text = f"{bat_first_label} won by tiebreaker"
+                self.winner = "TIE"
+                self.result_text = "SUPER OVER TIED!"
 
         self.is_finished = True
         result = {
@@ -179,15 +212,27 @@ class Match:
             result["scorecard_4"] = self.innings_4.get_scorecard() if getattr(self, "innings_4", None) else {}
             result["bat_team_3"] = self.bowling_first
             result["bat_team_4"] = self.batting_first
+            result["super_over_timeline"] = self.get_super_over_timeline()
 
         return result
 
     def get_nrr_data(self) -> dict:
+        def _official_overs_faced(innings: Optional[Innings]) -> float:
+            if not innings:
+                return 0.0
+            balls_faced = innings.overs_completed * 6 + innings.balls_in_over
+            full_quota_overs = float(innings.total_overs)
+            actual_overs = balls_faced / 6.0
+            # Official NRR convention: if all out early, count full quota overs.
+            if innings.wickets_fallen >= innings.total_wickets and actual_overs < full_quota_overs:
+                return full_quota_overs
+            return actual_overs
+
         return {
             "runs_scored_1": self.innings_1.total_runs if self.innings_1 else 0,
-            "overs_faced_1": self.innings_1.overs_completed + self.innings_1.balls_in_over / 6 if self.innings_1 else 0,
+            "overs_faced_1": _official_overs_faced(self.innings_1),
             "runs_scored_2": self.innings_2.total_runs if self.innings_2 else 0,
-            "overs_faced_2": self.innings_2.overs_completed + self.innings_2.balls_in_over / 6 if self.innings_2 else 0,
+            "overs_faced_2": _official_overs_faced(self.innings_2),
             "batting_first_player": self.batting_first[0] if self.batting_first else None,
         }
 

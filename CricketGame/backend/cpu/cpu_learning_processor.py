@@ -63,7 +63,7 @@ class CPULearningProcessor:
             for item in queue_items:
                 try:
                     item.processing_started_at = datetime.utcnow()
-                    db.commit()
+                    db.flush()
                     
                     # Process this ball
                     await self._update_cpu_knowledge(db, item.ball_log_id)
@@ -160,7 +160,7 @@ class CPULearningProcessor:
             )
             db.add(pattern)
         
-        db.commit()
+        db.flush()
     
     def _update_user_profile(self, db: Session, user_id: int, match_format: str, role: str, move: int):
         """Update user profile statistics."""
@@ -248,7 +248,7 @@ class CPULearningProcessor:
             
             db.add(profile)
         
-        db.commit()
+        db.flush()
     
     def _update_user_learning_progress(self, db: Session, user_id: int):
         """Update learning progress tracking."""
@@ -271,7 +271,7 @@ class CPULearningProcessor:
             )
             db.add(progress)
         
-        db.commit()
+        db.flush()
     
     def _update_situational_pattern(self, db: Session, ball: MatchBallLog, user_id: int, role: str, move: int):
         """Update situational patterns."""
@@ -327,7 +327,7 @@ class CPULearningProcessor:
             )
             db.add(pattern)
         
-        db.commit()
+        db.flush()
     
     def _update_sequence_patterns(self, db: Session, ball: MatchBallLog):
         """Update sequence patterns based on previous ball."""
@@ -412,7 +412,7 @@ class CPULearningProcessor:
             )
             db.add(pattern)
         
-        db.commit()
+        db.flush()
     
     def _get_recent_event_for_ball(self, db: Session, ball: MatchBallLog) -> str:
         """Determine recent event based on previous balls."""

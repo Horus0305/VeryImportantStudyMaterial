@@ -35,6 +35,9 @@ def init_db() -> None:
         if "end_timestamp" not in columns:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE match_history ADD COLUMN end_timestamp DATETIME"))
+        if "super_over_timeline" not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE match_history ADD COLUMN super_over_timeline TEXT"))
 
 
 def get_learning_processor():

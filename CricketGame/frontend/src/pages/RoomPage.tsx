@@ -162,20 +162,29 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                 setBallFlash(msg)
                 setTimeout(() => setBallFlash(null), 1500)
                 // Clear any running countdown — ball was resolved
-                if (countdownRef.current) clearInterval(countdownRef.current)
+                if (countdownRef.current) {
+                    clearInterval(countdownRef.current)
+                    countdownRef.current = null
+                }
                 setCountdown(null)
                 break
 
             case 'COUNTDOWN': {
                 // Fresh countdown from server (role: bat | bowl | captain, seconds: N)
-                if (countdownRef.current) clearInterval(countdownRef.current)
+                if (countdownRef.current) {
+                    clearInterval(countdownRef.current)
+                    countdownRef.current = null
+                }
                 const role = msg.role as string
                 const seconds = msg.seconds as number
                 setCountdown({ role, seconds })
                 countdownRef.current = setInterval(() => {
                     setCountdown(prev => {
                         if (!prev || prev.seconds <= 1) {
-                            if (countdownRef.current) clearInterval(countdownRef.current!)
+                            if (countdownRef.current) {
+                                clearInterval(countdownRef.current)
+                                countdownRef.current = null
+                            }
                             return null
                         }
                         return { ...prev, seconds: prev.seconds - 1 }
@@ -326,6 +335,10 @@ export default function RoomPage({ token, username, onLogout }: Props) {
             connectWs(urlRoomCode)
         }
         return () => {
+            if (countdownRef.current) {
+                clearInterval(countdownRef.current)
+                countdownRef.current = null
+            }
             wsRef.current?.close()
             wsRef.current = null  // Null the ref to allow reconnection
         }

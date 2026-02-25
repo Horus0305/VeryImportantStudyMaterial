@@ -50,6 +50,25 @@ def save_match_history(manager, room, match: Match, potm_data: dict, tournament_
     try:
         sc1 = match.innings_1.get_scorecard() if match.innings_1 else {}
         sc2 = match.innings_2.get_scorecard() if match.innings_2 else {}
+        super_over_timeline = match.get_super_over_timeline() if hasattr(match, "get_super_over_timeline") else []
+        potm_payload = dict(potm_data) if isinstance(potm_data, dict) else None
+
+        if match.is_super_over and potm_payload is not None:
+            latest_round = super_over_timeline[-1] if super_over_timeline else None
+            if latest_round:
+                potm_payload["super_over_data"] = {
+                    "scorecard_3": latest_round.get("scorecard_3") or {},
+                    "scorecard_4": latest_round.get("scorecard_4") or {},
+                    "bat_team_3": latest_round.get("bat_team_3") or match.bowling_first,
+                    "bat_team_4": latest_round.get("bat_team_4") or match.batting_first,
+                }
+            else:
+                potm_payload["super_over_data"] = {
+                    "scorecard_3": match.innings_3.get_scorecard() if getattr(match, "innings_3", None) else {},
+                    "scorecard_4": match.innings_4.get_scorecard() if getattr(match, "innings_4", None) else {},
+                    "bat_team_3": match.bowling_first,
+                    "bat_team_4": match.batting_first,
+                }
 
         history = MatchHistory(
             match_id=match.id,
@@ -61,21 +80,12 @@ def save_match_history(manager, room, match: Match, potm_data: dict, tournament_
             scorecard_2=json.dumps(sc2),
             result_text=match.result_text,
             winner=match.winner,
-            potm=potm_data.get("player") if potm_data else None,
-            potm_stats=json.dumps(potm_data) if potm_data else None,
+            potm=potm_payload.get("player") if potm_payload else None,
+            potm_stats=json.dumps(potm_payload) if potm_payload else None,
+            super_over_timeline=json.dumps(super_over_timeline) if super_over_timeline else None,
             tournament_id=tournament_id,
             end_timestamp=datetime.utcnow(),
         )
-
-        if match.is_super_over:
-            if potm_data:
-                potm_data["super_over_data"] = {
-                    "scorecard_3": match.innings_3.get_scorecard() if getattr(match, "innings_3", None) else {},
-                    "scorecard_4": match.innings_4.get_scorecard() if getattr(match, "innings_4", None) else {},
-                    "bat_team_3": match.bowling_first,
-                    "bat_team_4": match.batting_first,
-                }
-            history.potm_stats = json.dumps(potm_data)
 
         db.add(history)
         db.commit()

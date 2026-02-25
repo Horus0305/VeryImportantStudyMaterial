@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
+import SuperOverTimeline from '@/components/SuperOverTimeline'
+import { resolveSuperOverTimeline } from '@/lib/superOver'
 
 /* ─── Interfaces ─── */
 
@@ -27,17 +29,35 @@ interface PotmData {
     player: string; score: number; summary: string
     runs: number; balls: number; wickets: number; sr: number
     economy: number | null
+    super_over_data?: unknown
 }
 interface MatchData {
     match_id: string; room_code: string; mode: string; timestamp: string
     side_a: string[]; side_b: string[]
+    bat_team_1?: string[]; bat_team_2?: string[]
+    bat_team_3?: string[]; bat_team_4?: string[]
     scorecard_1: ScorecardData; scorecard_2: ScorecardData
+    scorecard_3?: ScorecardData; scorecard_4?: ScorecardData
+    super_over_timeline?: unknown
     result_text: string; winner: string | null
     potm: string | null; potm_stats: PotmData | null
     tournament_id: string | null
 }
 
 const API = (import.meta.env.VITE_API_BASE_URL ?? window.location.origin).replace(/\/$/, '')
+
+function inferInningsTeams(scorecard1: ScorecardData | null | undefined, sideA: string[], sideB: string[]) {
+    if (!scorecard1?.batting?.length) {
+        return { innings1: sideA, innings2: sideB }
+    }
+    const battingNames = new Set(scorecard1.batting.map(b => b.name))
+    const sideAHits = sideA.reduce((count, name) => count + (battingNames.has(name) ? 1 : 0), 0)
+    const sideBHits = sideB.reduce((count, name) => count + (battingNames.has(name) ? 1 : 0), 0)
+    if (sideAHits >= sideBHits) {
+        return { innings1: sideA, innings2: sideB }
+    }
+    return { innings1: sideB, innings2: sideA }
+}
 
 export default function MatchDetailPage() {
     const { matchId } = useParams()
@@ -83,8 +103,24 @@ export default function MatchDetailPage() {
         )
     }
 
-    const battingTeam1 = match.side_a.join(', ')
-    const battingTeam2 = match.side_b.join(', ')
+    const inferredTeams = inferInningsTeams(match.scorecard_1, match.side_a, match.side_b)
+    const innings1Side = match.bat_team_1?.length ? match.bat_team_1 : inferredTeams.innings1
+    const innings2Side = match.bat_team_2?.length ? match.bat_team_2 : inferredTeams.innings2
+    const battingTeam1 = innings1Side.join(', ')
+    const battingTeam2 = innings2Side.join(', ')
+    const superOverTimeline = resolveSuperOverTimeline({
+        super_over_timeline: match.super_over_timeline,
+        potm_payload: match.potm_stats,
+        scorecard_3: match.scorecard_3,
+        scorecard_4: match.scorecard_4,
+        bat_team_3: match.bat_team_3,
+        bat_team_4: match.bat_team_4,
+    })
+    const latestSuperOverRound = superOverTimeline.length ? superOverTimeline[superOverTimeline.length - 1] : null
+    const heroBattingTeam3 = latestSuperOverRound?.bat_team_3?.length ? latestSuperOverRound.bat_team_3.join(', ') : (match.bat_team_3?.join(', ') || 'Team 1')
+    const heroBattingTeam4 = latestSuperOverRound?.bat_team_4?.length ? latestSuperOverRound.bat_team_4.join(', ') : (match.bat_team_4?.join(', ') || 'Team 2')
+    const heroScorecard3 = latestSuperOverRound?.scorecard_3
+    const heroScorecard4 = latestSuperOverRound?.scorecard_4
     const resultText = match.result_text
     const resultParts = resultText.split(/(won)/i)
     const hasWonSplit = resultParts.length >= 3
@@ -183,6 +219,18 @@ export default function MatchDetailPage() {
                                     <div className="mt-2 text-[10px] text-slate-400 uppercase tracking-widest text-right">
                                         {match.scorecard_1.overs} Overs
                                     </div>
+                                    {heroScorecard3 && (
+                                        <div className="flex justify-between items-center text-emerald-300 mt-2 border-t border-emerald-500/50 pt-2">
+                                            <span className="font-medium uppercase tracking-wider text-xs">{heroBattingTeam3} (SO)</span>
+                                            <span className="font-mono text-sm font-bold text-white">{heroScorecard3.total_runs}/{heroScorecard3.wickets}</span>
+                                        </div>
+                                    )}
+                                    {heroScorecard4 && (
+                                        <div className="flex justify-between items-center text-emerald-300 mt-1">
+                                            <span className="font-medium uppercase tracking-wider text-xs">{heroBattingTeam4} (SO)</span>
+                                            <span className="font-mono text-sm font-bold text-white">{heroScorecard4.total_runs}/{heroScorecard4.wickets}</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -288,6 +336,7 @@ export default function MatchDetailPage() {
                                 potmName={match.potm_stats?.player}
                             />
                         )}
+                        <SuperOverTimeline rounds={superOverTimeline} />
                     </div>
                 </div>
 

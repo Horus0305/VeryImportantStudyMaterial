@@ -12,10 +12,15 @@ interface BowlCard {
 interface StandingsEntry {
     player: string; played: number; won: number; lost: number; tied: number; points: number; nrr: number
 }
+interface TournamentInfo {
+    group_matches_total?: number
+    group_matches_played?: number
+}
 interface TournamentPayload {
     standings: StandingsEntry[]
     phase: string
     upcoming_matches?: Array<{ label: string; teams: string[] }>
+    info?: TournamentInfo
 }
 interface CaptainOption {
     player: string
@@ -716,17 +721,29 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
                             <div className="bg-gradient-to-r from-purple-50 to-transparent p-3 border-b border-slate-100 flex justify-between items-center">
                                 <h3 className="text-lg tracking-wide text-slate-900" style={DISPLAY_FONT}>Standings</h3>
-                                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{tournament.phase}</span>
+                                <div className="text-right">
+                                    <span className="inline-block text-[10px] uppercase tracking-wider text-slate-600 font-bold bg-white border border-slate-200 rounded px-1.5 py-0.5">
+                                        {tournament.phase}
+                                    </span>
+                                </div>
                             </div>
                             <div className="p-2 space-y-1 text-[10px] sm:text-xs font-mono">
+                                <div className="flex justify-between items-center rounded px-1.5 sm:px-2 py-1 text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-slate-500 bg-slate-100 border border-slate-200">
+                                    <span className="w-4">#</span>
+                                    <span className="flex-1">Player</span>
+                                    <span className="w-6 text-center">P</span>
+                                    <span className="w-6 text-center text-emerald-600">W</span>
+                                    <span className="w-6 text-center text-red-500">L</span>
+                                    <span className="w-8 text-center">Pts</span>
+                                    <span className="w-10 sm:w-12 text-right">NRR</span>
+                                </div>
                                 {tournament.standings.map((s, i) => (
                                     <div key={s.player} className={`flex justify-between items-center rounded p-1.5 sm:p-2 hover:bg-slate-50 transition-colors ${i < 4 ? 'bg-emerald-50/30' : 'bg-slate-50/50'}`}>
                                         <span className={`w-4 font-bold ${i < 4 ? 'text-emerald-500' : 'text-slate-400'}`}>{i + 1}</span>
                                         <span className="flex-1 truncate text-slate-700 font-bold">{s.player}</span>
-                                        <div className="flex gap-2 sm:gap-4 shrink-0 px-2">
-                                            <span className="w-4 text-center text-emerald-500 font-bold">{s.won}</span>
-                                            <span className="w-4 text-center text-red-400">{s.lost}</span>
-                                        </div>
+                                        <span className="w-6 text-center text-slate-700">{s.played}</span>
+                                        <span className="w-6 text-center text-emerald-500 font-bold">{s.won}</span>
+                                        <span className="w-6 text-center text-red-400">{s.lost}</span>
                                         <span className="w-8 text-center text-slate-900 font-black">{s.points}</span>
                                         <span className="w-10 sm:w-12 text-right text-slate-500">
                                             {s.nrr >= 0 ? '+' : ''}{s.nrr.toFixed(2)}

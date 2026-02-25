@@ -82,7 +82,8 @@ class Tournament:
         return None
 
     def record_group_result(self, player_a: str, player_b: str,
-                            winner: Optional[str], nrr_data: dict) -> None:
+                            winner: Optional[str], nrr_data: dict,
+                            update_nrr: bool = True) -> None:
         """Record result of a group stage match."""
         sa = self.standings[player_a]
         sb = self.standings[player_b]
@@ -106,30 +107,31 @@ class Tournament:
 
         # Update NRR data — correctly attribute based on who actually batted first
         # innings_1 = batting_first team, innings_2 = bowling_first team
-        batting_first_player = nrr_data.get("batting_first_player")
+        if update_nrr:
+            batting_first_player = nrr_data.get("batting_first_player")
 
-        if batting_first_player == player_a:
-            # player_a batted first (innings 1), player_b batted second (innings 2)
-            sa.runs_scored += nrr_data.get("runs_scored_1", 0)
-            sa.overs_faced += nrr_data.get("overs_faced_1", 0)
-            sa.runs_conceded += nrr_data.get("runs_scored_2", 0)
-            sa.overs_bowled += nrr_data.get("overs_faced_2", 0)
+            if batting_first_player == player_a:
+                # player_a batted first (innings 1), player_b batted second (innings 2)
+                sa.runs_scored += nrr_data.get("runs_scored_1", 0)
+                sa.overs_faced += nrr_data.get("overs_faced_1", 0)
+                sa.runs_conceded += nrr_data.get("runs_scored_2", 0)
+                sa.overs_bowled += nrr_data.get("overs_faced_2", 0)
 
-            sb.runs_scored += nrr_data.get("runs_scored_2", 0)
-            sb.overs_faced += nrr_data.get("overs_faced_2", 0)
-            sb.runs_conceded += nrr_data.get("runs_scored_1", 0)
-            sb.overs_bowled += nrr_data.get("overs_faced_1", 0)
-        else:
-            # player_b batted first (innings 1), player_a batted second (innings 2)
-            sb.runs_scored += nrr_data.get("runs_scored_1", 0)
-            sb.overs_faced += nrr_data.get("overs_faced_1", 0)
-            sb.runs_conceded += nrr_data.get("runs_scored_2", 0)
-            sb.overs_bowled += nrr_data.get("overs_faced_2", 0)
+                sb.runs_scored += nrr_data.get("runs_scored_2", 0)
+                sb.overs_faced += nrr_data.get("overs_faced_2", 0)
+                sb.runs_conceded += nrr_data.get("runs_scored_1", 0)
+                sb.overs_bowled += nrr_data.get("overs_faced_1", 0)
+            else:
+                # player_b batted first (innings 1), player_a batted second (innings 2)
+                sb.runs_scored += nrr_data.get("runs_scored_1", 0)
+                sb.overs_faced += nrr_data.get("overs_faced_1", 0)
+                sb.runs_conceded += nrr_data.get("runs_scored_2", 0)
+                sb.overs_bowled += nrr_data.get("overs_faced_2", 0)
 
-            sa.runs_scored += nrr_data.get("runs_scored_2", 0)
-            sa.overs_faced += nrr_data.get("overs_faced_2", 0)
-            sa.runs_conceded += nrr_data.get("runs_scored_1", 0)
-            sa.overs_bowled += nrr_data.get("overs_faced_1", 0)
+                sa.runs_scored += nrr_data.get("runs_scored_2", 0)
+                sa.overs_faced += nrr_data.get("overs_faced_2", 0)
+                sa.runs_conceded += nrr_data.get("runs_scored_1", 0)
+                sa.overs_bowled += nrr_data.get("overs_faced_1", 0)
 
         self.current_group_match_idx += 1
 

@@ -10,6 +10,8 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
+import SuperOverTimeline from '@/components/SuperOverTimeline'
+import { resolveSuperOverTimeline } from '@/lib/superOver'
 
 /* ─── Interfaces ─── */
 
@@ -29,15 +31,21 @@ interface InningsData {
 interface StandingsEntry {
     player: string; played: number; won: number; lost: number; tied: number; points: number; nrr: number
 }
+interface TournamentInfo {
+    group_matches_total?: number
+    group_matches_played?: number
+}
 interface TournamentPayload {
     standings: StandingsEntry[]
     phase: string
     upcoming_matches?: Array<{ label: string; teams: string[] }>
+    info?: TournamentInfo
 }
 interface PotmData {
     player: string; score: number; summary: string
     runs: number; balls: number; wickets: number; sr: number
     economy: number | null
+    super_over_data?: unknown
 }
 interface Props {
     data: Record<string, unknown>
@@ -181,11 +189,24 @@ export default function Scorecard({ data, onBack }: Props) {
     const batTeam2 = (data.bat_team_2 as string[]) ?? sideB
     const batTeam3 = (data.bat_team_3 as string[]) ?? []
     const batTeam4 = (data.bat_team_4 as string[]) ?? []
+    const superOverTimeline = resolveSuperOverTimeline({
+        super_over_timeline: data.super_over_timeline,
+        potm_payload: potm,
+        scorecard_3: data.scorecard_3,
+        scorecard_4: data.scorecard_4,
+        bat_team_3: data.bat_team_3,
+        bat_team_4: data.bat_team_4,
+    })
+    const latestSuperOverRound = superOverTimeline.length ? superOverTimeline[superOverTimeline.length - 1] : null
 
     const battingTeam1 = batTeam1.length ? batTeam1.join(', ') : 'Team A'
     const battingTeam2 = batTeam2.length ? batTeam2.join(', ') : 'Team B'
     const battingTeam3 = batTeam3.length ? batTeam3.join(', ') : 'Team A'
     const battingTeam4 = batTeam4.length ? batTeam4.join(', ') : 'Team B'
+    const heroBattingTeam3 = latestSuperOverRound?.bat_team_3?.length ? latestSuperOverRound.bat_team_3.join(', ') : battingTeam3
+    const heroBattingTeam4 = latestSuperOverRound?.bat_team_4?.length ? latestSuperOverRound.bat_team_4.join(', ') : battingTeam4
+    const heroScorecard3 = latestSuperOverRound?.scorecard_3 ?? scorecard3
+    const heroScorecard4 = latestSuperOverRound?.scorecard_4 ?? scorecard4
 
     // Split result cleverly for display font
     const resultParts = resultText.split(/(won)/i)
@@ -276,16 +297,16 @@ export default function Scorecard({ data, onBack }: Props) {
                                     <div className="mt-2 text-[10px] text-slate-400 uppercase tracking-widest text-right">
                                         {scorecard1.overs} Overs
                                     </div>
-                                    {scorecard3 && (
+                                    {heroScorecard3 && (
                                         <div className="flex justify-between items-center text-emerald-300 mt-2 border-t border-emerald-500/50 pt-2">
-                                            <span className="font-medium uppercase tracking-wider text-xs">{battingTeam3} (SO)</span>
-                                            <span className="font-mono text-sm font-bold text-white">{scorecard3.total_runs}/{scorecard3.wickets}</span>
+                                            <span className="font-medium uppercase tracking-wider text-xs">{heroBattingTeam3} (SO)</span>
+                                            <span className="font-mono text-sm font-bold text-white">{heroScorecard3.total_runs}/{heroScorecard3.wickets}</span>
                                         </div>
                                     )}
-                                    {scorecard4 && (
+                                    {heroScorecard4 && (
                                         <div className="flex justify-between items-center text-emerald-300 mt-1">
-                                            <span className="font-medium uppercase tracking-wider text-xs">{battingTeam4} (SO)</span>
-                                            <span className="font-mono text-sm font-bold text-white">{scorecard4.total_runs}/{scorecard4.wickets}</span>
+                                            <span className="font-medium uppercase tracking-wider text-xs">{heroBattingTeam4} (SO)</span>
+                                            <span className="font-mono text-sm font-bold text-white">{heroScorecard4.total_runs}/{heroScorecard4.wickets}</span>
                                         </div>
                                     )}
                                 </div>
@@ -392,6 +413,7 @@ export default function Scorecard({ data, onBack }: Props) {
                                 potmName={potm?.player}
                             />
                         )}
+                        <SuperOverTimeline rounds={superOverTimeline} />
                         {scorecard3 && (
                             <InningsSection
                                 innings={scorecard3}

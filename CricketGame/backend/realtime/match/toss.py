@@ -44,7 +44,7 @@ async def initiate_toss(manager, room) -> None:
     
     caller = None
     if room.mode == "team" and room.captains:
-        captains = list(room.captains.values())
+        captains = [c for c in room.captains.values() if c]
         if captains:
             import random
             caller = random.choice(captains)

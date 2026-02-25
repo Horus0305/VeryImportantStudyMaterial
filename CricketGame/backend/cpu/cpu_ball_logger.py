@@ -1,9 +1,21 @@
 """
-CPU Ball Logger - Helper to log balls from ws_manager without blocking match flow
+CPU Ball Logger - Helper to log balls from ws_manager without blocking match flow.
 """
+import asyncio
 from typing import Optional
+
 from ..data.database import SessionLocal
 from .cpu_learning_integration import log_ball_to_database
+
+
+def _log_ball_sync(payload: dict) -> None:
+    db = SessionLocal()
+    try:
+        log_ball_to_database(db=db, **payload)
+    except Exception as e:
+        print(f"[CPU] Error in log_ball_async: {e}")
+    finally:
+        db.close()
 
 
 def log_ball_async(
@@ -26,32 +38,31 @@ def log_ball_async(
     batting_first: bool
 ) -> None:
     """
-    Log a ball to the database asynchronously (non-blocking).
-    This function creates its own DB session and handles errors gracefully.
+    Queue ball logging work in a background thread so gameplay stays responsive.
     """
-    db = SessionLocal()
+    payload = {
+        "match_id": match_id,
+        "ball_number": ball_number,
+        "batter_username": batter_username,
+        "bowler_username": bowler_username,
+        "bat_move": bat_move,
+        "bowl_move": bowl_move,
+        "runs_scored": runs_scored,
+        "is_out": is_out,
+        "match_format_overs": match_format_overs,
+        "current_over": current_over,
+        "total_overs": total_overs,
+        "innings": innings,
+        "batting_score": batting_score,
+        "batting_wickets": batting_wickets,
+        "target": target,
+        "balls_remaining": balls_remaining,
+        "batting_first": batting_first,
+    }
+
     try:
-        log_ball_to_database(
-            db=db,
-            match_id=match_id,
-            ball_number=ball_number,
-            batter_username=batter_username,
-            bowler_username=bowler_username,
-            bat_move=bat_move,
-            bowl_move=bowl_move,
-            runs_scored=runs_scored,
-            is_out=is_out,
-            match_format_overs=match_format_overs,
-            current_over=current_over,
-            total_overs=total_overs,
-            innings=innings,
-            batting_score=batting_score,
-            batting_wickets=batting_wickets,
-            target=target,
-            balls_remaining=balls_remaining,
-            batting_first=batting_first
-        )
-    except Exception as e:
-        print(f"⚠ Error in log_ball_async: {e}")
-    finally:
-        db.close()
+        loop = asyncio.get_running_loop()
+        loop.create_task(asyncio.to_thread(_log_ball_sync, payload))
+    except RuntimeError:
+        # Fallback for non-async contexts.
+        _log_ball_sync(payload)

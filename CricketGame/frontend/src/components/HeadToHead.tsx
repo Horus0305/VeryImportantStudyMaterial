@@ -3,7 +3,7 @@
  * Fetched from /api/head-to-head/{player1}/{player2}.
  * Shows: Wins, Losses, Batting Best, Bowling Best, Average, Avg Strike Rate.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface H2HPlayerStats {
     wins: number
@@ -34,6 +34,7 @@ export default function HeadToHead({ player1, player2, defaultOpen = false }: Pr
     const [data, setData] = useState<H2HData | null>(null)
     const [open, setOpen] = useState(defaultOpen)
     const [loading, setLoading] = useState(true)
+    const cacheRef = useRef<Record<string, H2HData>>({})
 
     useEffect(() => {
         if (!player1 || !player2 || player1 === player2) {
@@ -42,11 +43,36 @@ export default function HeadToHead({ player1, player2, defaultOpen = false }: Pr
             return
         }
 
+        const key = `${player1}::${player2}`
+        const cached = cacheRef.current[key]
+        if (cached) {
+            setData(cached)
+            setLoading(false)
+            return
+        }
+
+        const controller = new AbortController()
         setLoading(true)
-        fetch(`${API}/api/head-to-head/${encodeURIComponent(player1)}/${encodeURIComponent(player2)}`)
-            .then(r => r.json())
-            .then(d => { setData(d); setLoading(false) })
-            .catch(() => setLoading(false))
+        fetch(`${API}/api/head-to-head/${encodeURIComponent(player1)}/${encodeURIComponent(player2)}`, {
+            signal: controller.signal,
+        })
+            .then(r => {
+                if (!r.ok) {
+                    throw new Error('Failed to fetch head-to-head')
+                }
+                return r.json()
+            })
+            .then(d => {
+                cacheRef.current[key] = d
+                setData(d)
+            })
+            .catch((err: unknown) => {
+                if (!(err instanceof DOMException) || err.name !== 'AbortError') {
+                    setData(null)
+                }
+            })
+            .finally(() => setLoading(false))
+        return () => controller.abort()
     }, [player1, player2])
 
     // Don't render anything if no history

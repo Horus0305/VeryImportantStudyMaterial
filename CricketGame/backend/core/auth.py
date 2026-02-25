@@ -7,6 +7,7 @@ from typing import Optional
 import bcrypt
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from .config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 import json
@@ -79,7 +80,17 @@ def get_player_stats(db: Session, username: str) -> dict:
             potm_counts[key] += 1
 
     # Calculate ALL tournament awards dynamically from TournamentHistory
-    tournament_records = db.query(TournamentHistory).all()
+    tournament_records = db.query(TournamentHistory).filter(
+        or_(
+            TournamentHistory.champion == username,
+            TournamentHistory.orange_cap.contains(username),
+            TournamentHistory.purple_cap.contains(username),
+            TournamentHistory.best_strike_rate.contains(username),
+            TournamentHistory.best_average.contains(username),
+            TournamentHistory.best_economy.contains(username),
+            TournamentHistory.player_of_tournament.contains(username),
+        )
+    ).all()
     pot_count = 0
     titles_won = 0
     tournament_award_count = 0

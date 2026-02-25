@@ -1,8 +1,10 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
-from ..realtime.ws_manager import room_manager, PlayerConn
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+
 from ..core.auth import decode_token
+from ..realtime.ws_manager import PlayerConn, room_manager
 
 router = APIRouter(tags=["ws"])
+
 
 @router.websocket("/ws/{room_code}")
 async def websocket_endpoint(ws: WebSocket, room_code: str, token: str = Query(...)):
@@ -20,9 +22,18 @@ async def websocket_endpoint(ws: WebSocket, room_code: str, token: str = Query(.
         await ws.close(code=4004, reason="Room not found")
         return
 
+    # Replace any stale connection for the same username.
+    old_player = room.players.get(username)
     player = PlayerConn(ws, username)
+    player.team = room_manager._team_for_player(room, username)
+    player.is_captain = room.captains.get("A") == username or room.captains.get("B") == username
     room.players[username] = player
-    print(f"✅ {username} joined room {room_code}")
+    if old_player and old_player.ws is not ws:
+        try:
+            await old_player.ws.close(code=4000, reason="Reconnected from another session")
+        except Exception:
+            pass
+    print(f"[WS] {username} joined room {room_code}")
 
     await room_manager.broadcast_lobby(room)
 
@@ -39,16 +50,19 @@ async def websocket_endpoint(ws: WebSocket, room_code: str, token: str = Query(.
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        print(f"⚠ WebSocket error for {username}: {e}")
+        print(f"[WS] Error for {username}: {e}")
     finally:
-        room.players.pop(username, None)
-        for team_list in room.teams.values():
-            if username in team_list:
-                team_list.remove(username)
-        print(f"❌ {username} left room {room_code}")
+        # Only cleanup if this connection is still the active mapping.
+        active = room.players.get(username)
+        if active is player:
+            room.players.pop(username, None)
+            for team_list in room.teams.values():
+                if username in team_list:
+                    team_list.remove(username)
+            print(f"[WS] {username} left room {room_code}")
 
-        if not room.players:
-            room_manager.delete_room(room_code)
-            print(f"🗑 Room {room_code} deleted (empty)")
-        else:
-            await room_manager.broadcast_lobby(room)
+            if not room.players:
+                room_manager.delete_room(room_code)
+                print(f"[WS] Room {room_code} deleted (empty)")
+            else:
+                await room_manager.broadcast_lobby(room)

@@ -63,6 +63,15 @@ function getInitials(name: string) {
     const parts = name.split(' ')
     return parts.length > 1 ? parts.map(p => p[0]).join('').toUpperCase().slice(0, 2) : name.charAt(0).toUpperCase()
 }
+function winnerNames(winner: string | null): string[] {
+    if (!winner || winner === 'TIE') return []
+    return winner.split(',').map(n => n.trim()).filter(Boolean)
+}
+function isWinnerSide(winner: string | null, side: string[]): boolean {
+    const names = winnerNames(winner)
+    if (names.length === 0) return false
+    return names.every(n => side.includes(n))
+}
 
 type TabKey = 'standings' | 'bracket' | 'matches'
 
@@ -552,7 +561,7 @@ function DesktopMatchArchive({ matches, totalCount, onMatchClick }: {
                     const matchNum = matches.length - i
                     const sideAName = m.side_a.join(', ')
                     const sideBName = m.side_b.join(', ')
-                    const isWinnerA = m.winner && m.side_a.includes(m.winner)
+                    const isWinnerA = isWinnerSide(m.winner, m.side_a)
                     return (
                         <div
                             key={m.match_id}
@@ -808,7 +817,7 @@ function MobileMatchesTab({ matches, totalCount, players, onMatchClick }: {
                         const sideBName = m.side_b.join(', ')
                         const sideAClr = getPlayerColor(m.side_a[0], players)
                         const sideBClr = getPlayerColor(m.side_b[0], players)
-                        const isWinnerA = m.winner && m.side_a.includes(m.winner)
+                        const isWinnerA = isWinnerSide(m.winner, m.side_a)
                         const dateStr = new Date(m.end_timestamp ?? m.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                         const matchNum = matches.length - matches.indexOf(m)
 

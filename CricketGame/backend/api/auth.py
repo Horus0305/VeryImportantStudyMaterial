@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from pydantic import BaseModel
 import secrets
 import json
+import re
 
 from ..data.database import get_db
 from ..core.config import ADMIN_SECRET
@@ -129,7 +131,37 @@ def rename(req: RenameRequest, db: Session = Depends(get_db)):
 
     player.username = new_username
 
-    matches = db.query(MatchHistory).all()
+    def _replace_winner_label(label: str | None) -> str | None:
+        if not label or label == "TIE":
+            return label
+        parts = [p.strip() for p in label.split(",") if p.strip()]
+        if not parts:
+            return label
+        changed = False
+        for i, name in enumerate(parts):
+            if name == current:
+                parts[i] = new_username
+                changed = True
+        return ", ".join(parts) if changed else label
+
+    def _replace_name_tokens(text: str | None) -> str | None:
+        if not text or current not in text:
+            return text
+        pattern = rf"(?<![A-Za-z0-9_]){re.escape(current)}(?![A-Za-z0-9_])"
+        return re.sub(pattern, new_username, text)
+
+    matches = db.query(MatchHistory).filter(
+        or_(
+            MatchHistory.side_a.contains(current),
+            MatchHistory.side_b.contains(current),
+            MatchHistory.winner.contains(current),
+            MatchHistory.result_text.contains(current),
+            MatchHistory.potm == current,
+            MatchHistory.potm_stats.contains(current),
+            MatchHistory.scorecard_1.contains(current),
+            MatchHistory.scorecard_2.contains(current),
+        )
+    ).all()
     for m in matches:
         side_a = json.loads(m.side_a) if m.side_a else []
         side_b = json.loads(m.side_b) if m.side_b else []
@@ -140,10 +172,8 @@ def rename(req: RenameRequest, db: Session = Depends(get_db)):
             side_b = [new_username if n == current else n for n in side_b]
             m.side_b = json.dumps(side_b)
 
-        if m.winner and current in m.winner:
-            m.winner = m.winner.replace(current, new_username)
-        if m.result_text and current in m.result_text:
-            m.result_text = m.result_text.replace(current, new_username)
+        m.winner = _replace_winner_label(m.winner)
+        m.result_text = _replace_name_tokens(m.result_text)
         if m.potm == current:
             m.potm = new_username
         if m.potm_stats:
@@ -168,7 +198,21 @@ def rename(req: RenameRequest, db: Session = Depends(get_db)):
                 except Exception:
                     pass
 
-    tournaments = db.query(TournamentHistory).all()
+    tournaments = db.query(TournamentHistory).filter(
+        or_(
+            TournamentHistory.players.contains(current),
+            TournamentHistory.standings.contains(current),
+            TournamentHistory.playoff_bracket.contains(current),
+            TournamentHistory.playoff_results.contains(current),
+            TournamentHistory.champion == current,
+            TournamentHistory.orange_cap.contains(current),
+            TournamentHistory.purple_cap.contains(current),
+            TournamentHistory.best_strike_rate.contains(current),
+            TournamentHistory.best_average.contains(current),
+            TournamentHistory.best_economy.contains(current),
+            TournamentHistory.player_of_tournament.contains(current),
+        )
+    ).all()
     for t in tournaments:
         if t.players:
             try:

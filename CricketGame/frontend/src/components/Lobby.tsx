@@ -9,7 +9,7 @@
  *   PC:     Designs/Lobby-pc/code.html
  *   Mobile: Designs/Lobby-Mobile/code.html
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
@@ -54,6 +54,13 @@ export default function Lobby({ lobby, username, sendMsg }: Props) {
     const [overs, setOvers] = useState(lobby.overs)
     const [wickets, setWickets] = useState(lobby.wickets)
     const [hostWantsToPlay, setHostWantsToPlay] = useState(lobby.host_plays ?? true)
+
+    useEffect(() => {
+        setMode(normalizedLobbyMode)
+        setOvers(lobby.overs)
+        setWickets(lobby.wickets)
+        setHostWantsToPlay(lobby.host_plays ?? true)
+    }, [normalizedLobbyMode, lobby.overs, lobby.wickets, lobby.host_plays])
 
     const displayMode = isHost ? mode : normalizedLobbyMode
     const displayOvers = isHost ? overs : lobby.overs

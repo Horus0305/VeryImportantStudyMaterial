@@ -1,6 +1,8 @@
 """Captain selection — PICK_BATTER / PICK_BOWLER handlers and timeout logic."""
 import asyncio
 
+from ....game.game_engine import compute_potm
+from ..match_persistence import save_match_history, save_match_stats
 from .timeouts import (
     CAPTAIN_PICK_TIMEOUT, MAX_AUTO_STRIKES,
     _cancel_timeout, _start_timeout,
@@ -21,11 +23,79 @@ def _team_for_side(room, side: list) -> str | None:
 
 # ─── Auto-strike recording ────────────────────────────────────────────────────
 
+def _build_match_over_payload(match) -> dict:
+    payload = {
+        "winner": match.winner,
+        "result_text": match.result_text,
+        "scorecard_1": match.innings_1.get_scorecard() if getattr(match, "innings_1", None) else {},
+        "scorecard_2": match.innings_2.get_scorecard() if getattr(match, "innings_2", None) else {},
+        "side_a": match.side_a,
+        "side_b": match.side_b,
+        "bat_team_1": match.batting_first,
+        "bat_team_2": match.bowling_first,
+    }
+    if match.is_super_over:
+        payload["scorecard_3"] = match.innings_3.get_scorecard() if getattr(match, "innings_3", None) else {}
+        payload["scorecard_4"] = match.innings_4.get_scorecard() if getattr(match, "innings_4", None) else {}
+        payload["bat_team_3"] = match.bowling_first
+        payload["bat_team_4"] = match.batting_first
+        payload["super_over_timeline"] = match.get_super_over_timeline() if hasattr(match, "get_super_over_timeline") else []
+    return payload
+
+
+async def _forfeit_match_for_non_response(manager, room, offender: str) -> None:
+    match = room.match
+    if not match or match.is_finished:
+        return
+
+    if offender in match.side_a:
+        winning_side = match.side_b
+    elif offender in match.side_b:
+        winning_side = match.side_a
+    else:
+        return
+
+    winner_label = ", ".join(winning_side)
+    match.winner = winner_label
+    match.result_text = f"{winner_label} won by forfeit ({offender} reached 3/3 auto-move warnings)"
+    match.is_finished = True
+    # Forced outcomes should not affect tournament NRR tables.
+    match.nrr_locked = True
+
+    for key in list(room.pending_timeouts.keys()):
+        _cancel_timeout(room, key)
+    room.pending_moves = {}
+
+    final = _build_match_over_payload(match)
+    potm_data = compute_potm(match)
+    final["potm"] = potm_data
+
+    if room.tournament:
+        tournament_payload = manager._apply_tournament_result(room, match)
+        await manager.broadcast(room, {"type": "MATCH_OVER", **final, "tournament": tournament_payload})
+        await manager.broadcast(room, {"type": "TOURNAMENT_STANDINGS", **tournament_payload})
+    else:
+        await manager.broadcast(room, {"type": "MATCH_OVER", **final})
+
+    save_match_stats(manager, room, match)
+    tournament_id = room.tournament_id if room.tournament else None
+    save_match_history(manager, room, match, potm_data, tournament_id)
+
+    room.match = None
+    room.pending_moves = {}
+
+    if room.tournament:
+        await asyncio.sleep(3)
+        await manager._start_next_tournament_match(room)
+    else:
+        await manager.broadcast_lobby(room)
+
+
 async def _handle_auto_strike(manager, room, username: str, role: str) -> None:
     """
     Record an auto-move strike for a human player.
-    Broadcasts AUTO_MOVE_WARNING; on MAX_AUTO_STRIKES forces the relevant
-    game action (wicket for batter, over-end for bowler).
+    Broadcasts AUTO_MOVE_WARNING; on MAX_AUTO_STRIKES in ball-pick flow,
+    the non-responsive player forfeits the match.
     """
     strikes = room.auto_move_strikes.get(username, 0) + 1
     room.auto_move_strikes[username] = strikes
@@ -42,46 +112,12 @@ async def _handle_auto_strike(manager, room, username: str, role: str) -> None:
     if not innings:
         return
 
-    if role == "bat":
-        bat_card = innings.batting_cards.get(username)
-        if bat_card and not bat_card.is_out:
-            bat_card.is_out = True
-            bat_card.dismissal = "retired hurt (timeout)"
-            innings.wickets_fallen += 1
-            result_stub = {
-                "striker": username,
-                "bowler": innings.current_bowler,
-                "is_out": True,
-                "runs": 0,
-                "milestone": None,
-                "hat_trick": False,
-            }
-            innings._handle_wicket_fall(result_stub)
-        room.pending_moves.pop("bat", None)
-        await manager._send_match_state(room)
-        if not innings.needs_batter_choice:
-            # Import lazily to avoid circular dependency
-            from .ball import start_ball_countdowns
-            start_ball_countdowns(manager, room, innings)
-            await manager._maybe_cpu_move(room, innings)
+    # Captain timeout should not force-dismiss players; warning-only behavior.
+    if role in ("captain_bat", "captain_bowl"):
+        return
 
-    elif role == "bowl":
-        room.pending_moves.pop("bowl", None)
-        bowl_card = innings.bowling_cards.get(innings.current_bowler)
-        if bowl_card:
-            bowl_card.overs_completed += 1
-            bowl_card.balls_bowled_in_over = 0
-        innings.balls_in_over = 0
-        innings.overs_completed += 1
-        innings._rotate_strike()
-        innings._next_bowler({})
-        await manager._send_match_state(room)
-        if innings.needs_bowler_choice:
-            await _start_captain_bowler_pick(manager, room, innings)
-        else:
-            from .ball import start_ball_countdowns
-            start_ball_countdowns(manager, room, innings)
-            await manager._maybe_cpu_move(room, innings)
+    if role in ("bat", "bowl"):
+        await _forfeit_match_for_non_response(manager, room, username)
 
 
 # ─── Captain timeout callbacks ────────────────────────────────────────────────
@@ -97,11 +133,12 @@ async def _captain_batter_timeout(manager, room, innings, captain: str) -> None:
     if not choice:
         return
     innings.apply_batter_choice(choice[0]["player"])
-    await _handle_auto_strike(manager, room, captain, "bat")
+    await _handle_auto_strike(manager, room, captain, "captain_bat")
     await manager._send_match_state(room)
     from .ball import start_ball_countdowns
     start_ball_countdowns(manager, room, innings)
     await manager._maybe_cpu_move(room, innings)
+    await manager._auto_play_cpu_match(room)
 
 
 async def _captain_bowler_timeout(manager, room, innings, captain: str) -> None:
@@ -115,11 +152,12 @@ async def _captain_bowler_timeout(manager, room, innings, captain: str) -> None:
     if not choice:
         return
     innings.apply_bowler_choice(choice[0]["player"])
-    await _handle_auto_strike(manager, room, captain, "bowl")
+    await _handle_auto_strike(manager, room, captain, "captain_bowl")
     await manager._send_match_state(room)
     from .ball import start_ball_countdowns
     start_ball_countdowns(manager, room, innings)
     await manager._maybe_cpu_move(room, innings)
+    await manager._auto_play_cpu_match(room)
 
 
 # ─── Captain pick initiators ──────────────────────────────────────────────────
@@ -170,6 +208,7 @@ async def _start_captain_batter_pick(manager, room, innings) -> None:
             from .ball import start_ball_countdowns
             start_ball_countdowns(manager, room, innings)
             await manager._maybe_cpu_move(room, innings)
+            await manager._auto_play_cpu_match(room)
     else:
         _start_timeout(room, "captain_bat",
                        _captain_batter_timeout(manager, room, innings, captain))
@@ -215,6 +254,7 @@ async def _start_captain_bowler_pick(manager, room, innings) -> None:
             from .ball import start_ball_countdowns
             start_ball_countdowns(manager, room, innings)
             await manager._maybe_cpu_move(room, innings)
+            await manager._auto_play_cpu_match(room)
     else:
         _start_timeout(room, "captain_bowl",
                        _captain_bowler_timeout(manager, room, innings, captain))
@@ -254,6 +294,7 @@ async def handle_pick_batter(manager, room, player, msg: dict) -> None:
     from .ball import start_ball_countdowns
     start_ball_countdowns(manager, room, innings)
     await manager._maybe_cpu_move(room, innings)
+    await manager._auto_play_cpu_match(room)
 
 
 async def handle_pick_bowler(manager, room, player, msg: dict) -> None:
@@ -283,3 +324,4 @@ async def handle_pick_bowler(manager, room, player, msg: dict) -> None:
     from .ball import start_ball_countdowns
     start_ball_countdowns(manager, room, innings)
     await manager._maybe_cpu_move(room, innings)
+    await manager._auto_play_cpu_match(room)

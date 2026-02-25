@@ -139,9 +139,12 @@ async def maybe_cpu_move(manager, room, innings) -> None:
     # Broadcast state so the frontend immediately sees the CPU's ready indicator
     if placed:
         await manager._send_match_state(room)
+        # If both sides are CPU for this ball, immediately kick resolver loop.
+        if manager._is_cpu(room, innings.striker) and manager._is_cpu(room, innings.current_bowler):
+            await manager._auto_play_cpu_match(room)
 
 
-async def _handle_cpu_captain_picks(manager, room, innings) -> None:
+async def _handle_cpu_captain_picks(manager, room, innings) -> bool:
     """Auto-pick captain choices when the relevant captain is a CPU."""
     from .match.match_actions import _team_for_side
 
@@ -157,7 +160,9 @@ async def _handle_cpu_captain_picks(manager, room, innings) -> None:
                 innings.apply_batter_choice(choice[0]["player"])
                 await manager._send_match_state(room)
                 await manager._maybe_cpu_move(room, innings)
-            return
+                await manager._auto_play_cpu_match(room)
+                return True
+            return True
 
     if innings.needs_bowler_choice:
         bowling_team = _team_for_side(room, innings.bowling_side)
@@ -171,6 +176,11 @@ async def _handle_cpu_captain_picks(manager, room, innings) -> None:
                 innings.apply_bowler_choice(choice[0]["player"])
                 await manager._send_match_state(room)
                 await manager._maybe_cpu_move(room, innings)
+                await manager._auto_play_cpu_match(room)
+                return True
+            return True
+
+    return False
 
 
 async def cpu_call_toss(manager, room) -> None:
@@ -235,8 +245,11 @@ async def auto_play_cpu_match(manager, room) -> None:
 
             # Pause auto-play during captain selection
             if innings.needs_batter_choice or innings.needs_bowler_choice:
-                await _handle_cpu_captain_picks(manager, room, innings)
-                return
+                handled = await _handle_cpu_captain_picks(manager, room, innings)
+                if not handled:
+                    return
+                await asyncio.sleep(0)
+                continue
 
             if not (manager._is_cpu(room, innings.striker) and manager._is_cpu(room, innings.current_bowler)):
                 return

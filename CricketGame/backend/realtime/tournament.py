@@ -142,13 +142,17 @@ def apply_tournament_result(manager, room, match: Match) -> dict:
     t = room.tournament
     if not t:
         return {}
-    winner = match.winner if match.winner != "TIE" else match.side_a[0]
+    winner = match.winner
     nrr = match.get_nrr_data()
     p1, p2 = match.side_a[0], match.side_b[0]
+    nrr_locked = bool(getattr(match, "nrr_locked", False))
 
     if t.phase == Tournament.PHASE_GROUP:
-        t.record_group_result(p1, p2, winner, nrr)
+        group_winner = None if winner == "TIE" else winner
+        t.record_group_result(p1, p2, group_winner, nrr, update_nrr=not nrr_locked)
     else:
+        if winner in (None, "TIE"):
+            winner = random.choice([p1, p2])
         loser = p2 if winner == p1 else p1
         t.record_playoff_result(winner, loser)
 

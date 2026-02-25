@@ -198,10 +198,17 @@ class Innings:
         """List of players who can come in next, with disabled flag for consecutive block."""
         striker_name = self.batting_side[self.striker_idx]
         non_striker_name = self.batting_side[self.non_striker_idx] if self.non_striker_idx is not None else None
+        is_first_ball_choice = (
+            self.needs_batter_choice
+            and self.overs_completed == 0
+            and self.balls_in_over == 0
+            and self.wickets_fallen == 0
+        )
         options = []
         for name in self.batting_side:
-            if not self.needs_batter_choice and (name == striker_name or name == non_striker_name):
-                continue  # Already at crease
+            # During regular pick flow, current batter(s) cannot be picked again.
+            if not is_first_ball_choice and (name == striker_name or name == non_striker_name):
+                continue
             is_out = self.batting_cards[name].is_out
             # Allow re-batting if wickets allow (innings not over), but block consecutive
             consecutive_blocked = (name == self.last_batter_out)
@@ -241,6 +248,9 @@ class Innings:
             if self.non_striker_idx == idx:
                 self.non_striker_idx = (idx + 1) % len(self.batting_side)
         else:
+            # Prevent invalid state where striker and non-striker become the same player.
+            if idx == self.striker_idx:
+                return
             self.non_striker_idx = idx
         
         self.needs_batter_choice = False

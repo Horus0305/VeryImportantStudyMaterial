@@ -57,8 +57,7 @@ cd cricket-game
 
 5. **Run the backend server:**
    ```bash
-   cd ..
-   #AND THEN
+    THEN
    .\backend\backend_venv\Scripts\activate ; python -m backend.main
    ```
    The backend will be available at `http://localhost:8000`.

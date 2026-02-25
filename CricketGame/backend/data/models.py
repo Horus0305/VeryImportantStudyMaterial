@@ -129,6 +129,7 @@ class MatchHistory(Base):
     # Player of the Match
     potm = Column(String(50), nullable=True)
     potm_stats = Column(Text, nullable=True)  # JSON summary
+    super_over_timeline = Column(Text, nullable=True)  # JSON array of super-over rounds
 
     # Tournament link (nullable for non-tournament matches)
     tournament_id = Column(String(20), nullable=True, index=True)
@@ -153,6 +154,7 @@ class MatchHistory(Base):
             "winner": self.winner,
             "potm": self.potm,
             "potm_stats": self._json("potm_stats"),
+            "super_over_timeline": self._json("super_over_timeline"),
             "tournament_id": self.tournament_id,
         }
 
