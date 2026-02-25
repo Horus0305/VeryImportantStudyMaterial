@@ -135,6 +135,12 @@ async def create_tournament_match(manager, room, p1: str, p2: str) -> None:
         total_overs=room.overs, total_wickets=room.wickets,
     )
     room.pending_moves = {}
+    # Reset countdown state for a fresh tournament match (prevents carryover)
+    room.auto_move_strikes = {}
+    for task in room.pending_timeouts.values():
+        if task and not task.done():
+            task.cancel()
+    room.pending_timeouts = {}
     await manager._initiate_toss(room)
 
 

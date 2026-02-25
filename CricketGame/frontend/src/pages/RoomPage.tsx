@@ -198,6 +198,12 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                 break
 
             case 'MATCH_OVER':
+                // Clear any running countdown
+                if (countdownRef.current) {
+                    clearInterval(countdownRef.current)
+                    countdownRef.current = null
+                }
+                setCountdown(null)
                 // Delay transition to scorecard so the last ball celebration finishes
                 setScorecardData(msg)
                 setTimeout(() => {
@@ -222,7 +228,12 @@ export default function RoomPage({ token, username, onLogout }: Props) {
 
             case 'TOURNAMENT_STANDINGS':
                 setStandingsData(msg)
-                if (screen !== 'game' && screen !== 'toss' && screen !== 'scorecard') setScreen('standings')
+                // Allow transition from scorecard to standings so the user
+                // doesn't stay stuck on the scorecard when next match starts.
+                // Block only during active game / toss (those transitions are
+                // driven by TOSS_CALLER / MATCH_STATE events).
+                if (screen !== 'game' && screen !== 'toss' && screen !== 'toss_result'
+                    && screen !== 'toss_choose' && screen !== 'toss_decision') setScreen('standings')
                 break
 
             case 'TOURNAMENT_PHASE':
@@ -377,8 +388,14 @@ export default function RoomPage({ token, username, onLogout }: Props) {
     }
 
     const backToLobby = () => {
-        setScreen('lobby')
         setMatchState(null)
+        // If a tournament is active, go to standings instead of the lobby
+        // so the user doesn't get stuck on a blank lobby mid-tournament.
+        if (standingsData && (standingsData as Record<string, unknown>).standings) {
+            setScreen('standings')
+        } else {
+            setScreen('lobby')
+        }
     }
 
     // Generate shareable link — always prefer LAN IP when available (so friends on the same network can connect)

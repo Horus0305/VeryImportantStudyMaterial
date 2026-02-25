@@ -204,6 +204,10 @@ async def resolve_pending_ball(manager, room, innings) -> bool:
         potm_data = compute_potm(match)
         final["potm"] = potm_data
 
+        # Cancel all pending timeouts before match teardown
+        for key in list(room.pending_timeouts.keys()):
+            _cancel_timeout(room, key)
+
         if room.tournament:
             tournament_payload = manager._apply_tournament_result(room, match)
             await manager.broadcast(room, {"type": "MATCH_OVER", **final, "tournament": tournament_payload})
