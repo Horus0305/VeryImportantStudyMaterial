@@ -341,10 +341,10 @@ function OverBallPip({ ball }: { ball: OverBall }) {
         <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500 text-white text-xs font-black shadow-sm">4</span>
     )
     if (ball.runs === 0) return (
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-200 text-slate-500 text-base font-bold shadow-sm">·</span>
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/10 text-white/30 text-base font-bold">·</span>
     )
     return (
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white border border-slate-300 text-slate-700 text-xs font-bold shadow-sm">{ball.runs}</span>
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/10 border border-white/15 text-white text-xs font-bold">{ball.runs}</span>
     )
 }
 
@@ -427,13 +427,13 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
     const targetText = state.target ? `Target: ${state.target} (Need ${need})` : '--'
 
     return (
-        <div className="flex-1 flex flex-col lg:flex-row bg-slate-50 text-slate-900 border-t border-slate-200">
+        <div className="flex-1 flex flex-col lg:flex-row border-t border-white/8">
             {watchingCaptainType && watchingCaptain && (
                 <CaptainBanner type={watchingCaptainType} captain={watchingCaptain} />
             )}
 
             {/* Main Stage (Stadium Area) */}
-            <section className="flex-1 relative flex flex-col bg-white p-4 lg:p-6">
+            <section className="flex-1 relative flex flex-col p-4 lg:p-6">
 
                 {/* Current Playoff Match Banner */}
                 {tournament && tournament.phase !== 'group' && tournament.phase !== 'complete' && (
@@ -448,17 +448,17 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
                 )}
 
                 {/* Mobile Score Header */}
-                <div className="lg:hidden mb-3 bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div className="lg:hidden mb-3 bg-slate-900/60 rounded-xl p-4 border border-white/10">
                     <div className="flex justify-between items-center mb-2">
-                        <span className="text-emerald-500 tracking-wider text-3xl" style={DISPLAY_FONT}>{state.total_runs}/{state.wickets}</span>
-                        <span className="text-slate-600 text-sm font-semibold">{state.overs} Overs</span>
+                        <span className="text-emerald-400 tracking-wider text-3xl" style={DISPLAY_FONT}>{state.total_runs}/{state.wickets}</span>
+                        <span className="text-slate-300 text-sm font-semibold">{state.overs} Overs</span>
                     </div>
                     <div className="flex justify-between items-center">
-                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">{targetText}</div>
+                        <div className="text-xs text-slate-500 uppercase tracking-wider font-bold">{targetText}</div>
                         {rrr !== null && (
                             <div className="flex gap-3 text-xs font-mono">
-                                <span className="text-slate-400">CRR <span className="text-slate-600 font-bold">{crr.toFixed(2)}</span></span>
-                                <span className={`font-bold ${rrr > crr ? 'text-red-500' : 'text-emerald-600'}`}>RRR {rrr.toFixed(2)}</span>
+                                <span className="text-slate-500">CRR <span className="text-slate-300 font-bold">{crr.toFixed(2)}</span></span>
+                                <span className={`font-bold ${rrr > crr ? 'text-red-400' : 'text-emerald-400'}`}>RRR {rrr.toFixed(2)}</span>
                             </div>
                         )}
                     </div>
@@ -478,15 +478,15 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
                     {/* Role Banner — visible on BOTH mobile and desktop */}
                     {role.active && (
                         <div className="absolute top-4 left-0 right-0 flex justify-center z-20">
-                            <div className="bg-orange-100 text-orange-800 px-4 py-1.5 rounded-full shadow-lg flex items-center space-x-2 text-xs font-bold uppercase tracking-wider border border-orange-200 backdrop-blur-sm lg:bg-white/95 lg:text-slate-800 lg:border-slate-200 lg:rounded-sm lg:px-6 lg:py-2 lg:shadow-md">
-                                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                            <div className="bg-orange-500/20 text-orange-300 px-4 py-1.5 rounded-full shadow-lg flex items-center space-x-2 text-xs font-bold uppercase tracking-wider border border-orange-500/30 backdrop-blur-sm">
+                                <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
                                 <span>{role.text}</span>
                             </div>
                         </div>
                     )}
                     {!role.active && role.text && (
                         <div className="absolute top-4 left-0 right-0 flex justify-center z-20">
-                            <div className="bg-white/80 text-slate-600 px-4 py-1.5 rounded-full shadow flex items-center space-x-2 text-xs font-bold uppercase tracking-wider border border-slate-200 backdrop-blur-sm lg:rounded-sm lg:px-6 lg:py-2">
+                            <div className="bg-slate-900/70 text-slate-400 px-4 py-1.5 rounded-full shadow flex items-center space-x-2 text-xs font-bold uppercase tracking-wider border border-white/15 backdrop-blur-sm">
                                 <span>{role.text}</span>
                             </div>
                         </div>
@@ -538,7 +538,7 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
                             <OverBallPip key={i} ball={ball} />
                         ))}
                         {Array.from({ length: 6 - (state.current_over_balls?.length ?? 0) }).map((_, i) => (
-                            <span key={`empty-${i}`} className="inline-flex items-center justify-center w-7 h-7 rounded-full border-2 border-dashed border-slate-200" />
+                            <span key={`empty-${i}`} className="inline-flex items-center justify-center w-7 h-7 rounded-full border-2 border-dashed border-white/15" />
                         ))}
                     </div>
                 </div>
@@ -546,19 +546,19 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
                 {/* Number Pad — active players only (BATTING / BOWLING) */}
                 {isActivePlayer && (
                     <div className="mt-3 sm:mt-4 w-full max-w-3xl mx-auto px-1 sm:px-4 z-10 shrink-0">
-                        <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl p-3 flex items-center justify-between sm:justify-center gap-2 sm:gap-4 shadow-xl">
+                        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-3 flex items-center justify-between sm:justify-center gap-2 sm:gap-4 shadow-xl">
                             {[0, 1, 2, 3, 4, 5, 6].map(n => (
                                 <button
                                     key={n}
                                     onClick={() => sendMove(n)}
                                     disabled={!canAct || isCaptainPending}
-                                    className={`flex-1 sm:flex-initial aspect-square sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all active:scale-95 group relative border text-2xl sm:text-4xl shadow-sm
-                                        ${!canAct || isCaptainPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                                    className={`flex-1 sm:flex-initial aspect-square sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all active:scale-95 group relative border text-2xl sm:text-4xl
+                                        ${!canAct || isCaptainPending ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
                                         ${n === 4
-                                            ? 'bg-emerald-500 border-transparent text-white shadow-lg shadow-emerald-500/30 transform scale-110 border-2 border-emerald-400 hover:scale-[1.15] z-10'
+                                            ? 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/30 scale-110 hover:scale-[1.15] z-10'
                                             : n === 6
-                                                ? 'bg-purple-500 border-transparent text-white shadow-lg shadow-purple-500/30 transform scale-110 border-2 border-purple-400 hover:scale-[1.15] z-10'
-                                                : 'bg-slate-100 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-500 text-slate-700'}
+                                                ? 'bg-purple-500 border-purple-400 text-white shadow-lg shadow-purple-500/30 scale-110 hover:scale-[1.15] z-10'
+                                                : 'bg-white/8 border-white/15 hover:border-emerald-500 hover:bg-emerald-500/15 hover:text-emerald-400 text-white/80'}
                                     `}
                                     style={DISPLAY_FONT}
                                 >
@@ -574,7 +574,7 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
                 {/* Exit Match — host only, always accessible regardless of role */}
                 {isHost && (
                     <div className="mt-3 pb-2 text-center shrink-0">
-                        <Button variant="ghost" className="text-xs text-red-500 hover:bg-red-50 uppercase tracking-widest font-bold" onClick={() => { if (confirm('Cancel this match? It will be a Tie.')) sendMsg({ action: 'CANCEL_MATCH' }) }}>
+                        <Button variant="ghost" className="text-xs text-red-400 hover:bg-red-500/10 uppercase tracking-widest font-bold" onClick={() => { if (confirm('Cancel this match? It will be a Tie.')) sendMsg({ action: 'CANCEL_MATCH' }) }}>
                             Exit Match
                         </Button>
                     </div>
@@ -582,41 +582,41 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
             </section>
 
             {/* RIGHT COLUMN: INFO ASIDE */}
-            <aside className="w-full lg:w-[400px] xl:w-[450px] bg-slate-50 border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col min-h-0 lg:h-full z-10 shadow-sm custom-scrollbar overflow-y-auto pb-6 lg:pb-0">
+            <aside className="w-full lg:w-[400px] xl:w-[450px] border-t border-white/8 lg:border-t-0 lg:border-l lg:border-white/8 flex flex-col min-h-0 lg:h-full z-10 custom-scrollbar overflow-y-auto pb-6 lg:pb-0">
                 {/* Score Status Header - Sticky on desktop */}
-                <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50 sticky top-0 z-20 shrink-0 hidden lg:block">
+                <div className="p-4 sm:p-6 border-b border-white/8 bg-slate-950/95 backdrop-blur-sm sticky top-0 z-20 shrink-0 hidden lg:block">
                     <div className="flex justify-between items-center mb-4">
-                        <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                             Live Stats
                         </span>
-                        <span className="text-[10px] text-slate-400 font-mono font-bold">
+                        <span className="text-[10px] text-slate-500 font-mono font-bold">
                             {state.innings === 3 ? 'SUPER OVER - Inn 1' : state.innings === 4 ? 'SUPER OVER - Inn 2' : `Innings ${state.innings}`}
                         </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                         <div className="text-left">
-                            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Batting</span>
-                            <span className="block text-2xl text-emerald-500 tracking-wide truncate max-w-[120px]" style={DISPLAY_FONT}>{state.batting_side[0] || 'Team A'}</span>
+                            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Batting</span>
+                            <span className="block text-2xl text-emerald-400 tracking-wide truncate max-w-[120px]" style={DISPLAY_FONT}>{state.batting_side[0] || 'Team A'}</span>
                         </div>
                         <div className="text-center shrink-0">
-                            <span className="block text-3xl font-black text-slate-900 leading-none" style={DISPLAY_FONT}>{state.total_runs}/{state.wickets}</span>
+                            <span className="block text-3xl font-black text-white leading-none" style={DISPLAY_FONT}>{state.total_runs}/{state.wickets}</span>
                             <span className="block text-xs text-slate-500 font-bold">({state.overs} ov)</span>
                         </div>
                         <div className="text-right">
-                            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Bowling</span>
-                            <span className="block text-2xl text-slate-900 tracking-wide truncate max-w-[120px]" style={DISPLAY_FONT}>{state.bowling_side[0] || 'Team B'}</span>
+                            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Bowling</span>
+                            <span className="block text-2xl text-white tracking-wide truncate max-w-[120px]" style={DISPLAY_FONT}>{state.bowling_side[0] || 'Team B'}</span>
                         </div>
                     </div>
                     {state.target && (
-                        <div className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-200/50 py-1 rounded">
+                        <div className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400 bg-white/8 py-1.5 rounded-lg">
                             Target: {state.target} (Need {need})
                         </div>
                     )}
                     {rrr !== null && (
                         <div className="mt-2 flex justify-center gap-6 text-xs font-mono">
-                            <span className="text-slate-400">CRR <span className="text-slate-700 font-bold">{crr.toFixed(2)}</span></span>
-                            <span className={`font-bold ${rrr > crr ? 'text-red-500' : 'text-emerald-600'}`}>RRR {rrr.toFixed(2)}</span>
+                            <span className="text-slate-500">CRR <span className="text-slate-200 font-bold">{crr.toFixed(2)}</span></span>
+                            <span className={`font-bold ${rrr > crr ? 'text-red-400' : 'text-emerald-400'}`}>RRR {rrr.toFixed(2)}</span>
                         </div>
                     )}
                 </div>
@@ -634,14 +634,14 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
                         )}
 
                     {/* Batting Squad */}
-                    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
-                        <div className="bg-gradient-to-r from-emerald-50 to-transparent p-3 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="text-lg tracking-wide text-slate-900" style={DISPLAY_FONT}>Batting Squad</h3>
-                            <span className="text-emerald-500 text-lg">🏏</span>
+                    <div className="bg-slate-900 rounded-xl border border-white/8 overflow-hidden">
+                        <div className="bg-emerald-500/8 p-3 border-b border-white/8 flex justify-between items-center">
+                            <h3 className="text-lg tracking-wide text-white" style={DISPLAY_FONT}>Batting Squad</h3>
+                            <span className="text-lg">🏏</span>
                         </div>
                         <table className="w-full text-left text-xs sm:text-sm">
                             <thead>
-                                <tr className="text-[10px] text-slate-500 uppercase tracking-wider font-bold border-b border-slate-100 bg-slate-50/50">
+                                <tr className="text-[10px] text-slate-400 uppercase tracking-wider font-bold border-b border-white/8 bg-white/4">
                                     <th className="px-3 sm:px-4 py-2 font-bold">Batter</th>
                                     <th className="px-1 sm:px-2 py-2 text-center font-bold">R</th>
                                     <th className="px-1 sm:px-2 py-2 text-center font-bold">B</th>
@@ -650,15 +650,15 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
                                     <th className="px-2 sm:px-2 py-2 text-right font-bold">SR</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 font-mono text-[10px] sm:text-xs">
+                            <tbody className="divide-y divide-white/5 font-mono text-[10px] sm:text-xs">
                                 {state.batting_card.map((bc) => (
-                                    <tr key={bc.name} className={`${bc.name === state.striker ? 'bg-emerald-500/5' : ''} ${bc.is_out ? 'text-slate-400 line-through opacity-70' : 'text-slate-600'} relative group`}>
-                                        <td className={`px-3 sm:px-4 py-2.5 sm:py-3 font-bold flex items-center gap-1.5 ${bc.name === state.striker ? 'text-emerald-600' : 'text-slate-700'} truncate max-w-[100px] sm:max-w-[140px]`}>
+                                    <tr key={bc.name} className={`${bc.name === state.striker ? 'bg-emerald-500/10' : ''} ${bc.is_out ? 'text-slate-600 line-through opacity-60' : 'text-slate-300'} relative`}>
+                                        <td className={`px-3 sm:px-4 py-2.5 sm:py-3 font-bold flex items-center gap-1.5 ${bc.name === state.striker ? 'text-emerald-400' : 'text-slate-200'} truncate max-w-[100px] sm:max-w-[140px]`}>
                                             {bc.name}
-                                            {bc.name === state.striker && <span className="text-emerald-500 text-[10px]">★</span>}
-                                            {bc.name === state.striker && <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>}
+                                            {bc.name === state.striker && <span className="text-emerald-400 text-[10px]">★</span>}
+                                            {bc.name === state.striker && <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />}
                                         </td>
-                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center text-slate-900 font-bold">{bc.runs}</td>
+                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center text-white font-bold">{bc.runs}</td>
                                         <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center">{bc.balls}</td>
                                         <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center hidden sm:table-cell">{bc.fours}</td>
                                         <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center hidden sm:table-cell">{bc.sixes}</td>
@@ -670,31 +670,31 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
                     </div>
 
                     {/* Bowling Attack */}
-                    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
-                        <div className="bg-gradient-to-r from-blue-50 to-transparent p-3 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="text-lg tracking-wide text-slate-900" style={DISPLAY_FONT}>Bowling Attack</h3>
-                            <span className="text-blue-600 text-lg">⚾</span>
+                    <div className="bg-slate-900 rounded-xl border border-white/8 overflow-hidden">
+                        <div className="bg-blue-500/8 p-3 border-b border-white/8 flex justify-between items-center">
+                            <h3 className="text-lg tracking-wide text-white" style={DISPLAY_FONT}>Bowling Attack</h3>
+                            <span className="text-lg">⚾</span>
                         </div>
                         <table className="w-full text-left text-xs sm:text-sm">
                             <thead>
-                                <tr className="text-[10px] text-slate-500 uppercase tracking-wider font-bold border-b border-slate-100 bg-slate-50/50">
+                                <tr className="text-[10px] text-slate-400 uppercase tracking-wider font-bold border-b border-white/8 bg-white/4">
                                     <th className="px-3 sm:px-4 py-2 font-bold">Bowler</th>
                                     <th className="px-1 sm:px-2 py-2 text-center font-bold">O</th>
                                     <th className="px-1 sm:px-2 py-2 text-center font-bold">R</th>
-                                    <th className="px-1 sm:px-2 py-2 text-center font-bold text-emerald-600">W</th>
+                                    <th className="px-1 sm:px-2 py-2 text-center font-bold text-emerald-400">W</th>
                                     <th className="px-2 sm:px-2 py-2 text-right font-bold">Econ</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 font-mono text-[10px] sm:text-xs">
+                            <tbody className="divide-y divide-white/5 font-mono text-[10px] sm:text-xs">
                                 {state.bowling_card.map((bw) => (
-                                    <tr key={bw.name} className={`${bw.name === state.bowler ? 'bg-slate-50/80' : ''} text-slate-600 relative`}>
-                                        <td className={`px-3 sm:px-4 py-2.5 sm:py-3 font-bold flex items-center gap-1.5 ${bw.name === state.bowler ? 'text-slate-900' : 'text-slate-700'} truncate max-w-[120px] sm:max-w-[150px]`}>
+                                    <tr key={bw.name} className={`${bw.name === state.bowler ? 'bg-white/5' : ''} text-slate-300 relative`}>
+                                        <td className={`px-3 sm:px-4 py-2.5 sm:py-3 font-bold flex items-center gap-1.5 ${bw.name === state.bowler ? 'text-white' : 'text-slate-200'} truncate max-w-[120px] sm:max-w-[150px]`}>
                                             {bw.name}
-                                            {bw.name === state.bowler && <span className="text-emerald-500 text-[10px] animate-spin">⚡</span>}
+                                            {bw.name === state.bowler && <span className="text-emerald-400 text-[10px]">⚡</span>}
                                         </td>
                                         <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center">{bw.overs}</td>
                                         <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center">{bw.runs}</td>
-                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center text-emerald-600 font-bold">{bw.wickets}</td>
+                                        <td className="px-1 sm:px-2 py-2.5 sm:py-3 text-center text-emerald-400 font-bold">{bw.wickets}</td>
                                         <td className="px-2 sm:px-2 py-2.5 sm:py-3 text-right">{bw.econ}</td>
                                     </tr>
                                 ))}
@@ -705,33 +705,31 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
 
                     {/* Standings if tournament */}
                     {tournament?.standings?.length ? (
-                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
-                            <div className="bg-gradient-to-r from-purple-50 to-transparent p-3 border-b border-slate-100 flex justify-between items-center">
-                                <h3 className="text-lg tracking-wide text-slate-900" style={DISPLAY_FONT}>Standings</h3>
-                                <div className="text-right">
-                                    <span className="inline-block text-[10px] uppercase tracking-wider text-slate-600 font-bold bg-white border border-slate-200 rounded px-1.5 py-0.5">
-                                        {tournament.phase}
-                                    </span>
-                                </div>
+                        <div className="bg-slate-900 rounded-xl border border-white/8 overflow-hidden">
+                            <div className="bg-violet-500/8 p-3 border-b border-white/8 flex justify-between items-center">
+                                <h3 className="text-lg tracking-wide text-white" style={DISPLAY_FONT}>Standings</h3>
+                                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold bg-white/8 border border-white/10 rounded px-1.5 py-0.5">
+                                    {tournament.phase}
+                                </span>
                             </div>
                             <div className="p-2 space-y-1 text-[10px] sm:text-xs font-mono">
-                                <div className="flex justify-between items-center rounded px-1.5 sm:px-2 py-1 text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-slate-500 bg-slate-100 border border-slate-200">
+                                <div className="flex justify-between items-center rounded px-1.5 sm:px-2 py-1 text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-slate-400 bg-white/5 border border-white/8">
                                     <span className="w-4">#</span>
                                     <span className="flex-1">Player</span>
                                     <span className="w-6 text-center">P</span>
-                                    <span className="w-6 text-center text-emerald-600">W</span>
-                                    <span className="w-6 text-center text-red-500">L</span>
+                                    <span className="w-6 text-center text-emerald-400">W</span>
+                                    <span className="w-6 text-center text-red-400">L</span>
                                     <span className="w-8 text-center">Pts</span>
                                     <span className="w-10 sm:w-12 text-right">NRR</span>
                                 </div>
                                 {tournament.standings.map((s, i) => (
-                                    <div key={s.player} className={`flex justify-between items-center rounded p-1.5 sm:p-2 hover:bg-slate-50 transition-colors ${i < 4 ? 'bg-emerald-50/30' : 'bg-slate-50/50'}`}>
-                                        <span className={`w-4 font-bold ${i < 4 ? 'text-emerald-500' : 'text-slate-400'}`}>{i + 1}</span>
-                                        <span className="flex-1 truncate text-slate-700 font-bold">{s.player}</span>
-                                        <span className="w-6 text-center text-slate-700">{s.played}</span>
-                                        <span className="w-6 text-center text-emerald-500 font-bold">{s.won}</span>
+                                    <div key={s.player} className={`flex justify-between items-center rounded p-1.5 sm:p-2 transition-colors ${i < 4 ? 'bg-emerald-500/8' : 'bg-white/3'}`}>
+                                        <span className={`w-4 font-bold ${i < 4 ? 'text-emerald-400' : 'text-slate-500'}`}>{i + 1}</span>
+                                        <span className="flex-1 truncate text-slate-200 font-bold">{s.player}</span>
+                                        <span className="w-6 text-center text-slate-400">{s.played}</span>
+                                        <span className="w-6 text-center text-emerald-400 font-bold">{s.won}</span>
                                         <span className="w-6 text-center text-red-400">{s.lost}</span>
-                                        <span className="w-8 text-center text-slate-900 font-black">{s.points}</span>
+                                        <span className="w-8 text-center text-white font-black">{s.points}</span>
                                         <span className="w-10 sm:w-12 text-right text-slate-500">
                                             {s.nrr >= 0 ? '+' : ''}{s.nrr.toFixed(2)}
                                         </span>
@@ -743,18 +741,18 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
 
                     {/* Upcoming Matches */}
                     {tournament?.upcoming_matches?.length ? (
-                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
-                            <div className="bg-gradient-to-r from-blue-50 to-transparent p-3 border-b border-slate-100 flex justify-between items-center">
-                                <h3 className="text-lg tracking-wide text-slate-900" style={DISPLAY_FONT}>Upcoming</h3>
-                                <span className="text-blue-500 text-lg">📅</span>
+                        <div className="bg-slate-900 rounded-xl border border-white/8 overflow-hidden">
+                            <div className="bg-blue-500/8 p-3 border-b border-white/8 flex justify-between items-center">
+                                <h3 className="text-lg tracking-wide text-white" style={DISPLAY_FONT}>Upcoming</h3>
+                                <span className="text-lg">📅</span>
                             </div>
                             <div className="p-2 space-y-1 text-[10px] sm:text-xs">
                                 {tournament.upcoming_matches.slice(0, 5).map((m, idx) => (
-                                    <div key={`${m.label}-${idx}`} className="flex items-center justify-between rounded p-1.5 sm:p-2 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                                        <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold min-w-[50px]">
+                                    <div key={`${m.label}-${idx}`} className="flex items-center justify-between rounded p-1.5 sm:p-2 bg-white/3 hover:bg-white/6 transition-colors">
+                                        <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold min-w-[50px]">
                                             {m.label === 'group' ? `M${idx + 1}` : m.label === 'qualifier_1' ? 'Q1' : m.label === 'eliminator' ? 'ELIM' : m.label === 'qualifier_2' ? 'Q2' : 'FINAL'}
                                         </span>
-                                        <span className="flex-1 text-right text-slate-700 font-medium truncate">
+                                        <span className="flex-1 text-right text-slate-300 font-medium truncate">
                                             {m.teams?.length === 2 ? `${m.teams[0]} vs ${m.teams[1]}` : 'TBD'}
                                         </span>
                                     </div>
