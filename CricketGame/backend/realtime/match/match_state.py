@@ -44,6 +44,10 @@ async def send_match_state(manager, room) -> None:
         "available_bowlers": innings.available_next_bowlers() if innings.needs_bowler_choice else [],
         "batting_captain": batting_captain,
         "bowling_captain": bowling_captain,
+        "current_over_balls": [
+            {"runs": b["runs"], "is_out": b["is_out"]}
+            for b in (innings.ball_log[-innings.balls_in_over:] if innings.balls_in_over > 0 else [])
+        ],
     }
     if room.tournament and match.mode == "tournament":
         base_state["tournament"] = manager._build_tournament_payload(room.tournament, skip_current=True)

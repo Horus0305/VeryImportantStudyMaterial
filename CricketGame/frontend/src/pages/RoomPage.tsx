@@ -11,6 +11,8 @@ import TossScreen from '@/components/TossScreen'
 import GameBoard from '@/components/GameBoard'
 import Scorecard from '@/components/Scorecard'
 import StandingsView from '@/components/StandingsView'
+import EmojiOverlay, { type EmojiOverlayHandle } from '@/components/EmojiOverlay'
+import HomeScreen from '@/components/HomeScreen'
 
 // Types
 interface LobbyData {
@@ -105,9 +107,10 @@ export default function RoomPage({ token, username, onLogout }: Props) {
     const [ballFlash, setBallFlash] = useState<Record<string, unknown> | null>(null)
     const [error, setError] = useState('')
     const [serverIP, setServerIP] = useState<string | null>(null)
-    // Countdown timer: sent by COUNTDOWN server event, counts down locally
-    const [countdown, setCountdown] = useState<{ role: string; seconds: number } | null>(null)
-    const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+    const emojiOverlayRef = useRef<EmojiOverlayHandle>(null)
+    const myRoleRef = useRef<string>('')
+    const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
 
     const wsRef = useRef<WebSocket | null>(null)
     const [isReconnecting, setIsReconnecting] = useState(false)
@@ -166,49 +169,13 @@ export default function RoomPage({ token, username, onLogout }: Props) {
             case 'BALL_RESULT':
                 setBallFlash(msg)
                 setTimeout(() => setBallFlash(null), 1500)
-                // Clear any running countdown — ball was resolved
-                if (countdownRef.current) {
-                    clearInterval(countdownRef.current)
-                    countdownRef.current = null
-                }
-                setCountdown(null)
                 break
-
-            case 'COUNTDOWN': {
-                // Fresh countdown from server (role: bat | bowl | captain, seconds: N)
-                if (countdownRef.current) {
-                    clearInterval(countdownRef.current)
-                    countdownRef.current = null
-                }
-                const role = msg.role as string
-                const seconds = msg.seconds as number
-                setCountdown({ role, seconds })
-                countdownRef.current = setInterval(() => {
-                    setCountdown(prev => {
-                        if (!prev || prev.seconds <= 1) {
-                            if (countdownRef.current) {
-                                clearInterval(countdownRef.current)
-                                countdownRef.current = null
-                            }
-                            return null
-                        }
-                        return { ...prev, seconds: prev.seconds - 1 }
-                    })
-                }, 1000)
-                break
-            }
 
             case 'INNINGS_BREAK':
                 // Brief pause handled by server, next MATCH_STATE comes automatically
                 break
 
             case 'MATCH_OVER':
-                // Clear any running countdown
-                if (countdownRef.current) {
-                    clearInterval(countdownRef.current)
-                    countdownRef.current = null
-                }
-                setCountdown(null)
                 // Delay transition to scorecard so the last ball celebration finishes
                 setScorecardData(msg)
                 setTimeout(() => {
@@ -261,12 +228,11 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                 setTimeout(() => setError(''), 5000)
                 break
 
-            case 'AUTO_MOVE_WARNING': {
-                const strikes = msg.strikes as number
-                const max = msg.max as number
-                const player = msg.player as string
-                setError(`️ ${player} is taking too long! (${strikes}/${max} auto-plays used)`)
-                setTimeout(() => setError(''), 4000)
+            case 'EMOJI_REACTION': {
+                const activeRoles = new Set(['BATTING', 'BOWLING'])
+                if (!activeRoles.has(myRoleRef.current)) {
+                    emojiOverlayRef.current?.addReaction(msg.player as string, msg.emoji as string)
+                }
                 break
             }
 
@@ -292,6 +258,9 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                 break
         }
     }, [screen, navigate])
+
+    // Keep role ref in sync so the WS handler can check it without a stale closure
+    useEffect(() => { myRoleRef.current = matchState?.my_role ?? '' }, [matchState?.my_role])
 
     // Ref to hold the latest message handler (prevents WebSocket reconnection on state changes)
     const handleWsMessageRef = useRef(handleWsMessage)
@@ -395,10 +364,6 @@ export default function RoomPage({ token, username, onLogout }: Props) {
             connectWs(urlRoomCode)
         }
         return () => {
-            if (countdownRef.current) {
-                clearInterval(countdownRef.current)
-                countdownRef.current = null
-            }
             if (reconnectTimerRef.current) {
                 clearTimeout(reconnectTimerRef.current)
                 reconnectTimerRef.current = null
@@ -464,110 +429,64 @@ export default function RoomPage({ token, username, onLogout }: Props) {
     // ── Render ──
 
     if (screen === 'home') {
-        const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
         return (
-            <div className="min-h-[100dvh] sm:min-h-screen bg-slate-50 flex items-center justify-center relative overflow-hidden px-4 py-8">
-                {/* Subtle decorative gradients */}
-                <div className="absolute top-[-30%] right-[-20%] w-[500px] h-[500px] bg-emerald-200/30 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute bottom-[-20%] left-[-15%] w-[400px] h-[400px] bg-blue-200/20 rounded-full blur-3xl pointer-events-none" />
-
-                <div className="relative z-10 w-full max-w-lg space-y-5 sm:space-y-6">
-                    {/* Hero Header */}
-                    <div className="text-center mb-2 sm:mb-4">
-                        <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl shadow-lg shadow-emerald-500/20 mb-4 rotate-[-6deg] hover:rotate-0 transition-transform duration-500">
-                            <span className="text-2xl sm:text-3xl -rotate-12">🏏</span>
-                        </div>
-                        <h1 className="text-4xl sm:text-5xl text-slate-900 uppercase tracking-tight leading-none" style={DISPLAY_FONT}>
-                            E <span className="text-emerald-600">Cricket</span>
-                        </h1>
-                        <p className="text-sm text-slate-500 mt-2">
-                            Welcome, <span className="font-bold text-emerald-700">{username}</span>!
-                        </p>
-                    </div>
-
-                    {/* Create Room Card */}
-                    <div className="group bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-sm hover:shadow-md hover:border-emerald-300 transition-all duration-300">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
-                                <span className="text-xl">⚡</span>
-                            </div>
-                            <div>
-                                <h3 className="text-lg sm:text-xl text-slate-900 uppercase tracking-wide" style={DISPLAY_FONT}>Create a Room</h3>
-                                <p className="text-[11px] sm:text-xs text-slate-400">Host a new match. Share the code with friends.</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={createRoom}
-                            className="w-full py-3.5 sm:py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold uppercase tracking-widest text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-600/15 hover:shadow-emerald-500/25 transition-all duration-300 active:scale-[0.98]"
-                        >
-                            🏏 Create New Room
-                        </button>
-                    </div>
-
-                    {/* Join Room Card */}
-                    <div className="group bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-300">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                                <span className="text-xl">🎯</span>
-                            </div>
-                            <div>
-                                <h3 className="text-lg sm:text-xl text-slate-900 uppercase tracking-wide" style={DISPLAY_FONT}>Join a Room</h3>
-                                <p className="text-[11px] sm:text-xs text-slate-400">Enter the room code to join an existing match.</p>
-                            </div>
-                        </div>
-                        <div className="space-y-3">
-                            <input
-                                placeholder="Enter room code (e.g. ABC123)"
-                                value={joinCode}
-                                onChange={e => setJoinCode(e.target.value.toUpperCase())}
-                                onKeyDown={e => e.key === 'Enter' && joinRoom()}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 sm:py-3.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-sm font-mono tracking-widest text-center uppercase"
-                            />
-                            <button
-                                onClick={joinRoom}
-                                className="w-full py-3.5 sm:py-4 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white font-bold uppercase tracking-widest text-xs sm:text-sm rounded-xl shadow-md shadow-slate-900/10 hover:shadow-slate-800/20 transition-all duration-300 active:scale-[0.98]"
-                            >
-                                🎯 Join Room
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-3 justify-center pt-1">
-                        <button
-                            onClick={() => navigate('/profile')}
-                            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50 hover:border-slate-300 transition-all text-xs sm:text-sm font-medium shadow-sm"
-                        >
-                            <span className="text-base sm:text-lg">👤</span> Profile
-                        </button>
-                        <button
-                            onClick={onLogout}
-                            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-red-50 border border-red-200 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-100 hover:border-red-300 transition-all text-xs sm:text-sm font-medium"
-                        >
-                            <span className="text-base sm:text-lg">🚪</span> Logout
-                        </button>
-                    </div>
-
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4 flex items-center justify-center gap-2">
-                            <span className="text-red-500 text-base">⚠</span>
-                            <p className="text-xs sm:text-sm text-red-600 font-medium">{error}</p>
-                        </div>
-                    )}
-
-                    {/* Footer */}
-                    <div className="text-center pt-1 pb-2">
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
-                            © 2026 Sports Interactive
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <HomeScreen
+                username={username}
+                token={token}
+                onCreateRoom={createRoom}
+                onJoinRoom={(code) => { setJoinCode(code); navigate(`/room/${code}`) }}
+                onLogout={onLogout}
+                error={error}
+            />
         )
     }
 
+    const EMOJIS = ['🔥', '😱', '👏', '💀', '🎉', '😤']
+    // Emoji picker: only spectators during a live match, or anyone on the standings screen
+    const showEmojiBar = (screen === 'game' && matchState?.my_role === 'SPECTATING')
+        || screen === 'standings'
+
     return (
         <div className="min-h-[100dvh] sm:min-h-screen flex flex-col bg-slate-50 overflow-y-auto sm:overflow-hidden">
+            {/* Floating emoji reactions — imperative overlay, zero React re-renders */}
+            <EmojiOverlay ref={emojiOverlayRef} />
+
+            {/* Emoji picker — single trigger button, expands on tap */}
+            {showEmojiBar && (
+                <>
+                    {emojiPickerOpen && (
+                        <div
+                            className="fixed inset-0 z-[165]"
+                            onClick={() => setEmojiPickerOpen(false)}
+                        />
+                    )}
+                    <div className="fixed bottom-6 left-3 z-[170] flex flex-col items-center gap-1.5">
+                        {emojiPickerOpen && (
+                            <div className="flex flex-col items-center gap-1.5 mb-1">
+                                {EMOJIS.map(emoji => (
+                                    <button
+                                        key={emoji}
+                                        onClick={() => {
+                                            sendMsg({ action: 'EMOJI_REACTION', emoji })
+                                            setEmojiPickerOpen(false)
+                                        }}
+                                        className="w-9 h-9 rounded-full bg-white/95 backdrop-blur-sm border border-slate-200 shadow-md hover:scale-125 active:scale-95 transition-transform text-lg flex items-center justify-center"
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <button
+                            onClick={() => setEmojiPickerOpen(o => !o)}
+                            className="w-10 h-10 rounded-full bg-white/95 backdrop-blur-sm border border-slate-200 shadow-lg hover:scale-110 active:scale-95 transition-transform text-xl flex items-center justify-center"
+                        >
+                            {emojiPickerOpen ? '✕' : '😊'}
+                        </button>
+                    </div>
+                </>
+            )}
+
             {/* Reconnecting overlay — shown whenever the WS dropped mid-game */}
             {isReconnecting && (
                 <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -746,7 +665,6 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                         ballFlash={ballFlash}
                         sendMsg={sendMsg}
                         isHost={lobby?.host === username}
-                        countdown={countdown}
                     />
                 )}
 

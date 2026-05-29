@@ -123,6 +123,8 @@ class RoomManager:
             await self._pick_batter(room, player, msg)
         elif action == "PICK_BOWLER":
             await self._pick_bowler(room, player, msg)
+        elif action == "EMOJI_REACTION":
+            await self._emoji_reaction(room, player, msg)
     async def _configure(self, room: Room, player: PlayerConn, msg: dict) -> None:
         await lobby_actions.configure(self, room, player, msg)
     async def _assign_team(self, room: Room, player: PlayerConn, msg: dict) -> None:
@@ -157,6 +159,12 @@ class RoomManager:
         return match_flow.save_match_history(self, room, match, potm_data, tournament_id)
     async def _cancel_match(self, room: Room, player: PlayerConn) -> None:
         await match_flow.cancel_match(self, room, player)
+    async def _emoji_reaction(self, room: Room, player: PlayerConn, msg: dict) -> None:
+        allowed = {"🔥", "😱", "👏", "💀", "🎉", "😤"}
+        emoji = msg.get("emoji", "")
+        if emoji not in allowed:
+            return
+        await self.broadcast(room, {"type": "EMOJI_REACTION", "player": player.username, "emoji": emoji})
     async def _pick_batter(self, room: Room, player: PlayerConn, msg: dict) -> None:
         await match_flow.handle_pick_batter(self, room, player, msg)
     async def _pick_bowler(self, room: Room, player: PlayerConn, msg: dict) -> None:

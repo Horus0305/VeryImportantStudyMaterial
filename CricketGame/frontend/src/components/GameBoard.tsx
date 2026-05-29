@@ -27,6 +27,8 @@ interface CaptainOption {
     disabled: boolean
 }
 
+interface OverBall { runs: number; is_out: boolean }
+
 interface MatchState {
     mode: string
     innings: number
@@ -52,6 +54,7 @@ interface MatchState {
     available_bowlers?: CaptainOption[]
     batting_captain?: string | null
     bowling_captain?: string | null
+    current_over_balls?: OverBall[]
 }
 
 interface BallFlash {
@@ -66,7 +69,6 @@ interface Props {
     ballFlash: BallFlash | null
     sendMsg: (msg: Record<string, unknown>) => void
     isHost: boolean
-    countdown?: { role: string; seconds: number } | null
 }
 
 const DISPLAY_FONT = { fontFamily: "'Bebas Neue', 'Teko', sans-serif" }
@@ -247,11 +249,10 @@ function CelebrationOverlay({ flash }: { flash: BallFlash | null }) {
 // ─── Captain Picker Modal ─────────────────────────────────────────────────────
 
 function CaptainPickerModal({
-    type, options, seconds, onPick, stats
+    type, options, onPick, stats
 }: {
     type: 'batter' | 'bowler'
     options: CaptainOption[]
-    seconds: number
     onPick: (player: string) => void
     stats?: (BatCard | BowlCard)[]
 }) {
@@ -266,15 +267,6 @@ function CaptainPickerModal({
                         Pick Next {type === 'batter' ? 'Batter' : 'Bowler'}
                     </h3>
                     <p className="text-slate-400 text-xs sm:text-sm mt-1">Select an available player to continue</p>
-                    <div className="mt-4 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50 relative">
-                        <div
-                            className={`absolute inset-y-0 left-0 bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-1000 ease-linear ${seconds <= 2 ? 'animate-pulse bg-red-500 from-red-500 to-red-400' : ''}`}
-                            style={{ width: `${(seconds / 5) * 100}%` }}
-                        />
-                    </div>
-                    <p className={`text-xs mt-1.5 font-mono font-bold ${seconds <= 2 ? 'text-red-400' : 'text-amber-500'}`}>
-                        {seconds}s remaining
-                    </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto min-h-0 pr-1 custom-scrollbar">
@@ -321,31 +313,45 @@ function CaptainPickerModal({
     )
 }
 
-function CaptainBanner({ type, captain, seconds }: { type: 'batter' | 'bowler'; captain: string; seconds: number }) {
+function CaptainBanner({ type, captain }: { type: 'batter' | 'bowler'; captain: string }) {
     return (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 border border-amber-500/60 rounded-xl px-5 py-3 shadow-2xl flex items-center gap-3 animate-slide-down">
-            <div>
-                <p className="text-amber-400 font-bold text-sm">
-                    {captain} is picking the next {type === 'batter' ? 'batter' : 'bowler'}
-                </p>
-                <div className="h-1 bg-slate-700 rounded-full mt-1.5 overflow-hidden w-36">
-                    <div
-                        className="h-full bg-amber-400 rounded-full transition-all duration-1000 ease-linear"
-                        style={{ width: `${(seconds / 5) * 100}%` }}
-                    />
-                </div>
-            </div>
-            <span className="text-amber-300 font-mono font-bold text-base">{seconds}s</span>
+            <p className="text-amber-400 font-bold text-sm">
+                {captain} is picking the next {type === 'batter' ? 'batter' : 'bowler'}
+            </p>
         </div>
+    )
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function parseOvers(overs: string): number {
+    const [o, b = '0'] = overs.split('.')
+    return parseInt(o) + parseInt(b) / 6
+}
+
+function OverBallPip({ ball }: { ball: OverBall }) {
+    if (ball.is_out) return (
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-red-500 text-white text-xs font-black shadow-sm">W</span>
+    )
+    if (ball.runs === 6) return (
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-purple-500 text-white text-xs font-black shadow-sm">6</span>
+    )
+    if (ball.runs === 4) return (
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500 text-white text-xs font-black shadow-sm">4</span>
+    )
+    if (ball.runs === 0) return (
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-200 text-slate-500 text-base font-bold shadow-sm">·</span>
+    )
+    return (
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white border border-slate-300 text-slate-700 text-xs font-bold shadow-sm">{ball.runs}</span>
     )
 }
 
 // ─── Main GameBoard ───────────────────────────────────────────────────────────
 
-export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown }: Props) {
+export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) {
     const [hasSent, setHasSent] = useState(false)
-    const [captainCountdown, setCaptainCountdown] = useState(0)
-    const captainTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
     const role = ROLE_LABELS[state.my_role] ?? { text: 'Spectating', icon: '', active: false }
     const tournament = state.tournament
 
@@ -354,14 +360,7 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
         setHasSent(true)
     }, [sendMsg])
 
-    // Reset hasSent when a new countdown timer starts (seconds === 10)
-    useEffect(() => {
-        if (countdown?.seconds === 10) {
-            setHasSent(false)
-        }
-    }, [countdown?.seconds])
-
-    // Also reset hasSent when innings changes (innings break) or role changes
+    // Reset hasSent when innings changes (innings break) or role changes
     // This prevents buttons from staying disabled after an innings transition
     const prevInningsRef = useRef(state.innings)
     const prevRoleRef = useRef(state.my_role)
@@ -393,6 +392,15 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
 
     const need = state.target ? state.target - state.total_runs : null
     const canAct = role.active && !hasSent && !ballFlash
+    const isActivePlayer = state.my_role === 'BATTING' || state.my_role === 'BOWLING'
+
+    // RRR calculation for 2nd innings
+    const oversDecimal = parseOvers(state.overs)
+    const ballsRemaining = state.total_overs * 6 - Math.round(oversDecimal * 6)
+    const rrr = state.target && ballsRemaining > 0
+        ? ((state.target - state.total_runs) / (ballsRemaining / 6))
+        : null
+    const crr = oversDecimal > 0 ? state.total_runs / oversDecimal : 0
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -406,24 +414,6 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
     }, [canAct, sendMove])
 
     const isCaptainPending = state.needs_batter_choice || state.needs_bowler_choice
-    useEffect(() => {
-        if (isCaptainPending) {
-            setCaptainCountdown(5)
-            captainTimerRef.current = setInterval(() => {
-                setCaptainCountdown(prev => {
-                    if (prev <= 1) {
-                        if (captainTimerRef.current) clearInterval(captainTimerRef.current)
-                        return 0
-                    }
-                    return prev - 1
-                })
-            }, 1000)
-        } else {
-            if (captainTimerRef.current) clearInterval(captainTimerRef.current)
-            setCaptainCountdown(0)
-        }
-        return () => { if (captainTimerRef.current) clearInterval(captainTimerRef.current) }
-    }, [isCaptainPending])
 
     const isBattingCaptain = state.my_role === 'BATTING_CAPTAIN_PICK'
     const isBowlingCaptain = state.my_role === 'BOWLING_CAPTAIN_PICK'
@@ -439,7 +429,7 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
     return (
         <div className="flex-1 flex flex-col lg:flex-row bg-slate-50 text-slate-900 border-t border-slate-200">
             {watchingCaptainType && watchingCaptain && (
-                <CaptainBanner type={watchingCaptainType} captain={watchingCaptain} seconds={captainCountdown} />
+                <CaptainBanner type={watchingCaptainType} captain={watchingCaptain} />
             )}
 
             {/* Main Stage (Stadium Area) */}
@@ -463,7 +453,15 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                         <span className="text-emerald-500 tracking-wider text-3xl" style={DISPLAY_FONT}>{state.total_runs}/{state.wickets}</span>
                         <span className="text-slate-600 text-sm font-semibold">{state.overs} Overs</span>
                     </div>
-                    <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">Target: {targetText}</div>
+                    <div className="flex justify-between items-center">
+                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">{targetText}</div>
+                        {rrr !== null && (
+                            <div className="flex gap-3 text-xs font-mono">
+                                <span className="text-slate-400">CRR <span className="text-slate-600 font-bold">{crr.toFixed(2)}</span></span>
+                                <span className={`font-bold ${rrr > crr ? 'text-red-500' : 'text-emerald-600'}`}>RRR {rrr.toFixed(2)}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Cricket Field Visual
@@ -521,83 +519,66 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                     <div className="absolute top-[30%] left-[20%] w-3 h-3 bg-white rounded-full shadow-lg border-2 border-slate-300" />
                     <div className="absolute bottom-[20%] right-[30%] w-3 h-3 bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.8)] animate-bounce" />
 
-                    {/* Mobile countdown bar inside the field */}
-                    {countdown && !isCaptainPending && (
-                        <div className="absolute bottom-4 left-4 right-4 z-10 lg:hidden">
-                            <div className="flex justify-between text-[10px] font-bold text-white/80 mb-1 uppercase tracking-wider">
-                                <span>Your turn to {countdown.role}</span>
-                                <span>{countdown.seconds}s</span>
-                            </div>
-                            <div className="h-2 bg-black/30 rounded-full overflow-hidden backdrop-blur">
-                                <div
-                                    className="h-full bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-all duration-1000 ease-linear"
-                                    style={{ width: `${(countdown.seconds / 10) * 100}%` }}
-                                />
-                            </div>
-                        </div>
-                    )}
-
                     {/* Celebrations inside stadium */}
                     <CelebrationOverlay flash={ballFlash} />
 
                     {isBattingCaptain && state.available_batters && (
-                        <CaptainPickerModal type="batter" options={state.available_batters} seconds={captainCountdown} onPick={(player) => sendMsg({ action: 'PICK_BATTER', player })} stats={state.batting_card} />
+                        <CaptainPickerModal type="batter" options={state.available_batters} onPick={(player) => sendMsg({ action: 'PICK_BATTER', player })} stats={state.batting_card} />
                     )}
                     {isBowlingCaptain && state.available_bowlers && (
-                        <CaptainPickerModal type="bowler" options={state.available_bowlers} seconds={captainCountdown} onPick={(player) => sendMsg({ action: 'PICK_BOWLER', player })} stats={state.bowling_card} />
+                        <CaptainPickerModal type="bowler" options={state.available_bowlers} onPick={(player) => sendMsg({ action: 'PICK_BOWLER', player })} stats={state.bowling_card} />
                     )}
                 </div>
 
-                {/* Input Area — Number Buttons */}
-                <div className="mt-4 sm:mt-6 w-full max-w-3xl mx-auto px-1 sm:px-4 z-10 shrink-0">
-                    {/* Desktop-only countdown bar (outside the field) */}
-                    <div className={`w-full transition-opacity duration-300 hidden lg:block ${countdown && !isCaptainPending ? 'opacity-100' : 'opacity-0'}`}>
-                        {countdown && !isCaptainPending && (
-                            <>
-                                <div className="flex justify-between items-end mb-2 text-xs font-mono px-2 font-bold uppercase" style={{ color: countdown.role === 'bat' ? '#10B981' : '#64748b' }}>
-                                    <span>Your turn to {countdown.role}</span>
-                                    <span>{countdown.seconds}s</span>
-                                </div>
-                                <div className="w-full h-1.5 bg-slate-200 rounded-full mb-4 overflow-hidden">
-                                    <div className={`h-full transition-all duration-1000 ease-linear ${countdown.role === 'bat' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-slate-500'}`} style={{ width: `${(countdown.seconds / 10) * 100}%` }} />
-                                </div>
-                            </>
-                        )}
-                        {(!countdown || isCaptainPending) && <div className="h-6 mb-4" />}
-                    </div>
-
-                    {/* Number Buttons */}
-                    <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl p-3 flex items-center justify-between sm:justify-center gap-2 sm:gap-4 shadow-xl">
-                        {[0, 1, 2, 3, 4, 5, 6].map(n => (
-                            <button
-                                key={n}
-                                onClick={() => sendMove(n)}
-                                disabled={!canAct || isCaptainPending}
-                                className={`flex-1 sm:flex-initial aspect-square sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all active:scale-95 group relative border text-2xl sm:text-4xl shadow-sm
-                                    ${!canAct || isCaptainPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                                    ${n === 4
-                                        ? 'bg-emerald-500 border-transparent text-white shadow-lg shadow-emerald-500/30 transform scale-110 border-2 border-emerald-400 hover:scale-[1.15] z-10'
-                                        : n === 6
-                                            ? 'bg-purple-500 border-transparent text-white shadow-lg shadow-purple-500/30 transform scale-110 border-2 border-purple-400 hover:scale-[1.15] z-10'
-                                            : 'bg-slate-100 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-500 text-slate-700'}
-                                `}
-                                style={DISPLAY_FONT}
-                            >
-                                {n}
-                                {n === 0 && <span className="absolute -bottom-3 opacity-0 group-hover:opacity-100 text-[9px] text-emerald-500 font-sans uppercase tracking-wider font-bold transition-opacity hidden sm:inline">Dot</span>}
-                                {n === 6 && <span className="absolute -bottom-3 opacity-0 group-hover:opacity-100 text-[9px] text-purple-600 font-sans uppercase tracking-wider font-bold transition-opacity hidden sm:inline">Max</span>}
-                            </button>
+                {/* This Over — always visible, no layout shift */}
+                <div className="mt-4 w-full max-w-3xl mx-auto px-1 sm:px-4 shrink-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mr-1">This over</span>
+                        {(state.current_over_balls ?? []).map((ball, i) => (
+                            <OverBallPip key={i} ball={ball} />
+                        ))}
+                        {Array.from({ length: 6 - (state.current_over_balls?.length ?? 0) }).map((_, i) => (
+                            <span key={`empty-${i}`} className="inline-flex items-center justify-center w-7 h-7 rounded-full border-2 border-dashed border-slate-200" />
                         ))}
                     </div>
-
-                    {isHost && (
-                        <div className="mt-4 text-center">
-                            <Button variant="ghost" className="text-xs text-red-500 hover:bg-red-50 uppercase tracking-widest font-bold" onClick={() => { if (confirm('Cancel this match? It will be a Tie.')) sendMsg({ action: 'CANCEL_MATCH' }) }}>
-                                Exit Match
-                            </Button>
-                        </div>
-                    )}
                 </div>
+
+                {/* Number Pad — active players only (BATTING / BOWLING) */}
+                {isActivePlayer && (
+                    <div className="mt-3 sm:mt-4 w-full max-w-3xl mx-auto px-1 sm:px-4 z-10 shrink-0">
+                        <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl p-3 flex items-center justify-between sm:justify-center gap-2 sm:gap-4 shadow-xl">
+                            {[0, 1, 2, 3, 4, 5, 6].map(n => (
+                                <button
+                                    key={n}
+                                    onClick={() => sendMove(n)}
+                                    disabled={!canAct || isCaptainPending}
+                                    className={`flex-1 sm:flex-initial aspect-square sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all active:scale-95 group relative border text-2xl sm:text-4xl shadow-sm
+                                        ${!canAct || isCaptainPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                                        ${n === 4
+                                            ? 'bg-emerald-500 border-transparent text-white shadow-lg shadow-emerald-500/30 transform scale-110 border-2 border-emerald-400 hover:scale-[1.15] z-10'
+                                            : n === 6
+                                                ? 'bg-purple-500 border-transparent text-white shadow-lg shadow-purple-500/30 transform scale-110 border-2 border-purple-400 hover:scale-[1.15] z-10'
+                                                : 'bg-slate-100 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-500 text-slate-700'}
+                                    `}
+                                    style={DISPLAY_FONT}
+                                >
+                                    {n}
+                                    {n === 0 && <span className="absolute -bottom-3 opacity-0 group-hover:opacity-100 text-[9px] text-emerald-500 font-sans uppercase tracking-wider font-bold transition-opacity hidden sm:inline">Dot</span>}
+                                    {n === 6 && <span className="absolute -bottom-3 opacity-0 group-hover:opacity-100 text-[9px] text-purple-600 font-sans uppercase tracking-wider font-bold transition-opacity hidden sm:inline">Max</span>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Exit Match — host only, always accessible regardless of role */}
+                {isHost && (
+                    <div className="mt-3 pb-2 text-center shrink-0">
+                        <Button variant="ghost" className="text-xs text-red-500 hover:bg-red-50 uppercase tracking-widest font-bold" onClick={() => { if (confirm('Cancel this match? It will be a Tie.')) sendMsg({ action: 'CANCEL_MATCH' }) }}>
+                            Exit Match
+                        </Button>
+                    </div>
+                )}
             </section>
 
             {/* RIGHT COLUMN: INFO ASIDE */}
@@ -630,6 +611,12 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost, countdown
                     {state.target && (
                         <div className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-200/50 py-1 rounded">
                             Target: {state.target} (Need {need})
+                        </div>
+                    )}
+                    {rrr !== null && (
+                        <div className="mt-2 flex justify-center gap-6 text-xs font-mono">
+                            <span className="text-slate-400">CRR <span className="text-slate-700 font-bold">{crr.toFixed(2)}</span></span>
+                            <span className={`font-bold ${rrr > crr ? 'text-red-500' : 'text-emerald-600'}`}>RRR {rrr.toFixed(2)}</span>
                         </div>
                     )}
                 </div>

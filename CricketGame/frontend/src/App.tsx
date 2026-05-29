@@ -1,10 +1,12 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useState } from 'react'
 import LoginPage from './pages/LoginPage'
+import AuthPage from './pages/AuthPage'
 import RoomPage from './pages/RoomPage'
 import ProfilePage from './pages/ProfilePage'
 import MatchDetailPage from './pages/MatchDetailPage'
 import TournamentDetailPage from './pages/TournamentDetailPage'
+import LeaderboardPage from './pages/LeaderboardPage'
 
 function App() {
   const [token, setToken] = useState<string>(sessionStorage.getItem('token') ?? '')
@@ -28,12 +30,20 @@ function App() {
   }
 
   if (!token) {
-    return <LoginPage onAuth={handleAuth} />
+    return (
+      <Routes>
+        <Route path="/login" element={<AuthPage onAuth={handleAuth} />} />
+        <Route path="*" element={<LoginPage />} />
+      </Routes>
+    )
   }
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
       <Routes>
+        <Route path="/leaderboard" element={
+          <LeaderboardPage username={username} />
+        } />
         <Route path="/profile" element={
           <ProfilePage token={token} username={username} onLogout={handleLogout} onRename={handleRename} />
         } />
@@ -56,4 +66,3 @@ function App() {
 }
 
 export default App
-

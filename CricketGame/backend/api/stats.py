@@ -1,4 +1,6 @@
 import json
+import re
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
@@ -224,6 +226,182 @@ def get_head_to_head(player1: str, player2: str, db: Session = Depends(get_db)):
         player1: _format(player1),
         player2: _format(player2),
     }
+
+
+def _extract_bowler(dismissal: str | None) -> str | None:
+    """Parse bowler name from dismissal text like 'b Alice', 'c Bob b Alice', 'lbw b Alice'."""
+    if not dismissal:
+        return None
+    idx = dismissal.rfind(" b ")
+    if idx >= 0:
+        return dismissal[idx + 3:].strip() or None
+    if dismissal.startswith("b "):
+        return dismissal[2:].strip() or None
+    return None
+
+
+def _parse_run_margin(result_text: str | None) -> int | None:
+    """Extract run margin from 'X won by N runs'. Returns None for wicket wins or ties."""
+    if not result_text:
+        return None
+    m = re.search(r"won by (\d+) run", result_text, re.IGNORECASE)
+    return int(m.group(1)) if m else None
+
+
+@router.get("/leaderboard")
+def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
+    from ..data.models import FormatStats
+    from datetime import datetime as _dt
+
+    players = db.query(Player).all()
+    entries: dict[str, dict] = {}
+
+    # ── 1. Aggregate FormatStats ──────────────────────────────────
+    for player in players:
+        rows = db.query(FormatStats).filter(FormatStats.player_id == player.id).all()
+        if not rows:
+            continue
+        mp = sum(r.matches_played for r in rows)
+        if mp == 0:
+            continue
+
+        mw         = sum(r.matches_won for r in rows)
+        runs       = sum(r.total_runs for r in rows)
+        balls      = sum(r.total_balls_faced for r in rows)
+        hs         = max((r.highest_score for r in rows), default=0)
+        fours      = sum(r.fours for r in rows)
+        sixes      = sum(r.sixes for r in rows)
+        fifties    = sum(r.fifties for r in rows)
+        hundreds   = sum(r.hundreds for r in rows)
+        innings_b  = sum(r.innings_batted for r in rows)
+        wickets    = sum(r.wickets_taken for r in rows)
+        r_conceded = sum(r.runs_conceded for r in rows)
+        overs      = sum(r.overs_bowled for r in rows)
+        potm       = sum(r.potm_count for r in rows)
+        t_won      = sum(r.tournaments_won for r in rows)
+        t_played   = sum(r.tournaments_played for r in rows)
+
+        best_w, best_r = 0, 999
+        for r in rows:
+            if r.best_bowling_wickets > best_w or (
+                r.best_bowling_wickets == best_w and r.best_bowling_runs < best_r
+            ):
+                best_w, best_r = r.best_bowling_wickets, r.best_bowling_runs
+
+        entries[player.username] = {
+            "username":           player.username,
+            "matches_played":     mp,
+            "matches_won":        mw,
+            "matches_lost":       mp - mw,
+            "win_pct":            round(mw / mp * 100, 1),
+            "total_runs":         runs,
+            "highest_score":      hs,
+            "batting_avg":        round(runs / innings_b, 2) if innings_b else 0.0,
+            "strike_rate":        round(runs / balls * 100, 1) if balls else 0.0,
+            "fours":              fours,
+            "sixes":              sixes,
+            "boundaries":         fours + sixes,
+            "fifties":            fifties,
+            "hundreds":           hundreds,
+            "wickets_taken":      wickets,
+            "best_bowling":       f"{best_w}/{best_r}" if best_w else "—",
+            "bowling_avg":        round(r_conceded / wickets, 2) if wickets else None,
+            "economy":            round(r_conceded / overs, 2) if overs else None,
+            "potm_count":         potm,
+            "tournaments_won":    t_won,
+            "tournaments_played": t_played,
+            # computed from MatchHistory below
+            "ducks":              0,
+            "ducks_taken":        0,
+            "close_losses":       0,   # lost by < 10 runs
+            "heavy_losses":       0,   # lost by > 30 runs
+            "six_shower":         0,   # innings where bowling side conceded 3+ sixes
+            "max_duck_streak":    0,   # longest consecutive duck streak
+        }
+
+    # Per-player chronological innings for duck streak calculation
+    player_innings: dict[str, list[bool]] = defaultdict(list)
+
+    # ── 2. Scan MatchHistory ──────────────────────────────────────
+    all_matches = (
+        db.query(MatchHistory)
+        .order_by(MatchHistory.timestamp.asc())
+        .all()
+    )
+
+    for match in all_matches:
+        side_a = _json_list(match.side_a)
+        side_b = _json_list(match.side_b)
+        margin = _parse_run_margin(match.result_text)
+
+        # Determine losing side for close/heavy loss stats
+        losing_side: list[str] = []
+        if match.winner and match.winner != "TIE" and margin is not None:
+            winner_names = {n.strip() for n in match.winner.split(",") if n.strip()}
+            if winner_names & set(side_a):
+                losing_side = side_b
+            elif winner_names & set(side_b):
+                losing_side = side_a
+
+        if losing_side and margin is not None:
+            for p in losing_side:
+                if p in entries:
+                    if margin < 10:
+                        entries[p]["close_losses"] += 1
+                    if margin > 30:
+                        entries[p]["heavy_losses"] += 1
+
+        # Scan scorecards
+        for sc_idx, sc_col in enumerate(("scorecard_1", "scorecard_2")):
+            sc_raw = getattr(match, sc_col)
+            if not sc_raw:
+                continue
+            try:
+                sc = json.loads(sc_raw) if isinstance(sc_raw, str) else sc_raw
+            except Exception:
+                continue
+
+            batting_cards = sc.get("batting", [])
+            batter_names = {bc.get("name") for bc in batting_cards if bc.get("name")}
+
+            # Determine bowling side for this innings
+            batting_side = side_a if (batter_names & set(side_a)) else side_b
+            bowling_side = side_b if batting_side is side_a else side_a
+
+            # Count sixes in this innings
+            innings_sixes = sum(bc.get("sixes", 0) for bc in batting_cards)
+            if innings_sixes >= 3:
+                for p in bowling_side:
+                    if p in entries:
+                        entries[p]["six_shower"] += 1
+
+            for bc in batting_cards:
+                name = bc.get("name")
+                if not name or name not in entries:
+                    continue
+
+                is_duck = bc.get("runs", -1) == 0 and bc.get("is_out", False)
+                player_innings[name].append(is_duck)
+
+                if is_duck:
+                    entries[name]["ducks"] += 1
+                    bowler = _extract_bowler(bc.get("dismissal"))
+                    if bowler and bowler in entries:
+                        entries[bowler]["ducks_taken"] += 1
+
+    # ── 3. Compute max consecutive duck streak ────────────────────
+    for player, innings_list in player_innings.items():
+        if player not in entries:
+            continue
+        max_streak = cur = 0
+        for is_duck in innings_list:
+            cur = cur + 1 if is_duck else 0
+            if cur > max_streak:
+                max_streak = cur
+        entries[player]["max_duck_streak"] = max_streak
+
+    result = sorted(entries.values(), key=lambda x: (-x["total_runs"], -x["highest_score"]))
+    return {"leaderboard": result[:min(max(limit, 1), 200)]}
 
 
 @router.get("/cpu-status/{username}")
