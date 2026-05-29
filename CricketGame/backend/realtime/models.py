@@ -1,6 +1,6 @@
 import random
 import string
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, Set
 
 from fastapi import WebSocket
 from ..game.game_engine import Match
@@ -26,6 +26,8 @@ class Room:
         self.code = code
         self.host = host
         self.players: Dict[str, PlayerConn] = {}
+        # Usernames that dropped mid-match and may reconnect
+        self.disconnected_players: Set[str] = set()
 
         self.mode = "1v1"
         self.overs = 2
@@ -58,16 +60,33 @@ class Room:
 
     @property
     def player_list(self) -> List[dict]:
-        players = [
-            {
+        in_match = self.match is not None and not self.match.is_finished
+        seen: Set[str] = set()
+        players = []
+        for p in self.players.values():
+            if not self.host_plays and p.username == self.host:
+                continue
+            seen.add(p.username)
+            players.append({
                 "username": p.username,
                 "team": p.team,
                 "is_captain": p.is_captain,
-                "in_match": self.match is not None and not self.match.is_finished,
-            }
-            for p in self.players.values()
-            if self.host_plays or p.username != self.host
-        ]
+                "in_match": in_match,
+                "is_disconnected": False,
+            })
+        # Include players who dropped mid-match so others can see they're gone
+        for username in self.disconnected_players:
+            if username in seen:
+                continue
+            team = next((k for k, members in self.teams.items() if username in members), None)
+            is_captain = self.captains.get("A") == username or self.captains.get("B") == username
+            players.append({
+                "username": username,
+                "team": team,
+                "is_captain": is_captain,
+                "in_match": in_match,
+                "is_disconnected": True,
+            })
         if self.cpu_enabled:
             for cpu_name in self.cpu_names:
                 cpu_team = None
@@ -80,6 +99,7 @@ class Room:
                     "username": cpu_name,
                     "team": cpu_team,
                     "is_captain": cpu_is_captain,
-                    "in_match": self.match is not None and not self.match.is_finished,
+                    "in_match": in_match,
+                    "is_disconnected": False,
                 })
         return players

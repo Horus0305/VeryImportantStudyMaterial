@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
 interface LobbyData {
-    players: Array<{ username: string; team: string | null; is_captain: boolean; in_match: boolean }>
+    players: Array<{ username: string; team: string | null; is_captain: boolean; in_match: boolean; is_disconnected?: boolean }>
     host: string
     mode: string
     overs: number
@@ -145,24 +145,35 @@ export default function Lobby({ lobby, username, sendMsg }: Props) {
                             <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x lg:snap-none">
                                 {lobby.players.map(p => {
                                     const initial = p.username.charAt(0).toUpperCase()
+                                    const disconnected = p.is_disconnected === true
                                     return (
                                         <div
                                             key={p.username}
-                                            className="snap-start shrink-0 w-64 lg:w-auto flex items-center justify-between p-3 lg:p-4 bg-slate-800 text-white rounded lg:rounded-none shadow-md border-l-4 border-emerald-500 group transition-all hover:translate-x-1"
+                                            className={`snap-start shrink-0 w-64 lg:w-auto flex items-center justify-between p-3 lg:p-4 rounded lg:rounded-none shadow-md border-l-4 group transition-all hover:translate-x-1 ${
+                                                disconnected
+                                                    ? 'bg-slate-700/60 border-red-500 opacity-70'
+                                                    : 'bg-slate-800 border-emerald-500'
+                                            }`}
                                         >
                                             <div className="flex items-center gap-3 lg:gap-4">
-                                                <div className="w-9 h-9 lg:w-10 lg:h-10 rounded bg-emerald-500 flex items-center justify-center text-lg text-white shadow-inner" style={DISPLAY_FONT}>
+                                                <div className={`w-9 h-9 lg:w-10 lg:h-10 rounded flex items-center justify-center text-lg text-white shadow-inner relative ${disconnected ? 'bg-slate-500' : 'bg-emerald-500'}`} style={DISPLAY_FONT}>
                                                     {initial}
+                                                    {disconnected && (
+                                                        <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border border-slate-800" title="Disconnected" />
+                                                    )}
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold text-sm lg:text-lg leading-none">{p.username}</div>
-                                                    {p.username === lobby.host && (
-                                                        <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">Room Host</div>
-                                                    )}
+                                                    <div className={`font-bold text-sm lg:text-lg leading-none ${disconnected ? 'text-slate-400' : 'text-white'}`}>{p.username}</div>
+                                                    {disconnected
+                                                        ? <div className="text-[10px] uppercase tracking-widest text-red-400 mt-1">Disconnected</div>
+                                                        : p.username === lobby.host && (
+                                                            <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">Room Host</div>
+                                                        )
+                                                    }
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                {p.username === lobby.host && (
+                                                {!disconnected && p.username === lobby.host && (
                                                     <span className="bg-white/10 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider backdrop-blur-sm">Host</span>
                                                 )}
                                                 {p.is_captain && (

@@ -61,7 +61,6 @@ def start_ball_countdowns(manager, room, innings) -> None:
         # Notify the batter's client to start their countdown timer
         p = room.players.get(striker)
         if p:
-            import asyncio
             asyncio.create_task(manager.send(p, {"type": "COUNTDOWN", "role": "bat", "seconds": BALL_PICK_TIMEOUT}))
 
     if not manager._is_cpu(room, bowler) and "bowl" not in room.pending_moves:
@@ -69,7 +68,6 @@ def start_ball_countdowns(manager, room, innings) -> None:
         # Notify the bowler's client to start their countdown timer
         p = room.players.get(bowler)
         if p:
-            import asyncio
             asyncio.create_task(manager.send(p, {"type": "COUNTDOWN", "role": "bowl", "seconds": BALL_PICK_TIMEOUT}))
 
 

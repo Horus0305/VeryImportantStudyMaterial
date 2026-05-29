@@ -95,6 +95,8 @@ async def toss_call(manager, room, player, msg: dict) -> None:
 
     result = match.resolve_toss(call, other_side_chooser=other_chooser)
     toss["phase"] = "choosing"
+    toss["coin"] = result["coin"]
+    toss["call"] = call
 
     await manager.broadcast(room, {
         "type": "TOSS_RESULT",

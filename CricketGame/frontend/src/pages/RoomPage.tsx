@@ -110,6 +110,11 @@ export default function RoomPage({ token, username, onLogout }: Props) {
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
     const wsRef = useRef<WebSocket | null>(null)
+    const [isReconnecting, setIsReconnecting] = useState(false)
+    const reconnectAttemptsRef = useRef(0)
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    // Whether this connect() call is a reconnect (don't reset screen to lobby)
+    const reconnectingRef = useRef(false)
 
     // Update URL when screen changes
     useEffect(() => {
@@ -265,6 +270,20 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                 break
             }
 
+            case 'PLAYER_DISCONNECTED': {
+                const who = msg.username as string
+                setError(`${who} disconnected — waiting for them to reconnect...`)
+                setTimeout(() => setError(''), 10000)
+                break
+            }
+
+            case 'PLAYER_RECONNECTED': {
+                const who = msg.username as string
+                setError(`${who} reconnected!`)
+                setTimeout(() => setError(''), 3000)
+                break
+            }
+
             case 'CHOOSE_BATTER':
             case 'CHOOSE_BOWLER':
                 // These events come from the backend to announce captain selection.
@@ -296,19 +315,27 @@ export default function RoomPage({ token, username, onLogout }: Props) {
         fetchServerIP()
     }, [])
 
-    // Connect WebSocket
-    const connectWs = useCallback((code: string) => {
+    // Connect WebSocket (isReconnect=true skips the lobby screen reset)
+    const connectWs = useCallback((code: string, isReconnect = false) => {
         if (wsRef.current) {
             wsRef.current.close()
+            wsRef.current = null
         }
 
+        reconnectingRef.current = isReconnect
         const wsUrl = `${WS_BASE}/ws/${code}?token=${token}`
         const ws = new WebSocket(wsUrl)
 
         ws.onopen = () => {
-            console.log(' Connected to room', code)
+            console.log(isReconnect ? '[WS] Reconnected to room' : '[WS] Connected to room', code)
+            reconnectAttemptsRef.current = 0
+            setIsReconnecting(false)
             setRoomCode(code)
-            setScreen('lobby')
+            // On a fresh connect go to lobby; on reconnect the server will push
+            // the right screen (MATCH_STATE / TOURNAMENT_STANDINGS / TOSS_*)
+            if (!reconnectingRef.current) {
+                setScreen('lobby')
+            }
         }
 
         ws.onmessage = (evt) => {
@@ -321,20 +348,42 @@ export default function RoomPage({ token, username, onLogout }: Props) {
         }
 
         ws.onclose = (evt) => {
-            console.log(' Disconnected from room', evt.code, evt.reason)
+            console.log('[WS] Disconnected from room', evt.code, evt.reason)
             if (evt.code === 4001) {
                 // Token expired or invalid — force re-login
                 onLogout()
                 return
             }
+            if (evt.code === 4000) {
+                // Replaced by a newer session from the same user — no action needed
+                return
+            }
             if (evt.code === 4004) {
+                setIsReconnecting(false)
                 setError(evt.reason || 'Room not found.')
+                return
+            }
+            // Unexpected disconnect — try to reconnect if we have a room code
+            const currentCode = code
+            if (currentCode) {
+                setIsReconnecting(true)
+                const attempt = reconnectAttemptsRef.current
+                if (attempt >= 10) {
+                    setIsReconnecting(false)
+                    setError('Connection lost. Please refresh the page.')
+                    return
+                }
+                // Exponential backoff: 1s, 1.5s, 2.25s … capped at 15s
+                const delay = Math.min(1000 * Math.pow(1.5, attempt), 15000)
+                reconnectAttemptsRef.current = attempt + 1
+                reconnectTimerRef.current = setTimeout(() => {
+                    connectWs(currentCode, true)
+                }, delay)
             }
         }
 
         ws.onerror = () => {
-            // Only set generic error if we haven't set a specific one
-            setError((prev) => prev || 'WebSocket connection failed.')
+            // onerror is always followed by onclose, so let onclose handle reconnect
         }
 
         wsRef.current = ws
@@ -350,8 +399,12 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                 clearInterval(countdownRef.current)
                 countdownRef.current = null
             }
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current)
+                reconnectTimerRef.current = null
+            }
             wsRef.current?.close()
-            wsRef.current = null  // Null the ref to allow reconnection
+            wsRef.current = null
         }
     }, [urlRoomCode, connectWs])
 
@@ -515,6 +568,23 @@ export default function RoomPage({ token, username, onLogout }: Props) {
 
     return (
         <div className="min-h-[100dvh] sm:min-h-screen flex flex-col bg-slate-50 overflow-y-auto sm:overflow-hidden">
+            {/* Reconnecting overlay — shown whenever the WS dropped mid-game */}
+            {isReconnecting && (
+                <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-5 max-w-xs w-full">
+                        <div className="w-14 h-14 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        <div className="text-center">
+                            <h2 className="text-xl font-black text-slate-900 uppercase tracking-wide">Reconnecting</h2>
+                            <p className="text-sm text-slate-500 mt-1">
+                                Connection lost. Trying to get you back in…
+                            </p>
+                            <p className="text-xs text-slate-400 mt-2 font-mono">
+                                Attempt {reconnectAttemptsRef.current} of 10
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Header Area */}
             <div className="flex-shrink-0 z-20 relative">
                 {/* ─── Top Nav: Editorial Style ─── */}

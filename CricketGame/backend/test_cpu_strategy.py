@@ -201,6 +201,68 @@ def test_role_specific_strategies():
     print(f"  ✓ Strategies differ: {'Yes' if bowling_4_6 != batting_4_6 else 'No'}")
 
 
+def test_bait_pattern_detection():
+    """Test that abrupt low-to-high switches are flagged as bait patterns."""
+    print("\nðŸ§ª Testing Bait Pattern Detection...")
+
+    engine = CPUStrategyEngine()
+
+    exploit_history = [1, 1, 1, 1, 1, 1, 1, 1, 6, 5, 6, 4]
+    steady_history = [1] * 10
+
+    exploit_signal = engine._build_history_signal(exploit_history)
+    steady_signal = engine._build_history_signal(steady_history)
+
+    assert exploit_signal["pattern_break"] is True
+    assert exploit_signal["stale_low_num"] == 1
+    assert exploit_signal["volatility"] >= 0.4
+    assert steady_signal["pattern_break"] is False
+
+    print(f"  âœ“ Exploit pattern detected: {exploit_signal}")
+    print(f"  âœ“ Steady low-value pattern not over-flagged: {steady_signal}")
+
+
+def test_bowling_strategy_resists_low_value_bait():
+    """Test that bowling strategy does not stay trapped on a stale low-value read."""
+    print("\nðŸ§ª Testing Bowling Anti-Bait Logic...")
+
+    engine = CPUStrategyEngine()
+
+    match_context = {
+        'match_format': '5over',
+        'role': 'bowling',
+        'current_over': 3,
+        'total_overs': 5,
+        'current_score': 30,
+        'target': None,
+        'wickets_lost': 2,
+        'balls_left': 12,
+        'batting_first': True,
+        'last_3_results': []
+    }
+
+    steady_bait_history = [1] * 10
+    exploit_history = [1, 1, 1, 1, 1, 1, 1, 1, 6, 5, 6, 4]
+
+    steady_weights = engine._bowling_strategy(
+        dict(BASE_WEIGHTS), steady_bait_history, match_context, confidence=0.9
+    )
+    exploit_weights = engine._bowling_strategy(
+        dict(BASE_WEIGHTS), exploit_history, match_context, confidence=0.9
+    )
+
+    steady_high_total = steady_weights[4] + steady_weights[5] + steady_weights[6]
+    exploit_high_total = exploit_weights[4] + exploit_weights[5] + exploit_weights[6]
+
+    assert exploit_weights[6] > exploit_weights[1]
+    assert exploit_high_total > steady_high_total
+    assert exploit_weights[1] < steady_weights[1]
+
+    print(f"  âœ“ Steady bait weights: {steady_weights}")
+    print(f"  âœ“ Exploit-switch weights: {exploit_weights}")
+    print(f"  âœ“ High-value coverage improves from {steady_high_total:.3f} to {exploit_high_total:.3f}")
+
+
 def test_situational_adjustments():
     """Test that score pressure affects move selection."""
     print("\n🧪 Testing Situational Adjustments...")
@@ -315,6 +377,8 @@ def run_all_tests():
         test_move_selection_distribution()
         test_cpu_status()
         test_role_specific_strategies()
+        test_bait_pattern_detection()
+        test_bowling_strategy_resists_low_value_bait()
         test_situational_adjustments()
         test_performance()
         

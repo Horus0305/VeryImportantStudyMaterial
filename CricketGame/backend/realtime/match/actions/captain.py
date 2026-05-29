@@ -215,7 +215,6 @@ async def _start_captain_batter_pick(manager, room, innings) -> None:
         # Notify captain to start their countdown timer
         p = room.players.get(captain)
         if p:
-            import asyncio
             asyncio.create_task(manager.send(p, {"type": "COUNTDOWN", "role": "captain", "seconds": CAPTAIN_PICK_TIMEOUT}))
 
 
@@ -261,7 +260,6 @@ async def _start_captain_bowler_pick(manager, room, innings) -> None:
         # Notify captain to start their countdown timer
         p = room.players.get(captain)
         if p:
-            import asyncio
             asyncio.create_task(manager.send(p, {"type": "COUNTDOWN", "role": "captain", "seconds": CAPTAIN_PICK_TIMEOUT}))
 
 

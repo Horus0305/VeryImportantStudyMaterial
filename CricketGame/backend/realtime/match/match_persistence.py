@@ -16,26 +16,35 @@ def save_match_stats(manager, room, match: Match) -> None:
             game_format = "team"
 
         all_players = match.side_a + match.side_b
+        all_innings = [
+            match.innings_1,
+            match.innings_2,
+            getattr(match, "innings_3", None),
+            getattr(match, "innings_4", None),
+        ]
+
         for player_name in all_players:
             is_winner = match.winner and player_name in match.winner
 
             bat_data = None
             bowl_data = None
 
-            for inn in [match.innings_1, match.innings_2]:
+            for inn in all_innings:
                 if inn and player_name in inn.batting_cards:
                     card = inn.batting_cards[player_name]
-                    bat_data = {
-                        "runs": card.runs, "balls": card.balls,
-                        "fours": card.fours, "sixes": card.sixes,
-                    }
+                    if bat_data is None:
+                        bat_data = {"runs": 0, "balls": 0, "fours": 0, "sixes": 0}
+                    bat_data["runs"] += card.runs
+                    bat_data["balls"] += card.balls
+                    bat_data["fours"] += card.fours
+                    bat_data["sixes"] += card.sixes
                 if inn and player_name in inn.bowling_cards:
                     card = inn.bowling_cards[player_name]
-                    bowl_data = {
-                        "wickets": card.wickets,
-                        "runs_conceded": card.runs_conceded,
-                        "overs": card.overs_completed + card.balls_bowled_in_over / 6,
-                    }
+                    if bowl_data is None:
+                        bowl_data = {"wickets": 0, "runs_conceded": 0, "overs": 0.0}
+                    bowl_data["wickets"] += card.wickets
+                    bowl_data["runs_conceded"] += card.runs_conceded
+                    bowl_data["overs"] += card.overs_completed + card.balls_bowled_in_over / 6
 
             update_player_stats(db, player_name, game_format,
                                 batting_data=bat_data,

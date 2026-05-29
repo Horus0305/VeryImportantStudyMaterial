@@ -6,6 +6,56 @@ from ..realtime.ws_manager import PlayerConn, room_manager
 router = APIRouter(tags=["ws"])
 
 
+async def _restore_game_state(room_manager, room, player: PlayerConn) -> None:
+    """Send the appropriate screen state to a reconnecting (or fresh) player."""
+    match = room.match
+    if not match:
+        if room.tournament:
+            payload = room_manager._build_tournament_payload(room.tournament, skip_current=False)
+            await room_manager.send(player, {"type": "TOURNAMENT_STANDINGS", **payload})
+        return
+
+    toss = room.toss_state
+    phase = toss.get("phase")
+
+    if match.active_innings:
+        # Mid-game: send the live match state
+        await room_manager._send_match_state(room)
+        return
+
+    if phase == "calling":
+        # Toss hasn't happened yet — tell this player their role
+        toss_caller = toss.get("caller", match.toss_caller)
+        match_info = {"side_a": match.side_a, "side_b": match.side_b}
+        if player.username == toss_caller:
+            await room_manager.send(player, {"type": "TOSS_CALLER", "caller": toss_caller, **match_info})
+        else:
+            await room_manager.send(player, {"type": "TOSS_WAITING", "caller": toss_caller, **match_info})
+        return
+
+    if phase == "choosing":
+        # Coin has been tossed — replay the result screen
+        await room_manager.send(player, {
+            "type": "TOSS_RESULT",
+            "caller": toss.get("caller", match.toss_caller),
+            "call": toss.get("call", ""),
+            "coin": toss.get("coin", ""),
+            "winner": match.toss_winner,
+            "side_a": match.side_a,
+            "side_b": match.side_b,
+        })
+        # If this player is the one who must choose, re-prompt them
+        chooser = match.toss_winner
+        if player.username == chooser:
+            await room_manager.send(player, {"type": "TOSS_CHOOSE"})
+        return
+
+    # Match finished or between innings — send tournament standings if applicable
+    if room.tournament:
+        payload = room_manager._build_tournament_payload(room.tournament, skip_current=False)
+        await room_manager.send(player, {"type": "TOURNAMENT_STANDINGS", **payload})
+
+
 @router.websocket("/ws/{room_code}")
 async def websocket_endpoint(ws: WebSocket, room_code: str, token: str = Query(...)):
     await ws.accept()
@@ -22,26 +72,39 @@ async def websocket_endpoint(ws: WebSocket, room_code: str, token: str = Query(.
         await ws.close(code=4004, reason="Room not found")
         return
 
+    is_reconnect = username in room.disconnected_players
+
     # Replace any stale connection for the same username.
     old_player = room.players.get(username)
     player = PlayerConn(ws, username)
     player.team = room_manager._team_for_player(room, username)
     player.is_captain = room.captains.get("A") == username or room.captains.get("B") == username
     room.players[username] = player
+    room.disconnected_players.discard(username)
+
     if old_player and old_player.ws is not ws:
         try:
             await old_player.ws.close(code=4000, reason="Reconnected from another session")
         except Exception:
             pass
-    print(f"[WS] {username} joined room {room_code}")
 
+    if is_reconnect:
+        print(f"[WS] {username} RECONNECTED to room {room_code}")
+    else:
+        print(f"[WS] {username} joined room {room_code}")
+
+    # Always broadcast lobby first so everyone sees the updated presence list
     await room_manager.broadcast_lobby(room)
 
-    if room.match and room.match.active_innings:
-        await room_manager._send_match_state(room)
-    elif room.tournament:
-        payload = room_manager._build_tournament_payload(room.tournament, skip_current=False)
-        await room_manager.send(player, {"type": "TOURNAMENT_STANDINGS", **payload})
+    # Then restore the game screen for this player
+    await _restore_game_state(room_manager, room, player)
+
+    # Notify others that someone came back
+    if is_reconnect:
+        await room_manager.broadcast(room, {
+            "type": "PLAYER_RECONNECTED",
+            "username": username,
+        }, exclude=username)
 
     try:
         while True:
@@ -52,10 +115,29 @@ async def websocket_endpoint(ws: WebSocket, room_code: str, token: str = Query(.
     except Exception as e:
         print(f"[WS] Error for {username}: {e}")
     finally:
-        # Only cleanup if this connection is still the active mapping.
+        # Only act if this connection is still the active mapping
         active = room.players.get(username)
-        if active is player:
-            room.players.pop(username, None)
+        if active is not player:
+            return
+
+        room.players.pop(username, None)
+
+        current_match = room.match
+        is_in_match = current_match is not None and not current_match.is_finished
+        is_in_tournament = room.tournament is not None
+
+        if is_in_match or is_in_tournament:
+            # Keep the player's team / captain assignments intact so they can rejoin
+            room.disconnected_players.add(username)
+            print(f"[WS] {username} disconnected from room {room_code} (match/tournament active — keeping state)")
+            await room_manager.broadcast(room, {
+                "type": "PLAYER_DISCONNECTED",
+                "username": username,
+            })
+            # Keep room alive so the player can reconnect
+            await room_manager.broadcast_lobby(room)
+        else:
+            # Safe to fully clean up — no active game
             for team_list in room.teams.values():
                 if username in team_list:
                     team_list.remove(username)
