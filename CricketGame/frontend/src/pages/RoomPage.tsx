@@ -96,7 +96,6 @@ export default function RoomPage({ token, username, onLogout }: Props) {
     })()
     const [screen, setScreen] = useState<Screen>(initialScreen)
     const [roomCode, setRoomCode] = useState(urlRoomCode ?? '')
-    const [joinCode, setJoinCode] = useState('')
 
     // Game state
     const [lobby, setLobby] = useState<LobbyData | null>(null)
@@ -397,14 +396,6 @@ export default function RoomPage({ token, username, onLogout }: Props) {
         }
     }
 
-    // Room joining
-    const joinRoom = () => {
-        const code = joinCode.trim().toUpperCase()
-        if (!code) return
-        navigate(`/room/${code}`)
-        // Connection is handled by useEffect when URL changes
-    }
-
     const backToLobby = () => {
         setMatchState(null)
         // If a tournament is active, go to standings instead of the lobby
@@ -421,10 +412,6 @@ export default function RoomPage({ token, username, onLogout }: Props) {
     const shareLink = serverIP && isLocalhost
         ? `http://${serverIP}:${window.location.port}/room/${roomCode}`
         : `${window.location.origin}/room/${roomCode}`
-    // Short display version: just IP:port/room/code
-    const shareLinkDisplay = serverIP && isLocalhost
-        ? `${serverIP}:${window.location.port}/room/${roomCode}`
-        : shareLink
 
     // ── Render ──
 
@@ -434,7 +421,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                 username={username}
                 token={token}
                 onCreateRoom={createRoom}
-                onJoinRoom={(code) => { setJoinCode(code); navigate(`/room/${code}`) }}
+                onJoinRoom={(code) => { navigate(`/room/${code}`) }}
                 onLogout={onLogout}
                 error={error}
             />
