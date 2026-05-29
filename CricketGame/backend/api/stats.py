@@ -258,7 +258,10 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
 
     # ── 1. Aggregate FormatStats ──────────────────────────────────
     for player in players:
-        rows = db.query(FormatStats).filter(FormatStats.player_id == player.id).all()
+        rows = db.query(FormatStats).filter(
+            FormatStats.player_id == player.id,
+            FormatStats.format != 'cpu',
+        ).all()
         if not rows:
             continue
         mp = sum(r.matches_played for r in rows)
@@ -325,6 +328,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
     # ── 2. Scan MatchHistory ──────────────────────────────────────
     all_matches = (
         db.query(MatchHistory)
+        .filter(MatchHistory.mode != 'cpu')
         .order_by(MatchHistory.timestamp.asc())
         .all()
     )
