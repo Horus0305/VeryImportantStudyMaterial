@@ -434,7 +434,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
         || screen === 'standings'
 
     return (
-        <div className="min-h-dvh flex flex-col bg-slate-950 text-white overflow-y-auto sm:overflow-hidden">
+        <div className="min-h-dvh flex flex-col bg-slate-50 text-slate-900 overflow-y-auto sm:overflow-hidden">
             {/* Floating emoji reactions — imperative overlay, zero React re-renders */}
             <EmojiOverlay ref={emojiOverlayRef} />
 
@@ -477,14 +477,14 @@ export default function RoomPage({ token, username, onLogout }: Props) {
             {/* Reconnecting overlay — shown whenever the WS dropped mid-game */}
             {isReconnecting && (
                 <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-5 max-w-xs w-full">
+                    <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-5 max-w-xs w-full">
                         <div className="w-14 h-14 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                         <div className="text-center">
-                            <h2 className="text-xl font-black text-white uppercase tracking-wide">Reconnecting</h2>
-                            <p className="text-sm text-slate-400 mt-1">
+                            <h2 className="text-xl font-black text-slate-900 uppercase tracking-wide">Reconnecting</h2>
+                            <p className="text-sm text-slate-500 mt-1">
                                 Connection lost. Trying to get you back in…
                             </p>
-                            <p className="text-xs text-slate-500 mt-2 font-mono">
+                            <p className="text-xs text-slate-400 mt-2 font-mono">
                                 Attempt {reconnectAttemptsRef.current} of 10
                             </p>
                         </div>
@@ -492,44 +492,44 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                 </div>
             )}
             {/* Header Area */}
-            <div className="flex-shrink-0 z-20 relative">
+            <div className="shrink-0 z-20 relative">
                 {/* ─── Top Nav: Editorial Style ─── */}
-                <nav className="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
+                <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
                     <div className="w-full px-4 sm:px-6 lg:px-8">
                         <div className="flex items-center justify-between h-14 lg:h-16">
                             {/* Left: Brand + Room Code */}
                             <div className="flex items-center gap-3 lg:gap-5">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 bg-linear-to-br from-emerald-500 to-emerald-600 rounded-xl -rotate-6 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                    <div className="w-8 h-8 bg-linear-to-br from-emerald-500 to-emerald-600 rounded-xl -rotate-6 flex items-center justify-center shadow-sm shadow-emerald-500/20">
                                         <span className="text-base -rotate-6">🏏</span>
                                     </div>
-                                    <span className="text-xl uppercase tracking-tight text-white hidden sm:block" style={{ fontFamily: "'Anton', 'Bebas Neue', sans-serif" }}>E <span className="text-emerald-400">Cricket</span></span>
+                                    <span className="text-xl uppercase tracking-tight text-slate-900 hidden sm:block" style={{ fontFamily: "'Anton', 'Bebas Neue', sans-serif" }}>E <span className="text-emerald-600">Cricket</span></span>
                                 </div>
                                 {roomCode && (
-                                    <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
-                                        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Room</span>
-                                        <span className="font-mono font-bold text-white text-sm tracking-widest">{roomCode}</span>
+                                    <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5">
+                                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Room</span>
+                                        <span className="font-mono font-bold text-slate-900 text-sm tracking-widest">{roomCode}</span>
                                     </div>
                                 )}
                             </div>
 
                             {/* Right: User + Actions */}
                             <div className="flex items-center gap-2">
-                                <div className="hidden sm:flex items-center gap-1.5 bg-white/5 rounded-lg px-2.5 py-1.5">
+                                <div className="hidden sm:flex items-center gap-1.5 bg-slate-100 rounded-lg px-2.5 py-1.5">
                                     <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
                                         <span className="text-[10px] text-white font-bold uppercase">{username[0]}</span>
                                     </div>
-                                    <span className="text-xs font-bold text-slate-300">{username}</span>
+                                    <span className="text-xs font-bold text-slate-700">{username}</span>
                                 </div>
                                 <button
                                     onClick={() => { navigate('/'); setScreen('home'); }}
-                                    className="text-xs font-bold text-slate-400 hover:text-white uppercase tracking-wide transition-colors px-2 py-1.5"
+                                    className="text-xs font-bold text-slate-500 hover:text-slate-900 uppercase tracking-wide transition-colors px-2 py-1.5"
                                 >
                                     Home
                                 </button>
                                 {serverIP && isLocalhost && (
                                     <button
-                                        className="text-xs font-bold uppercase tracking-wider bg-white/5 border border-white/10 hover:border-emerald-500/50 hover:text-emerald-400 text-slate-400 px-3 py-1.5 rounded-lg transition-all"
+                                        className="text-xs font-bold uppercase tracking-wider bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-600 text-slate-500 px-3 py-1.5 rounded-lg transition-all"
                                         onClick={() => {
                                             navigator.clipboard.writeText(shareLink).then(() => {
                                                 setError('Link copied!')
@@ -545,7 +545,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                                 )}
                                 <button
                                     onClick={onLogout}
-                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all text-xs font-bold uppercase tracking-wide"
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-all text-xs font-bold uppercase tracking-wide"
                                 >
                                     <LogOut className="w-3.5 h-3.5" />
                                     <span className="hidden sm:block">Out</span>
@@ -557,14 +557,14 @@ export default function RoomPage({ token, username, onLogout }: Props) {
 
                 {/* Sub-Header for lobby (mobile copy link + home) */}
                 {screen === 'lobby' && (
-                    <div className="bg-slate-900/60 border-b border-white/5 px-4 sm:px-6 py-2 flex items-center justify-between text-sm lg:hidden">
-                        <div className="flex items-center gap-2 text-slate-400">
+                    <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2 flex items-center justify-between text-sm lg:hidden">
+                        <div className="flex items-center gap-2 text-slate-600">
                             <User className="w-4 h-4" />
                             <span className="font-medium text-xs">{username}</span>
                         </div>
                         <div className="flex items-center gap-3">
                             <button
-                                className="text-emerald-400 hover:text-emerald-300 font-medium text-xs flex items-center gap-1 transition-colors"
+                                className="text-emerald-600 hover:text-emerald-700 font-medium text-xs flex items-center gap-1 transition-colors"
                                 onClick={() => {
                                     navigator.clipboard.writeText(shareLink).then(() => {
                                         if (serverIP && isLocalhost) {
@@ -584,7 +584,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
                             </button>
                             <button
                                 onClick={() => { navigate('/'); setScreen('home'); }}
-                                className="text-slate-400 hover:text-white font-semibold text-xs"
+                                className="text-slate-600 hover:text-slate-900 font-semibold text-xs"
                             >
                                 Home
                             </button>
@@ -594,7 +594,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
             </div>
 
             {error && (
-                <div className="bg-red-500/10 border-b border-red-500/20 text-red-400 text-center py-2 text-sm font-medium">
+                <div className="bg-red-50 border-b border-red-200 text-red-600 text-center py-2 text-sm font-medium">
                     {error}
                 </div>
             )}
@@ -649,7 +649,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
             {screen === 'lobby' && (
                 <footer className="hidden lg:flex mt-auto border-t border-slate-200 py-8 bg-white">
                     <div className="w-full px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                        <span className="text-lg uppercase tracking-wider text-slate-300" style={{ fontFamily: "'Anton', sans-serif" }}>E Cricket Hub</span>
+                        <span className="text-lg uppercase tracking-wider text-slate-500" style={{ fontFamily: "'Anton', sans-serif" }}>E Cricket Hub</span>
                         <p className="text-slate-400 text-xs">© 2026 Tournament Edition. Game responsibly.</p>
                     </div>
                 </footer>

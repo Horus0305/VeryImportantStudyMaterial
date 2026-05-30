@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trophy, Skull, BarChart3 } from 'lucide-react'
+import { ArrowLeft, Trophy, Skull, BarChart3, TrendingUp, TrendingDown, Target, Zap, Award, AlertTriangle } from 'lucide-react'
 
 const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
 const API = (import.meta.env.VITE_API_BASE_URL ?? window.location.origin).replace(/\/$/, '')
@@ -61,8 +61,8 @@ function Avatar({ name, size = 7 }: { name: string; size?: number }) {
 function RankBadge({ n }: { n: number }) {
     if (n === 1) return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 text-white text-[11px] font-black shadow-sm">1</span>
     if (n === 2) return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-300 text-slate-700 text-[11px] font-black shadow-sm">2</span>
-    if (n === 3) return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700/60 text-white text-[11px] font-black shadow-sm">3</span>
-    return <span className="text-slate-400 text-xs font-bold w-6 text-center inline-block">{n}</span>
+    if (n === 3) return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700/70 text-white text-[11px] font-black shadow-sm">3</span>
+    return <span className="text-slate-500 text-xs font-bold w-6 text-center inline-block">{n}</span>
 }
 
 // ── Reusable ranked table ─────────────────────────────────────────
@@ -81,7 +81,7 @@ function RankTable<T extends { username: string }>({
     data, cols, currentUser, maxRows = 10,
 }: {
     title: string
-    icon: string
+    icon: React.ReactNode
     subtitle: string
     accent: 'amber' | 'red'
     data: T[]
@@ -90,9 +90,9 @@ function RankTable<T extends { username: string }>({
     maxRows?: number
 }) {
     const rows = data.slice(0, maxRows)
-    const accentBorder = accent === 'amber' ? 'border-amber-500/20 hover:border-amber-500/40' : 'border-red-500/20 hover:border-red-500/40'
-    const accentIcon   = accent === 'amber' ? 'bg-amber-500/10 group-hover:bg-amber-500/20' : 'bg-red-500/10 group-hover:bg-red-500/20'
-    const accentSub    = accent === 'amber' ? 'text-amber-400' : 'text-red-400'
+    const accentBorder = accent === 'amber' ? 'border-amber-200 hover:border-amber-300' : 'border-red-200 hover:border-red-300'
+    const accentIcon   = accent === 'amber' ? 'bg-amber-50 group-hover:bg-amber-100' : 'bg-red-50 group-hover:bg-red-100'
+    const accentSub    = accent === 'amber' ? 'text-amber-600' : 'text-red-600'
 
     const getValue = (row: T, col: ColDef<T>) =>
         typeof col.key === 'function' ? col.key(row) : (row[col.key] as string | number)
@@ -105,26 +105,24 @@ function RankTable<T extends { username: string }>({
     }
 
     return (
-        <div className={`bg-slate-900 border ${accentBorder} rounded-2xl overflow-hidden transition-all group`}>
-            {/* Card header */}
-            <div className="px-5 py-4 border-b border-white/8 flex items-center gap-3">
-                <div className={`w-10 h-10 ${accentIcon} rounded-xl flex items-center justify-center text-xl transition-colors shrink-0`}>
+        <div className={`bg-white border ${accentBorder} rounded-2xl overflow-hidden transition-all group shadow-sm`}>
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+                <div className={`w-10 h-10 ${accentIcon} rounded-xl flex items-center justify-center transition-colors shrink-0`}>
                     {icon}
                 </div>
                 <div>
-                    <h3 className="text-lg text-white uppercase leading-none" style={DISPLAY_FONT}>{title}</h3>
+                    <h3 className="text-lg text-slate-900 uppercase leading-none" style={DISPLAY_FONT}>{title}</h3>
                     <p className={`text-[10px] font-bold uppercase tracking-widest ${accentSub} mt-0.5`}>{subtitle}</p>
                 </div>
             </div>
 
-            {/* Table */}
             {rows.length === 0 ? (
-                <div className="py-8 text-center text-slate-500 text-sm">No data yet</div>
+                <div className="py-8 text-center text-slate-400 text-sm">No data yet</div>
             ) : (
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="bg-white/5 border-b border-white/8">
+                            <tr className="bg-slate-50 border-b border-slate-100">
                                 <th className="text-left px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 w-10">#</th>
                                 <th className="text-left px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">Player</th>
                                 {cols.map(c => (
@@ -134,23 +132,23 @@ function RankTable<T extends { username: string }>({
                                 ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-slate-100">
                             {rows.map((row, i) => {
                                 const isMe = row.username === currentUser
                                 return (
-                                    <tr key={row.username} className={isMe ? 'bg-emerald-500/10' : 'hover:bg-white/5 transition-colors'}>
+                                    <tr key={row.username} className={isMe ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}>
                                         <td className="px-4 py-2.5"><RankBadge n={i + 1} /></td>
                                         <td className="px-4 py-2.5">
                                             <div className="flex items-center gap-2">
                                                 <Avatar name={row.username} />
-                                                <span className={`font-semibold text-sm ${isMe ? 'text-emerald-400' : 'text-slate-200'}`}>
+                                                <span className={`font-semibold text-sm ${isMe ? 'text-emerald-600' : 'text-slate-700'}`}>
                                                     {row.username}
                                                 </span>
-                                                {isMe && <span className="text-[8px] font-bold uppercase tracking-widest bg-emerald-500/20 text-emerald-400 rounded-full px-1.5 py-0.5">You</span>}
+                                                {isMe && <span className="text-[8px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-600 rounded-full px-1.5 py-0.5 border border-emerald-200">You</span>}
                                             </div>
                                         </td>
                                         {cols.map(c => (
-                                            <td key={String(c.header)} className={`px-4 py-2.5 text-right font-mono text-sm ${c.bold ? 'font-bold text-white' : 'text-slate-400'} ${c.highlight ?? ''} ${hideClass(c.hide)}`}>
+                                            <td key={String(c.header)} className={`px-4 py-2.5 text-right font-mono text-sm ${c.bold ? 'font-bold text-slate-900' : 'text-slate-500'} ${c.highlight ?? ''} ${hideClass(c.hide)}`}>
                                                 {getValue(row, c)}
                                             </td>
                                         ))}
@@ -185,12 +183,10 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
             .finally(() => setLoading(false))
     }, [])
 
-    // ── Leaderboard sorts ────────────────────────────────────────
     const overallSorted  = useMemo(() => [...data].sort((a, b) => b.matches_won - a.matches_won || b.win_pct - a.win_pct), [data])
     const battingSorted  = useMemo(() => [...data].sort((a, b) => b.total_runs - a.total_runs || b.highest_score - a.highest_score), [data])
     const bowlingSorted  = useMemo(() => [...data].sort((a, b) => b.wickets_taken - a.wickets_taken), [data])
 
-    // ── Hall of Fame sorts ───────────────────────────────────────
     const ducksTaken     = useMemo(() => [...data].filter(e => e.ducks_taken > 0).sort((a, b) => b.ducks_taken - a.ducks_taken), [data])
     const boundariesSort = useMemo(() => [...data].filter(e => e.boundaries > 0).sort((a, b) => b.boundaries - a.boundaries), [data])
     const sixesSort      = useMemo(() => [...data].filter(e => e.sixes > 0).sort((a, b) => b.sixes - a.sixes), [data])
@@ -198,8 +194,6 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
     const fiftiesSort    = useMemo(() => [...data].filter(e => e.fifties > 0).sort((a, b) => b.fifties - a.fifties || b.hundreds - a.hundreds), [data])
     const centuriesSort  = useMemo(() => [...data].filter(e => e.hundreds > 0).sort((a, b) => b.hundreds - a.hundreds || b.highest_score - a.highest_score), [data])
 
-    // ── Hall of Shame sorts ──────────────────────────────────────
-    // close/heavy losses need a few matches to be meaningful; duck/bowling stats need just 1+
     const eligible        = useMemo(() => data.filter(e => e.matches_played >= 3), [data])
     const ducksSort       = useMemo(() => [...data].filter(e => e.ducks > 0).sort((a, b) => b.ducks - a.ducks), [data])
     const closeSort       = useMemo(() => [...eligible].filter(e => e.close_losses > 0).sort((a, b) => b.close_losses - a.close_losses), [eligible])
@@ -214,24 +208,24 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
     ]
 
     return (
-        <div className="min-h-dvh bg-slate-950 text-white flex flex-col">
+        <div className="min-h-dvh bg-slate-50 text-slate-900 flex flex-col">
 
             {/* ── NAVBAR ──────────────────────────────────────────── */}
-            <nav className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-white/5">
+            <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
                     <button
                         onClick={() => navigate('/')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all text-xs font-bold uppercase tracking-wide shrink-0"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-all text-xs font-bold uppercase tracking-wide shrink-0"
                     >
                         <ArrowLeft size={13} />
                         <span className="hidden sm:block">Home</span>
                     </button>
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-linear-to-br from-emerald-500 to-emerald-600 rounded-xl -rotate-6 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                        <div className="w-8 h-8 bg-linear-to-br from-emerald-500 to-emerald-600 rounded-xl -rotate-6 flex items-center justify-center shadow-sm shadow-emerald-500/20">
                             <span className="text-base -rotate-6">🏏</span>
                         </div>
-                        <span className="text-xl uppercase tracking-tight text-white hidden sm:block" style={DISPLAY_FONT}>
-                            E <span className="text-emerald-400">Cricket</span>
+                        <span className="text-xl uppercase tracking-tight text-slate-900 hidden sm:block" style={DISPLAY_FONT}>
+                            E <span className="text-emerald-600">Cricket</span>
                         </span>
                     </div>
                 </div>
@@ -242,18 +236,18 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                 {/* ── PAGE HEADER ─────────────────────────────────── */}
                 <div className="mb-8">
                     <p className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400 mb-1">All-time records</p>
-                    <h1 className="text-6xl sm:text-8xl text-white uppercase leading-none" style={DISPLAY_FONT}>Stats</h1>
+                    <h1 className="text-6xl sm:text-8xl text-slate-900 uppercase leading-none" style={DISPLAY_FONT}>Stats</h1>
                 </div>
 
                 {/* ── MAIN TABS ───────────────────────────────────── */}
-                <div className="flex gap-1 bg-slate-800/60 rounded-xl p-1 w-fit mb-8">
+                <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit mb-8">
                     {TAB_LABELS.map(t => (
                         <button
                             key={t.id}
                             onClick={() => setMainTab(t.id)}
                             className={`flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${mainTab === t.id
-                                ? 'bg-white/10 text-white shadow-sm'
-                                : 'text-slate-400 hover:text-white'
+                                ? 'bg-white text-slate-900 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
                                 }`}
                         >
                             {t.icon}
@@ -282,14 +276,14 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                         {mainTab === 'leaderboard' && (
                             <div className="space-y-5">
                                 {/* Sub-tabs */}
-                                <div className="flex gap-1 bg-slate-800/60 rounded-xl p-1 w-fit">
+                                <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
                                     {(['overall', 'batting', 'bowling'] as BoardTab[]).map(t => (
                                         <button
                                             key={t}
                                             onClick={() => setBoardTab(t)}
                                             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${boardTab === t
-                                                ? 'bg-white/10 text-white shadow-sm'
-                                                : 'text-slate-400 hover:text-white'
+                                                ? 'bg-white text-slate-900 shadow-sm'
+                                                : 'text-slate-500 hover:text-slate-700'
                                                 }`}
                                         >
                                             {t}
@@ -299,10 +293,10 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
                                 {/* ── OVERALL ── */}
                                 {boardTab === 'overall' && (
-                                    <div className="bg-slate-900 rounded-2xl border border-white/8 overflow-hidden">
-                                        <div className="px-5 py-4 border-b border-white/8 flex items-center gap-2">
-                                            <BarChart3 size={16} className="text-emerald-400" />
-                                            <h3 className="text-lg text-white uppercase" style={DISPLAY_FONT}>Overall Rankings</h3>
+                                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                                            <BarChart3 size={16} className="text-emerald-600" />
+                                            <h3 className="text-lg text-slate-900 uppercase" style={DISPLAY_FONT}>Overall Rankings</h3>
                                             <span className="text-xs text-slate-400 ml-1">sorted by wins</span>
                                         </div>
                                         {overallSorted.length === 0 ? (
@@ -311,7 +305,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-sm">
                                                     <thead>
-                                                        <tr className="bg-white/5 border-b border-white/8">
+                                                        <tr className="bg-slate-50 border-b border-slate-100">
                                                             <Th w="w-10">#</Th>
                                                             <Th align="left">Player</Th>
                                                             <Th>Wins</Th>
@@ -322,15 +316,15 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                                             <Th hide="md">POTM</Th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="divide-y divide-white/5">
+                                                    <tbody className="divide-y divide-slate-100">
                                                         {overallSorted.map((e, i) => (
-                                                            <tr key={e.username} className={e.username === username ? 'bg-emerald-500/10' : 'hover:bg-white/5 transition-colors'}>
+                                                            <tr key={e.username} className={e.username === username ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}>
                                                                 <td className="px-4 py-3"><RankBadge n={i + 1} /></td>
                                                                 <PlayerCell entry={e} currentUser={username} />
                                                                 <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">{e.matches_won}</td>
                                                                 <td className="px-4 py-3 text-right font-mono text-red-500">{e.matches_lost}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-300">{e.matches_played}</td>
-                                                                <td className="px-4 py-3 text-right font-mono font-bold text-white">{e.win_pct}%</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-600">{e.matches_played}</td>
+                                                                <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">{e.win_pct}%</td>
                                                                 <td className="px-4 py-3 text-right font-mono text-slate-500 hidden sm:table-cell">{e.tournaments_won}/{e.tournaments_played}</td>
                                                                 <td className="px-4 py-3 text-right font-mono text-amber-600 hidden md:table-cell">{e.potm_count}</td>
                                                             </tr>
@@ -344,17 +338,17 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
                                 {/* ── BATTING ── */}
                                 {boardTab === 'batting' && (
-                                    <div className="bg-slate-900 rounded-2xl border border-white/8 overflow-hidden">
-                                        <div className="px-5 py-4 border-b border-white/8 flex items-center gap-2">
-                                            <span className="text-lg">🏏</span>
-                                            <h3 className="text-lg text-white uppercase" style={DISPLAY_FONT}>Batting Rankings</h3>
+                                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                                            <BarChart3 size={16} className="text-emerald-600" />
+                                            <h3 className="text-lg text-slate-900 uppercase" style={DISPLAY_FONT}>Batting Rankings</h3>
                                             <span className="text-xs text-slate-400 ml-1">sorted by runs</span>
                                         </div>
                                         {battingSorted.length === 0 ? <EmptyState /> : (
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-sm">
                                                     <thead>
-                                                        <tr className="bg-white/5 border-b border-white/8">
+                                                        <tr className="bg-slate-50 border-b border-slate-100">
                                                             <Th w="w-10">#</Th>
                                                             <Th align="left">Player</Th>
                                                             <Th>Runs</Th>
@@ -367,15 +361,15 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                                             <Th hide="md">6s</Th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="divide-y divide-white/5">
+                                                    <tbody className="divide-y divide-slate-100">
                                                         {battingSorted.map((e, i) => (
-                                                            <tr key={e.username} className={e.username === username ? 'bg-emerald-500/10' : 'hover:bg-white/5 transition-colors'}>
+                                                            <tr key={e.username} className={e.username === username ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}>
                                                                 <td className="px-4 py-3"><RankBadge n={i + 1} /></td>
                                                                 <PlayerCell entry={e} currentUser={username} />
-                                                                <td className="px-4 py-3 text-right font-mono font-bold text-white">{e.total_runs}</td>
+                                                                <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">{e.total_runs}</td>
                                                                 <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">{e.strike_rate}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-300">{e.batting_avg}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-300">{e.highest_score}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-600">{e.batting_avg}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-600">{e.highest_score}</td>
                                                                 <td className="px-4 py-3 text-right font-mono text-slate-500 hidden sm:table-cell">{e.fifties}</td>
                                                                 <td className="px-4 py-3 text-right font-mono text-slate-500 hidden sm:table-cell">{e.hundreds}</td>
                                                                 <td className="px-4 py-3 text-right font-mono text-slate-500 hidden md:table-cell">{e.fours}</td>
@@ -391,17 +385,17 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
                                 {/* ── BOWLING ── */}
                                 {boardTab === 'bowling' && (
-                                    <div className="bg-slate-900 rounded-2xl border border-white/8 overflow-hidden">
-                                        <div className="px-5 py-4 border-b border-white/8 flex items-center gap-2">
-                                            <span className="text-lg">🎯</span>
-                                            <h3 className="text-lg text-white uppercase" style={DISPLAY_FONT}>Bowling Rankings</h3>
+                                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                                            <Target size={16} className="text-emerald-600" />
+                                            <h3 className="text-lg text-slate-900 uppercase" style={DISPLAY_FONT}>Bowling Rankings</h3>
                                             <span className="text-xs text-slate-400 ml-1">sorted by wickets</span>
                                         </div>
                                         {bowlingSorted.length === 0 ? <EmptyState /> : (
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-sm">
                                                     <thead>
-                                                        <tr className="bg-white/5 border-b border-white/8">
+                                                        <tr className="bg-slate-50 border-b border-slate-100">
                                                             <Th w="w-10">#</Th>
                                                             <Th align="left">Player</Th>
                                                             <Th>Wickets</Th>
@@ -411,15 +405,15 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                                             <Th hide="md">Ducks Taken</Th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="divide-y divide-white/5">
+                                                    <tbody className="divide-y divide-slate-100">
                                                         {bowlingSorted.map((e, i) => (
-                                                            <tr key={e.username} className={e.username === username ? 'bg-emerald-500/10' : 'hover:bg-white/5 transition-colors'}>
+                                                            <tr key={e.username} className={e.username === username ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}>
                                                                 <td className="px-4 py-3"><RankBadge n={i + 1} /></td>
                                                                 <PlayerCell entry={e} currentUser={username} />
-                                                                <td className="px-4 py-3 text-right font-mono font-bold text-white">{e.wickets_taken}</td>
+                                                                <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">{e.wickets_taken}</td>
                                                                 <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">{e.economy ?? '—'}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-300">{e.bowling_avg ?? '—'}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-300 hidden sm:table-cell">{e.best_bowling}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-600">{e.bowling_avg ?? '—'}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-600 hidden sm:table-cell">{e.best_bowling}</td>
                                                                 <td className="px-4 py-3 text-right font-mono text-slate-500 hidden md:table-cell">{e.ducks_taken}</td>
                                                             </tr>
                                                         ))}
@@ -439,14 +433,14 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                             <div className="space-y-5">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Trophy size={18} className="text-amber-500" />
-                                    <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">All-time bests · min 1 match</p>
+                                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">All-time bests · min 1 match</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
                                     <RankTable
                                         title="Duck Specialist"
-                                        icon="🦆"
+                                        icon={<Target size={18} className="text-amber-600" />}
                                         subtitle="Most duck wickets taken"
                                         accent="amber"
                                         data={ducksTaken}
@@ -460,7 +454,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
                                     <RankTable
                                         title="Boundary Beast"
-                                        icon="🏏"
+                                        icon={<Zap size={18} className="text-amber-600" />}
                                         subtitle="Most total boundaries (4s + 6s)"
                                         accent="amber"
                                         data={boundariesSort}
@@ -474,7 +468,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
                                     <RankTable
                                         title="Maximum Machine"
-                                        icon="💥"
+                                        icon={<TrendingUp size={18} className="text-amber-600" />}
                                         subtitle="Most sixes hit"
                                         accent="amber"
                                         data={sixesSort}
@@ -488,7 +482,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
                                     <RankTable
                                         title="Four-Ever"
-                                        icon="4️⃣"
+                                        icon={<BarChart3 size={18} className="text-amber-600" />}
                                         subtitle="Most fours hit"
                                         accent="amber"
                                         data={foursSort}
@@ -502,7 +496,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
                                     <RankTable
                                         title="The Fifty Club"
-                                        icon="🥈"
+                                        icon={<Award size={18} className="text-amber-600" />}
                                         subtitle="Most half-centuries scored"
                                         accent="amber"
                                         data={fiftiesSort}
@@ -517,7 +511,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
                                     <RankTable
                                         title="Centurion"
-                                        icon="👑"
+                                        icon={<Trophy size={18} className="text-amber-600" />}
                                         subtitle="Most centuries scored"
                                         accent="amber"
                                         data={centuriesSort}
@@ -541,15 +535,14 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                             <div className="space-y-5">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Skull size={18} className="text-red-500" />
-                                    <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">The other kind of record · min 3 matches</p>
+                                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">The other kind of record · min 3 matches</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
-                                    {/* Most Ducks */}
                                     <RankTable
                                         title="Duck Dynasty"
-                                        icon="🦆"
+                                        icon={<AlertTriangle size={18} className="text-red-600" />}
                                         subtitle="Most times out for 0 — classic duck"
                                         accent="red"
                                         data={ducksSort}
@@ -561,10 +554,9 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                         ]}
                                     />
 
-                                    {/* Close losses < 10 runs */}
                                     <RankTable
                                         title="Heartbreak Hotel"
-                                        icon="💔"
+                                        icon={<TrendingDown size={18} className="text-red-600" />}
                                         subtitle="Lost by less than 10 runs — so close"
                                         accent="red"
                                         data={closeSort}
@@ -576,10 +568,9 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                         ]}
                                     />
 
-                                    {/* Heavy defeats > 30 runs */}
                                     <RankTable
                                         title="Highway Robbery"
-                                        icon="🚗"
+                                        icon={<TrendingDown size={18} className="text-red-600" />}
                                         subtitle="Defeated by more than 30 runs — thrashed"
                                         accent="red"
                                         data={heavySort}
@@ -591,10 +582,9 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                         ]}
                                     />
 
-                                    {/* Six Shower — conceded 3+ sixes in an innings */}
                                     <RankTable
-                                        title="Six Shooter Victim"
-                                        icon="🌧️"
+                                        title="Six Shower Victim"
+                                        icon={<Zap size={18} className="text-red-600" />}
                                         subtitle="Most innings where 3+ sixes were hit off them"
                                         accent="red"
                                         data={sixShowerSort}
@@ -606,10 +596,9 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                         ]}
                                     />
 
-                                    {/* Diamond Duck — 3 consecutive ducks */}
                                     <RankTable
                                         title="Diamond Duck"
-                                        icon="💎"
+                                        icon={<Skull size={18} className="text-red-600" />}
                                         subtitle="Longest streak of consecutive duck innings"
                                         accent="red"
                                         data={diamondDuckSort}
@@ -658,8 +647,8 @@ function PlayerCell({ entry, currentUser }: { entry: Entry; currentUser: string 
                 <div className={`w-7 h-7 ${color} rounded-full flex items-center justify-center text-white text-xs font-bold uppercase shrink-0`}>
                     {entry.username[0]}
                 </div>
-                <span className={`font-semibold text-sm ${isMe ? 'text-emerald-400' : 'text-slate-200'}`}>{entry.username}</span>
-                {isMe && <span className="text-[8px] font-bold uppercase tracking-widest bg-emerald-500/20 text-emerald-400 rounded-full px-1.5 py-0.5 shrink-0">You</span>}
+                <span className={`font-semibold text-sm ${isMe ? 'text-emerald-600' : 'text-slate-700'}`}>{entry.username}</span>
+                {isMe && <span className="text-[8px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-600 rounded-full px-1.5 py-0.5 border border-emerald-200 shrink-0">You</span>}
             </div>
         </td>
     )
@@ -668,9 +657,11 @@ function PlayerCell({ entry, currentUser }: { entry: Entry; currentUser: string 
 function EmptyState() {
     return (
         <div className="py-12 text-center">
-            <p className="text-2xl mb-2">🏏</p>
-            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">No data yet</p>
-            <p className="text-slate-500 text-xs mt-1">Play some matches to fill the board!</p>
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <BarChart3 size={18} className="text-slate-400" />
+            </div>
+            <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">No data yet</p>
+            <p className="text-slate-400 text-xs mt-1">Play some matches to fill the board!</p>
         </div>
     )
 }
