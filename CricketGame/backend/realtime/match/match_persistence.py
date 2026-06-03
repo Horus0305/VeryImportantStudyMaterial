@@ -83,6 +83,7 @@ def save_match_history(manager, room, match: Match, potm_data: dict, tournament_
             match_id=match.id,
             room_code=room.code,
             mode=match.mode,
+            timestamp=datetime.utcnow(),
             side_a=json.dumps(match.side_a),
             side_b=json.dumps(match.side_b),
             scorecard_1=json.dumps(sc1),
