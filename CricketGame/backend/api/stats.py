@@ -97,7 +97,6 @@ def get_tournament_detail(tournament_id: str, db: Session = Depends(get_db)):
 def get_user_tournaments(username: str, limit: int = 100, db: Session = Depends(get_db)):
     rows = (
         db.query(TournamentHistory)
-        .filter(TournamentHistory.players.contains(username))
         .order_by(TournamentHistory.timestamp.desc())
         .all()
     )
