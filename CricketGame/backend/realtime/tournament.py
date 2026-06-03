@@ -187,11 +187,13 @@ def apply_tournament_cancellation(manager, room, match: Match) -> dict:
 
 
 def save_tournament_history(manager, room, t: Tournament, awards: dict) -> None:
+    from datetime import datetime
     db = SessionLocal()
     try:
         history = TournamentHistory(
             tournament_id=room.tournament_id,
             room_code=room.code,
+            timestamp=datetime.utcnow(),
             players=json.dumps(t.players),
             standings=json.dumps(t.get_sorted_standings()),
             playoff_bracket=json.dumps({

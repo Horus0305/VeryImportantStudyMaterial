@@ -188,6 +188,17 @@ def _dt(s):
         return None
 
 
+def _dt_with_fallback(s):
+    """Parse ISO timestamp string → datetime, or current UTC time as fallback.
+    This prevents timestamps from defaulting to epoch (01/01/1970)."""
+    if not s:
+        return datetime.utcnow()
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00").split("+")[0])
+    except Exception:
+        return datetime.utcnow()
+
+
 def _j(obj):
     return json.dumps(obj) if obj is not None else None
 
@@ -290,8 +301,8 @@ for mid, m in matches_data.items():
         match_id            = mid,
         room_code           = m.get("room_code", ""),
         mode                = m.get("mode", "1v1"),
-        timestamp           = _dt(m.get("timestamp")),
-        end_timestamp       = _dt(m.get("end_timestamp")),
+        timestamp           = _dt_with_fallback(m.get("timestamp")),
+        end_timestamp       = _dt_with_fallback(m.get("end_timestamp")),
         side_a              = _j(m.get("side_a", [])),
         side_b              = _j(m.get("side_b", [])),
         scorecard_1         = _j(m.get("scorecard_1", {})),
@@ -324,7 +335,7 @@ for tid, t in tournaments_data.items():
     row = TournamentHistory(
         tournament_id        = tid,
         room_code            = t.get("room_code", ""),
-        timestamp            = _dt(t.get("timestamp")),
+        timestamp            = _dt_with_fallback(t.get("timestamp")),
         players              = _j(t.get("players", [])),
         standings            = _j(t.get("standings", [])),
         playoff_bracket      = _j(t.get("playoff_bracket")),
