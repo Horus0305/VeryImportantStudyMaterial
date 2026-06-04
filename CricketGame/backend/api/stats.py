@@ -259,7 +259,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
     for player in players:
         rows = db.query(FormatStats).filter(
             FormatStats.player_id == player.id,
-            FormatStats.format != 'cpu',
+            FormatStats.format == 'tournament',
         ).all()
         if not rows:
             continue
@@ -313,21 +313,37 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
             "tournaments_won":    t_won,
             "tournaments_played": t_played,
             # computed from MatchHistory below
-            "ducks":              0,
-            "ducks_taken":        0,
-            "close_losses":       0,   # lost by < 10 runs
-            "heavy_losses":       0,   # lost by > 30 runs
-            "six_shower":         0,   # innings where bowling side conceded 3+ sixes
-            "max_duck_streak":    0,   # longest consecutive duck streak
+            "total_balls":         balls,
+            "ducks":               0,
+            "ducks_taken":         0,
+            "close_losses":        0,   # lost by < 10 runs
+            "heavy_losses":        0,   # lost by > 30 runs
+            "six_shower":          0,   # innings where bowling side conceded 3+ sixes
+            "max_duck_streak":     0,   # longest consecutive duck streak
+            "not_out_pct":         0.0,
+            "miser_innings":       0,
+            "chasing_avg":         0.0,
+            "wickets_per_ball":    0.0,
+            "balls_per_dismissal": 0.0,
+            "finals_lost":         0,
         }
 
     # Per-player chronological innings for duck streak calculation
     player_innings: dict[str, list[bool]] = defaultdict(list)
 
+    # Tracking dicts for new stats
+    player_not_out:      dict[str, int] = defaultdict(int)
+    player_dismissals:   dict[str, int] = defaultdict(int)
+    player_bat_balls:    dict[str, int] = defaultdict(int)
+    player_chasing_runs: dict[str, int] = defaultdict(int)
+    player_chasing_inn:  dict[str, int] = defaultdict(int)
+    player_bowl_wkts:    dict[str, int] = defaultdict(int)
+    player_bowl_balls:   dict[str, int] = defaultdict(int)
+
     # ── 2. Scan MatchHistory ──────────────────────────────────────
     all_matches = (
         db.query(MatchHistory)
-        .filter(MatchHistory.mode != 'cpu')
+        .filter(MatchHistory.mode == 'tournament')
         .order_by(MatchHistory.timestamp.asc())
         .all()
     )
@@ -364,6 +380,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
             except Exception:
                 continue
 
+            is_chasing = (sc_col == "scorecard_2")
             batting_cards = sc.get("batting", [])
             batter_names = {bc.get("name") for bc in batting_cards if bc.get("name")}
 
@@ -383,7 +400,8 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
                 if not name or name not in entries:
                     continue
 
-                is_duck = bc.get("runs", -1) == 0 and bc.get("is_out", False)
+                is_out = bc.get("is_out", False)
+                is_duck = bc.get("runs", -1) == 0 and is_out
                 player_innings[name].append(is_duck)
 
                 if is_duck:
@@ -391,6 +409,32 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
                     bowler = _extract_bowler(bc.get("dismissal"))
                     if bowler and bowler in entries:
                         entries[bowler]["ducks_taken"] += 1
+
+                # New stat tracking
+                if is_out:
+                    player_dismissals[name] += 1
+                else:
+                    player_not_out[name] += 1
+                player_bat_balls[name] += bc.get("balls", 0)
+                if is_chasing:
+                    player_chasing_runs[name] += bc.get("runs", 0)
+                    player_chasing_inn[name] += 1
+
+            # Bowling card — The Miser + The Oracle
+            for bw in sc.get("bowling", []):
+                name = bw.get("name")
+                if not name or name not in entries:
+                    continue
+                wkts = bw.get("wickets", 0)
+                runs_b = bw.get("runs", 0)
+                overs_str = str(bw.get("overs", "0"))
+                parts = overs_str.split(".")
+                balls_b = int(parts[0]) * 6 + (int(parts[1]) if len(parts) > 1 and parts[1] else 0)
+                overs_f = balls_b / 6
+                player_bowl_wkts[name] += wkts
+                player_bowl_balls[name] += balls_b
+                if overs_f >= 1.0 and runs_b / overs_f <= 8.0:
+                    entries[name]["miser_innings"] += 1
 
     # ── 3. Compute max consecutive duck streak ────────────────────
     for player, innings_list in player_innings.items():
@@ -402,6 +446,31 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
             if cur > max_streak:
                 max_streak = cur
         entries[player]["max_duck_streak"] = max_streak
+
+    # ── 4. Finalize new computed stats ────────────────────────────
+    for player in list(entries.keys()):
+        e = entries[player]
+        total_inn = player_not_out[player] + player_dismissals[player]
+        if total_inn > 0:
+            e["not_out_pct"] = round(player_not_out[player] / total_inn * 100, 1)
+        if player_chasing_inn[player] >= 5:
+            e["chasing_avg"] = round(player_chasing_runs[player] / player_chasing_inn[player], 2)
+        if player_bowl_wkts[player] >= 6 and player_bowl_balls[player] > 0:
+            e["wickets_per_ball"] = round(player_bowl_wkts[player] / player_bowl_balls[player], 4)
+        if player_dismissals[player] >= 5:
+            e["balls_per_dismissal"] = round(player_bat_balls[player] / player_dismissals[player], 1)
+
+    # ── 5. Always the Bridesmaid — scan TournamentHistory ─────────
+    for t in db.query(TournamentHistory).all():
+        try:
+            bracket = json.loads(t.playoff_bracket) if t.playoff_bracket else {}
+            final_pair = bracket.get("final") or []
+            if len(final_pair) == 2 and t.champion and t.champion in final_pair:
+                runner_up = final_pair[0] if final_pair[1] == t.champion else final_pair[1]
+                if runner_up in entries:
+                    entries[runner_up]["finals_lost"] += 1
+        except Exception:
+            pass
 
     result = sorted(entries.values(), key=lambda x: (-x["total_runs"], -x["highest_score"]))
     return {"leaderboard": result[:min(max(limit, 1), 200)]}

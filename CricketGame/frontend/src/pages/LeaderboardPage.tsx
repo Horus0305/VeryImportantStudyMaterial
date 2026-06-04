@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trophy, Skull, BarChart3, TrendingUp, TrendingDown, Target, Zap, Award, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Trophy, Skull, BarChart3, TrendingUp, TrendingDown, Target, Zap, Award, AlertTriangle, Flame, Shield, Lock, Eye, Heart, Clock } from 'lucide-react'
 
 const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
 const API = (import.meta.env.VITE_API_BASE_URL ?? window.location.origin).replace(/\/$/, '')
@@ -35,6 +35,13 @@ interface Entry {
     heavy_losses: number
     six_shower: number
     max_duck_streak: number
+    total_balls: number
+    not_out_pct: number
+    miser_innings: number
+    chasing_avg: number
+    wickets_per_ball: number
+    balls_per_dismissal: number
+    finals_lost: number
 }
 
 type MainTab = 'leaderboard' | 'fame' | 'shame'
@@ -191,15 +198,21 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
     const boundariesSort = useMemo(() => [...data].filter(e => e.boundaries > 0).sort((a, b) => b.boundaries - a.boundaries), [data])
     const sixesSort      = useMemo(() => [...data].filter(e => e.sixes > 0).sort((a, b) => b.sixes - a.sixes), [data])
     const foursSort      = useMemo(() => [...data].filter(e => e.fours > 0).sort((a, b) => b.fours - a.fours), [data])
-    const fiftiesSort    = useMemo(() => [...data].filter(e => e.fifties > 0).sort((a, b) => b.fifties - a.fifties || b.hundreds - a.hundreds), [data])
-    const centuriesSort  = useMemo(() => [...data].filter(e => e.hundreds > 0).sort((a, b) => b.hundreds - a.hundreds || b.highest_score - a.highest_score), [data])
+    const fiftiesSort    = useMemo(() => [...data].filter(e => e.fifties > 0).sort((a, b) => b.fifties - a.fifties || b.highest_score - a.highest_score), [data])
+    const finisherSort   = useMemo(() => [...data].filter(e => e.chasing_avg > 0).sort((a, b) => b.chasing_avg - a.chasing_avg), [data])
+    const wallSort       = useMemo(() => [...data].filter(e => e.not_out_pct > 0).sort((a, b) => b.not_out_pct - a.not_out_pct), [data])
+    const miserSort      = useMemo(() => [...data].filter(e => e.miser_innings > 0).sort((a, b) => b.miser_innings - a.miser_innings), [data])
+    const oracleSort     = useMemo(() => [...data].filter(e => e.wickets_per_ball > 0).sort((a, b) => b.wickets_per_ball - a.wickets_per_ball), [data])
 
-    const eligible        = useMemo(() => data.filter(e => e.matches_played >= 3), [data])
-    const ducksSort       = useMemo(() => [...data].filter(e => e.ducks > 0).sort((a, b) => b.ducks - a.ducks), [data])
-    const closeSort       = useMemo(() => [...eligible].filter(e => e.close_losses > 0).sort((a, b) => b.close_losses - a.close_losses), [eligible])
-    const heavySort       = useMemo(() => [...eligible].filter(e => e.heavy_losses > 0).sort((a, b) => b.heavy_losses - a.heavy_losses), [eligible])
-    const sixShowerSort   = useMemo(() => [...data].filter(e => e.six_shower > 0).sort((a, b) => b.six_shower - a.six_shower), [data])
-    const diamondDuckSort = useMemo(() => [...data].filter(e => e.max_duck_streak >= 2).sort((a, b) => b.max_duck_streak - a.max_duck_streak), [data])
+    const eligible         = useMemo(() => data.filter(e => e.matches_played >= 3), [data])
+    const ducksSort        = useMemo(() => [...data].filter(e => e.ducks > 0).sort((a, b) => b.ducks - a.ducks), [data])
+    const closeSort        = useMemo(() => [...eligible].filter(e => e.close_losses > 0).sort((a, b) => b.close_losses - a.close_losses), [eligible])
+    const heavySort        = useMemo(() => [...eligible].filter(e => e.heavy_losses > 0).sort((a, b) => b.heavy_losses - a.heavy_losses), [eligible])
+    const sixShowerSort    = useMemo(() => [...data].filter(e => e.six_shower > 0).sort((a, b) => b.six_shower - a.six_shower), [data])
+    const diamondDuckSort  = useMemo(() => [...data].filter(e => e.max_duck_streak >= 2).sort((a, b) => b.max_duck_streak - a.max_duck_streak), [data])
+    const bridesmaidSort   = useMemo(() => [...data].filter(e => e.finals_lost > 0).sort((a, b) => b.finals_lost - a.finals_lost), [data])
+    const walkingWktSort   = useMemo(() => [...data].filter(e => e.balls_per_dismissal > 0).sort((a, b) => a.balls_per_dismissal - b.balls_per_dismissal), [data])
+    const stonewallerSort  = useMemo(() => [...data].filter(e => e.total_balls >= 30).sort((a, b) => a.strike_rate - b.strike_rate), [data])
 
     const TAB_LABELS: { id: MainTab; label: string; icon: React.ReactNode }[] = [
         { id: 'leaderboard', label: 'Leaderboard', icon: <BarChart3 size={15} /> },
@@ -235,7 +248,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
                 {/* ── PAGE HEADER ─────────────────────────────────── */}
                 <div className="mb-8">
-                    <p className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400 mb-1">All-time records</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400 mb-1">Tournament records</p>
                     <h1 className="text-6xl sm:text-8xl text-slate-900 uppercase leading-none" style={DISPLAY_FONT}>Stats</h1>
                 </div>
 
@@ -510,17 +523,58 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                     />
 
                                     <RankTable
-                                        title="Centurion"
-                                        icon={<Trophy size={18} className="text-amber-600" />}
-                                        subtitle="Most centuries scored"
+                                        title="The Finisher"
+                                        icon={<Flame size={18} className="text-amber-600" />}
+                                        subtitle="Best batting average while chasing"
                                         accent="amber"
-                                        data={centuriesSort}
+                                        data={finisherSort}
                                         currentUser={username}
                                         cols={[
-                                            { header: '100s', key: 'hundreds', bold: true, highlight: 'text-amber-600' },
-                                            { header: 'HS', key: 'highest_score', hide: 'sm' },
+                                            { header: 'Chase Avg', key: 'chasing_avg', bold: true, highlight: 'text-amber-600' },
+                                            { header: 'Runs', key: 'total_runs', hide: 'sm' },
+                                            { header: 'SR', key: 'strike_rate', hide: 'md' },
+                                        ]}
+                                    />
+
+                                    <RankTable
+                                        title="The Wall"
+                                        icon={<Shield size={18} className="text-amber-600" />}
+                                        subtitle="Highest % innings finished not out"
+                                        accent="amber"
+                                        data={wallSort}
+                                        currentUser={username}
+                                        cols={[
+                                            { header: 'Not Out %', key: (e) => `${e.not_out_pct}%`, bold: true, highlight: 'text-amber-600' },
                                             { header: 'Runs', key: 'total_runs', hide: 'sm' },
                                             { header: 'Avg', key: 'batting_avg', hide: 'md' },
+                                        ]}
+                                    />
+
+                                    <RankTable
+                                        title="The Miser"
+                                        icon={<Lock size={18} className="text-amber-600" />}
+                                        subtitle="Most bowling spells with economy ≤ 8"
+                                        accent="amber"
+                                        data={miserSort}
+                                        currentUser={username}
+                                        cols={[
+                                            { header: 'Spells', key: 'miser_innings', bold: true, highlight: 'text-amber-600' },
+                                            { header: 'Wkts', key: 'wickets_taken', hide: 'sm' },
+                                            { header: 'Econ', key: (e) => e.economy ?? '—', hide: 'md' },
+                                        ]}
+                                    />
+
+                                    <RankTable
+                                        title="The Oracle"
+                                        icon={<Eye size={18} className="text-amber-600" />}
+                                        subtitle="Best wickets per ball (min 6 wickets)"
+                                        accent="amber"
+                                        data={oracleSort}
+                                        currentUser={username}
+                                        cols={[
+                                            { header: 'Wkt/Ball', key: (e) => e.wickets_per_ball.toFixed(3), bold: true, highlight: 'text-amber-600' },
+                                            { header: 'Wickets', key: 'wickets_taken', hide: 'sm' },
+                                            { header: 'Best', key: 'best_bowling', hide: 'md' },
                                         ]}
                                     />
 
@@ -583,7 +637,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                     />
 
                                     <RankTable
-                                        title="Six Shower Victim"
+                                        title="The Pinata"
                                         icon={<Zap size={18} className="text-red-600" />}
                                         subtitle="Most innings where 3+ sixes were hit off them"
                                         accent="red"
@@ -607,6 +661,48 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                             { header: 'Streak', key: 'max_duck_streak', bold: true, highlight: 'text-red-600' },
                                             { header: 'Total Ducks', key: 'ducks', hide: 'sm' },
                                             { header: 'Avg', key: 'batting_avg', hide: 'md' },
+                                        ]}
+                                    />
+
+                                    <RankTable
+                                        title="Always the Bridesmaid"
+                                        icon={<Heart size={18} className="text-red-600" />}
+                                        subtitle="Most tournament finals reached without winning"
+                                        accent="red"
+                                        data={bridesmaidSort}
+                                        currentUser={username}
+                                        cols={[
+                                            { header: 'Finals Lost', key: 'finals_lost', bold: true, highlight: 'text-red-600' },
+                                            { header: 'T Won', key: 'tournaments_won', hide: 'sm' },
+                                            { header: 'Win%', key: e => `${e.win_pct}%`, hide: 'md' },
+                                        ]}
+                                    />
+
+                                    <RankTable
+                                        title="Walking Wicket"
+                                        icon={<AlertTriangle size={18} className="text-red-600" />}
+                                        subtitle="Fewest balls survived per dismissal (min 5 dismissals)"
+                                        accent="red"
+                                        data={walkingWktSort}
+                                        currentUser={username}
+                                        cols={[
+                                            { header: 'Balls/Out', key: 'balls_per_dismissal', bold: true, highlight: 'text-red-600' },
+                                            { header: 'Runs', key: 'total_runs', hide: 'sm' },
+                                            { header: 'Avg', key: 'batting_avg', hide: 'md' },
+                                        ]}
+                                    />
+
+                                    <RankTable
+                                        title="The Stonewaller"
+                                        icon={<Clock size={18} className="text-red-600" />}
+                                        subtitle="Lowest batting strike rate (min 30 balls)"
+                                        accent="red"
+                                        data={stonewallerSort}
+                                        currentUser={username}
+                                        cols={[
+                                            { header: 'SR', key: 'strike_rate', bold: true, highlight: 'text-red-600' },
+                                            { header: 'Runs', key: 'total_runs', hide: 'sm' },
+                                            { header: 'Balls', key: 'total_balls', hide: 'md' },
                                         ]}
                                     />
 
