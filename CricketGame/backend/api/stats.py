@@ -264,7 +264,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
         if not rows:
             continue
         mp = sum(r.matches_played for r in rows)
-        if mp == 0:
+        if mp < 100:
             continue
 
         mw         = sum(r.matches_won for r in rows)
@@ -451,13 +451,13 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
     for player in list(entries.keys()):
         e = entries[player]
         total_inn = player_not_out[player] + player_dismissals[player]
-        if total_inn > 0:
+        if total_inn >= 50:
             e["not_out_pct"] = round(player_not_out[player] / total_inn * 100, 1)
-        if player_chasing_inn[player] >= 5:
+        if player_chasing_inn[player] >= 30:
             e["chasing_avg"] = round(player_chasing_runs[player] / player_chasing_inn[player], 2)
-        if player_bowl_wkts[player] >= 6 and player_bowl_balls[player] > 0:
+        if player_bowl_wkts[player] >= 20 and player_bowl_balls[player] > 0:
             e["wickets_per_ball"] = round(player_bowl_wkts[player] / player_bowl_balls[player], 4)
-        if player_dismissals[player] >= 5:
+        if player_dismissals[player] >= 30:
             e["balls_per_dismissal"] = round(player_bat_balls[player] / player_dismissals[player], 1)
 
     # ── 5. Always the Bridesmaid — scan TournamentHistory ─────────

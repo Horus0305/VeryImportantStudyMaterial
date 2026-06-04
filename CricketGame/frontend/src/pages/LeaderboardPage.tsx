@@ -212,7 +212,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
     const diamondDuckSort  = useMemo(() => [...data].filter(e => e.max_duck_streak >= 2).sort((a, b) => b.max_duck_streak - a.max_duck_streak), [data])
     const bridesmaidSort   = useMemo(() => [...data].filter(e => e.finals_lost > 0).sort((a, b) => b.finals_lost - a.finals_lost), [data])
     const walkingWktSort   = useMemo(() => [...data].filter(e => e.balls_per_dismissal > 0).sort((a, b) => a.balls_per_dismissal - b.balls_per_dismissal), [data])
-    const stonewallerSort  = useMemo(() => [...data].filter(e => e.total_balls >= 30).sort((a, b) => a.strike_rate - b.strike_rate), [data])
+    const stonewallerSort  = useMemo(() => [...data].filter(e => e.total_balls >= 150).sort((a, b) => a.strike_rate - b.strike_rate), [data])
 
     const TAB_LABELS: { id: MainTab; label: string; icon: React.ReactNode }[] = [
         { id: 'leaderboard', label: 'Leaderboard', icon: <BarChart3 size={15} /> },
