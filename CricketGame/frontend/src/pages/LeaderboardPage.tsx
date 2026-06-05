@@ -42,6 +42,8 @@ interface Entry {
     wickets_per_ball: number
     balls_per_dismissal: number
     finals_lost: number
+    playoffs_reached: number
+    finals_reached: number
 }
 
 type MainTab = 'leaderboard' | 'fame' | 'shame'
@@ -178,6 +180,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
     const navigate = useNavigate()
     const [mainTab, setMainTab] = useState<MainTab>('leaderboard')
     const [boardTab, setBoardTab] = useState<BoardTab>('overall')
+    const [overallSortBy, setOverallSortBy] = useState<'wins' | 'championships'>('wins')
     const [data, setData] = useState<Entry[]>([])
     const [loading, setLoading] = useState(true)
     const [fetchError, setFetchError] = useState(false)
@@ -190,7 +193,12 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
             .finally(() => setLoading(false))
     }, [])
 
-    const overallSorted  = useMemo(() => [...data].sort((a, b) => b.matches_won - a.matches_won || b.win_pct - a.win_pct), [data])
+    const overallSorted  = useMemo(() => {
+        if (overallSortBy === 'championships') {
+            return [...data].sort((a, b) => b.tournaments_won - a.tournaments_won || b.tournaments_played - a.tournaments_played || b.matches_won - a.matches_won)
+        }
+        return [...data].sort((a, b) => b.matches_won - a.matches_won || b.win_pct - a.win_pct)
+    }, [data, overallSortBy])
     const battingSorted  = useMemo(() => [...data].sort((a, b) => b.total_runs - a.total_runs || b.highest_score - a.highest_score), [data])
     const bowlingSorted  = useMemo(() => [...data].sort((a, b) => b.wickets_taken - a.wickets_taken), [data])
 
@@ -205,6 +213,9 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
     const oracleSort     = useMemo(() => [...data].filter(e => e.wickets_per_ball > 0).sort((a, b) => b.wickets_per_ball - a.wickets_per_ball), [data])
 
     const eligible         = useMemo(() => data.filter(e => e.matches_played >= 3), [data])
+    const championsSort    = useMemo(() => [...data].filter(e => e.tournaments_won > 0).sort((a, b) => b.tournaments_won - a.tournaments_won), [data])
+    const playoffsSort     = useMemo(() => [...data].filter(e => e.playoffs_reached > 0).sort((a, b) => b.playoffs_reached - a.playoffs_reached), [data])
+    const finalsSort       = useMemo(() => [...data].filter(e => e.finals_reached > 0).sort((a, b) => b.finals_reached - a.finals_reached), [data])
     const ducksSort        = useMemo(() => [...data].filter(e => e.ducks > 0).sort((a, b) => b.ducks - a.ducks), [data])
     const closeSort        = useMemo(() => [...eligible].filter(e => e.close_losses > 0).sort((a, b) => b.close_losses - a.close_losses), [eligible])
     const heavySort        = useMemo(() => [...eligible].filter(e => e.heavy_losses > 0).sort((a, b) => b.heavy_losses - a.heavy_losses), [eligible])
@@ -307,10 +318,32 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                 {/* ── OVERALL ── */}
                                 {boardTab === 'overall' && (
                                     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                                        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                                            <BarChart3 size={16} className="text-emerald-600" />
-                                            <h3 className="text-lg text-slate-900 uppercase" style={DISPLAY_FONT}>Overall Rankings</h3>
-                                            <span className="text-xs text-slate-400 ml-1">sorted by wins</span>
+                                        <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                            <div className="flex items-center gap-2">
+                                                <BarChart3 size={16} className="text-emerald-600" />
+                                                <h3 className="text-lg text-slate-900 uppercase" style={DISPLAY_FONT}>Overall Rankings</h3>
+                                                <span className="text-xs text-slate-400 ml-1 hidden sm:inline">sorted by {overallSortBy === 'championships' ? 'championships' : 'wins'}</span>
+                                            </div>
+                                            <div className="flex gap-0.5 bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider shrink-0 w-fit">
+                                                <button
+                                                    onClick={() => setOverallSortBy('wins')}
+                                                    className={`px-3 py-1.5 rounded-md transition-all ${overallSortBy === 'wins'
+                                                        ? 'bg-white text-slate-900 shadow-sm'
+                                                        : 'text-slate-500 hover:text-slate-700'
+                                                        }`}
+                                                >
+                                                    Wins
+                                                </button>
+                                                <button
+                                                    onClick={() => setOverallSortBy('championships')}
+                                                    className={`px-3 py-1.5 rounded-md transition-all ${overallSortBy === 'championships'
+                                                        ? 'bg-white text-slate-900 shadow-sm'
+                                                        : 'text-slate-500 hover:text-slate-700'
+                                                        }`}
+                                                >
+                                                    Championships
+                                                </button>
+                                            </div>
                                         </div>
                                         {overallSorted.length === 0 ? (
                                             <EmptyState />
@@ -334,11 +367,11 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                                             <tr key={e.username} className={e.username === username ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}>
                                                                 <td className="px-4 py-3"><RankBadge n={i + 1} /></td>
                                                                 <PlayerCell entry={e} currentUser={username} />
-                                                                <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">{e.matches_won}</td>
+                                                                <td className={`px-4 py-3 text-right font-mono font-bold ${overallSortBy === 'wins' ? 'text-emerald-700 bg-emerald-50/20' : 'text-slate-600'}`}>{e.matches_won}</td>
                                                                 <td className="px-4 py-3 text-right font-mono text-red-500">{e.matches_lost}</td>
                                                                 <td className="px-4 py-3 text-right font-mono text-slate-600">{e.matches_played}</td>
                                                                 <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">{e.win_pct}%</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 hidden sm:table-cell">{e.tournaments_won}/{e.tournaments_played}</td>
+                                                                <td className={`px-4 py-3 text-right font-mono hidden sm:table-cell ${overallSortBy === 'championships' ? 'text-emerald-700 font-bold bg-emerald-50/20' : 'text-slate-500'}`}>{e.tournaments_won}/{e.tournaments_played}</td>
                                                                 <td className="px-4 py-3 text-right font-mono text-amber-600 hidden md:table-cell">{e.potm_count}</td>
                                                             </tr>
                                                         ))}
@@ -450,6 +483,46 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+                                    <RankTable
+                                        title="Tournament King"
+                                        icon={<Trophy size={18} className="text-amber-600" />}
+                                        subtitle="Most tournament championship wins"
+                                        accent="amber"
+                                        data={championsSort}
+                                        currentUser={username}
+                                        cols={[
+                                            { header: 'Titles', key: 'tournaments_won', bold: true, highlight: 'text-amber-600' },
+                                            { header: 'Played', key: 'tournaments_played' },
+                                            { header: 'Win%', key: e => `${e.win_pct}%`, hide: 'md' },
+                                        ]}
+                                    />
+
+                                    <RankTable
+                                        title="The Challenger"
+                                        icon={<Award size={18} className="text-amber-600" />}
+                                        subtitle="Most tournament finals reached"
+                                        accent="amber"
+                                        data={finalsSort}
+                                        currentUser={username}
+                                        cols={[
+                                            { header: 'Finals', key: 'finals_reached', bold: true, highlight: 'text-amber-600' },
+                                            { header: 'Played', key: 'tournaments_played' },
+                                        ]}
+                                    />
+
+                                    <RankTable
+                                        title="Playoff Regular"
+                                        icon={<TrendingUp size={18} className="text-amber-600" />}
+                                        subtitle="Most playoff qualifiers reached (Top 4)"
+                                        accent="amber"
+                                        data={playoffsSort}
+                                        currentUser={username}
+                                        cols={[
+                                            { header: 'Playoffs', key: 'playoffs_reached', bold: true, highlight: 'text-amber-600' },
+                                            { header: 'Played', key: 'tournaments_played' },
+                                        ]}
+                                    />
 
                                     <RankTable
                                         title="Duck Specialist"

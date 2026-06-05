@@ -264,7 +264,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
         if not rows:
             continue
         mp = sum(r.matches_played for r in rows)
-        if mp < 100:
+        if mp < 1:
             continue
 
         mw         = sum(r.matches_won for r in rows)
@@ -312,7 +312,9 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
             "potm_count":         potm,
             "tournaments_won":    t_won,
             "tournaments_played": t_played,
-            # computed from MatchHistory below
+            # computed from MatchHistory / TournamentHistory below
+            "playoffs_reached":    0,
+            "finals_reached":      0,
             "total_balls":         balls,
             "ducks":               0,
             "ducks_taken":         0,
@@ -460,15 +462,33 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
         if player_dismissals[player] >= 30:
             e["balls_per_dismissal"] = round(player_bat_balls[player] / player_dismissals[player], 1)
 
-    # ── 5. Always the Bridesmaid — scan TournamentHistory ─────────
+    # ── 5. Playoff / Final achievements — scan TournamentHistory ──
     for t in db.query(TournamentHistory).all():
         try:
             bracket = json.loads(t.playoff_bracket) if t.playoff_bracket else {}
+            # Finalists
             final_pair = bracket.get("final") or []
+            for player in final_pair:
+                if player in entries:
+                    entries[player]["finals_reached"] += 1
+
             if len(final_pair) == 2 and t.champion and t.champion in final_pair:
                 runner_up = final_pair[0] if final_pair[1] == t.champion else final_pair[1]
                 if runner_up in entries:
                     entries[runner_up]["finals_lost"] += 1
+
+            # Playoff reaches (Q1, Elim, Q2, or Final participants)
+            playoff_players = set()
+            for key in ["qualifier_1", "eliminator", "qualifier_2", "final"]:
+                match_pair = bracket.get(key)
+                if match_pair:
+                    for player in match_pair:
+                        if player:
+                            playoff_players.add(player)
+            
+            for player in playoff_players:
+                if player in entries:
+                    entries[player]["playoffs_reached"] += 1
         except Exception:
             pass
 
