@@ -346,27 +346,27 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                                 <table className="w-full text-sm">
                                                     <thead>
                                                         <tr className="bg-slate-50 border-b border-slate-100">
-                                                            <Th w="w-10">#</Th>
-                                                            <Th align="left">Player</Th>
+                                                            <Th w="w-10" sticky left="left-0">#</Th>
+                                                            <Th align="left" sticky left="left-[56px]" borderR>Player</Th>
                                                             <Th>Wins</Th>
                                                             <Th>Losses</Th>
                                                             <Th>MP</Th>
                                                             <Th>Win %</Th>
-                                                            <Th hide="sm">Tournaments</Th>
-                                                            <Th hide="md">POTM</Th>
+                                                            <Th>Tournaments</Th>
+                                                            <Th>POTM</Th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100">
                                                         {overallSorted.map((e, i) => (
-                                                            <tr key={e.username} className={e.username === username ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}>
-                                                                <td className="px-4 py-3"><RankBadge n={i + 1} /></td>
-                                                                <PlayerCell entry={e} currentUser={username} />
-                                                                <td className={`px-4 py-3 text-right font-mono font-bold ${overallSortBy === 'wins' ? 'text-emerald-700 bg-emerald-50/20' : 'text-slate-600'}`}>{e.matches_won}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-red-500">{e.matches_lost}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-600">{e.matches_played}</td>
-                                                                <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">{e.win_pct}%</td>
-                                                                <td className={`px-4 py-3 text-right font-mono hidden sm:table-cell ${overallSortBy === 'championships' ? 'text-emerald-700 font-bold bg-emerald-50/20' : 'text-slate-500'}`}>{e.tournaments_won}/{e.tournaments_played}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-amber-600 hidden md:table-cell">{e.potm_count}</td>
+                                                            <tr key={e.username} className={`group/row ${e.username === username ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}`}>
+                                                                <td className={`px-4 py-3 sticky left-0 z-10 transition-colors ${e.username === username ? 'bg-emerald-50' : 'bg-white group-hover/row:bg-slate-50'}`}><RankBadge n={i + 1} /></td>
+                                                                <PlayerCell entry={e} currentUser={username} sticky />
+                                                                <td className={`px-4 py-3 text-right font-mono font-bold whitespace-nowrap ${overallSortBy === 'wins' ? 'text-emerald-700 bg-emerald-50/20' : 'text-slate-600'}`}>{e.matches_won}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-red-500 whitespace-nowrap">{e.matches_lost}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-600 whitespace-nowrap">{e.matches_played}</td>
+                                                                <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">{e.win_pct}%</td>
+                                                                <td className={`px-4 py-3 text-right font-mono whitespace-nowrap ${overallSortBy === 'championships' ? 'text-emerald-700 font-bold bg-emerald-50/20' : 'text-slate-500'}`}>{e.tournaments_won}/{e.tournaments_played}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-amber-600 whitespace-nowrap">{e.potm_count}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -389,31 +389,31 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                                 <table className="w-full text-sm">
                                                     <thead>
                                                         <tr className="bg-slate-50 border-b border-slate-100">
-                                                            <Th w="w-10">#</Th>
-                                                            <Th align="left">Player</Th>
+                                                            <Th w="w-10" sticky left="left-0">#</Th>
+                                                            <Th align="left" sticky left="left-[56px]" borderR>Player</Th>
                                                             <Th>Runs</Th>
                                                             <Th>SR</Th>
                                                             <Th>Avg</Th>
                                                             <Th>HS</Th>
-                                                            <Th hide="sm">50s</Th>
-                                                            <Th hide="sm">100s</Th>
-                                                            <Th hide="md">4s</Th>
-                                                            <Th hide="md">6s</Th>
+                                                            <Th>50s</Th>
+                                                            <Th>100s</Th>
+                                                            <Th>4s</Th>
+                                                            <Th>6s</Th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100">
                                                         {battingSorted.map((e, i) => (
-                                                            <tr key={e.username} className={e.username === username ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}>
-                                                                <td className="px-4 py-3"><RankBadge n={i + 1} /></td>
-                                                                <PlayerCell entry={e} currentUser={username} />
-                                                                <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">{e.total_runs}</td>
-                                                                <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">{e.strike_rate}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-600">{e.batting_avg}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-600">{e.highest_score}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 hidden sm:table-cell">{e.fifties}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 hidden sm:table-cell">{e.hundreds}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 hidden md:table-cell">{e.fours}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 hidden md:table-cell">{e.sixes}</td>
+                                                            <tr key={e.username} className={`group/row ${e.username === username ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}`}>
+                                                                <td className={`px-4 py-3 sticky left-0 z-10 transition-colors ${e.username === username ? 'bg-emerald-50' : 'bg-white group-hover/row:bg-slate-50'}`}><RankBadge n={i + 1} /></td>
+                                                                <PlayerCell entry={e} currentUser={username} sticky />
+                                                                <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">{e.total_runs}</td>
+                                                                <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">{e.strike_rate}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-600 whitespace-nowrap">{e.batting_avg}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-600 whitespace-nowrap">{e.highest_score}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 whitespace-nowrap">{e.fifties}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 whitespace-nowrap">{e.hundreds}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 whitespace-nowrap">{e.fours}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 whitespace-nowrap">{e.sixes}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -436,25 +436,25 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
                                                 <table className="w-full text-sm">
                                                     <thead>
                                                         <tr className="bg-slate-50 border-b border-slate-100">
-                                                            <Th w="w-10">#</Th>
-                                                            <Th align="left">Player</Th>
+                                                            <Th w="w-10" sticky left="left-0">#</Th>
+                                                            <Th align="left" sticky left="left-[56px]" borderR>Player</Th>
                                                             <Th>Wickets</Th>
                                                             <Th>Economy</Th>
                                                             <Th>Avg</Th>
-                                                            <Th hide="sm">Best</Th>
-                                                            <Th hide="md">Ducks Taken</Th>
+                                                            <Th>Best</Th>
+                                                            <Th>Ducks Taken</Th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100">
                                                         {bowlingSorted.map((e, i) => (
-                                                            <tr key={e.username} className={e.username === username ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}>
-                                                                <td className="px-4 py-3"><RankBadge n={i + 1} /></td>
-                                                                <PlayerCell entry={e} currentUser={username} />
-                                                                <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">{e.wickets_taken}</td>
-                                                                <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">{e.economy ?? '—'}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-600">{e.bowling_avg ?? '—'}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-600 hidden sm:table-cell">{e.best_bowling}</td>
-                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 hidden md:table-cell">{e.ducks_taken}</td>
+                                                            <tr key={e.username} className={`group/row ${e.username === username ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}`}>
+                                                                <td className={`px-4 py-3 sticky left-0 z-10 transition-colors ${e.username === username ? 'bg-emerald-50' : 'bg-white group-hover/row:bg-slate-50'}`}><RankBadge n={i + 1} /></td>
+                                                                <PlayerCell entry={e} currentUser={username} sticky />
+                                                                <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">{e.wickets_taken}</td>
+                                                                <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">{e.economy ?? '—'}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-600 whitespace-nowrap">{e.bowling_avg ?? '—'}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-600 whitespace-nowrap">{e.best_bowling}</td>
+                                                                <td className="px-4 py-3 text-right font-mono text-slate-500 whitespace-nowrap">{e.ducks_taken}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -786,26 +786,30 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
 // ── Tiny shared cells ─────────────────────────────────────────────
 
-function Th({ children, align = 'right', w, hide }: {
+function Th({ children, align = 'right', w, sticky, left, borderR }: {
     children: React.ReactNode
     align?: 'left' | 'right'
     w?: string
-    hide?: 'sm' | 'md' | 'lg'
+    sticky?: boolean
+    left?: string
+    borderR?: boolean
 }) {
-    const hideClass = hide === 'sm' ? 'hidden sm:table-cell' : hide === 'md' ? 'hidden md:table-cell' : hide === 'lg' ? 'hidden lg:table-cell' : ''
+    const stickyClass = sticky ? `sticky ${left ?? 'left-0'} z-20 bg-slate-50` : ''
+    const borderClass = borderR ? 'border-r border-slate-200' : ''
     return (
-        <th className={`${align === 'left' ? 'text-left' : 'text-right'} px-4 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-400 ${w ?? ''} ${hideClass}`}>
+        <th className={`${align === 'left' ? 'text-left' : 'text-right'} px-4 py-3 text-[9px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap ${w ?? ''} ${stickyClass} ${borderClass}`}>
             {children}
         </th>
     )
 }
 
-function PlayerCell({ entry, currentUser }: { entry: Entry; currentUser: string }) {
+function PlayerCell({ entry, currentUser, sticky }: { entry: Entry; currentUser: string; sticky?: boolean }) {
     const isMe = entry.username === currentUser
     const COLORS = ['bg-emerald-500', 'bg-blue-500', 'bg-violet-500', 'bg-amber-500', 'bg-rose-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-pink-500']
     const color = COLORS[entry.username.charCodeAt(0) % COLORS.length]
+    const stickyClass = sticky ? `sticky left-[56px] z-10 border-r border-slate-200 transition-colors ${isMe ? 'bg-emerald-50' : 'bg-white group-hover/row:bg-slate-50'}` : ''
     return (
-        <td className="px-4 py-3">
+        <td className={`px-4 py-3 min-w-32.5 ${stickyClass}`}>
             <div className="flex items-center gap-2">
                 <div className={`w-7 h-7 ${color} rounded-full flex items-center justify-center text-white text-xs font-bold uppercase shrink-0`}>
                     {entry.username[0]}
