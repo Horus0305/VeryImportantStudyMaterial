@@ -1,5 +1,5 @@
 import HeadToHead from '@/components/HeadToHead'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const DF = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
 
@@ -23,6 +23,19 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
     const sideB      = tossData.side_b as string[] | undefined
 
     const [coinFlipping, setCoinFlipping] = useState(false)
+    const [countdown, setCountdown] = useState(8)
+
+    useEffect(() => {
+        if (screen !== 'toss_decision') return
+        setCountdown(8)
+        const id = setInterval(() => {
+            setCountdown(prev => {
+                if (prev <= 1) { clearInterval(id); return 0 }
+                return prev - 1
+            })
+        }, 1000)
+        return () => clearInterval(id)
+    }, [screen])
 
     const handleTossCall = (call: string) => {
         setCoinFlipping(true)
@@ -35,7 +48,7 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
     const matchLabel2 = sideB?.join(', ') || lobby2 || (caller && caller !== username ? caller : '')
 
     return (
-        <div className="w-full h-full flex flex-col relative overflow-hidden bg-slate-50">
+        <div className="w-full h-full flex flex-col relative overflow-y-auto bg-slate-50">
             {/* Decorative blurs */}
             <div className="absolute top-[-20%] right-[-15%] w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute bottom-[-15%] left-[-10%] w-80 h-80 bg-amber-200/20 rounded-full blur-3xl pointer-events-none" />
@@ -72,8 +85,8 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
             </div>
 
             {/* Main card */}
-            <div className="relative z-10 flex-1 flex items-center justify-center px-4 pb-6">
-                <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-lg">
+            <div className="relative z-10 flex-1 flex items-start justify-center px-4 pb-6 pt-4">
+                <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-lg">
 
                     {/* ── TOSS CALL ── */}
                     {screen === 'toss' && (
@@ -202,7 +215,9 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
 
                             <div className="flex items-center justify-center gap-2 pt-1">
                                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                                <span className="text-xs font-bold uppercase tracking-widest text-emerald-600">Match Starting…</span>
+                                <span className="text-xs font-bold uppercase tracking-widest text-emerald-600">
+                                    {countdown > 0 ? `Match starts in ${countdown}s…` : 'Match Starting…'}
+                                </span>
                             </div>
 
                             {(() => {

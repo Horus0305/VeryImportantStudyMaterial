@@ -37,6 +37,30 @@ def _winner_includes_player(winner: str | None, player: str) -> bool:
     return player in names
 
 
+def _player_recent_form(player: str, db: Session, limit: int = 6) -> list[str]:
+    rows = (
+        db.query(MatchHistory)
+        .filter(
+            or_(
+                MatchHistory.side_a.contains(player),
+                MatchHistory.side_b.contains(player),
+            )
+        )
+        .order_by(MatchHistory.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+    results = []
+    for m in rows:
+        if m.winner == "TIE":
+            results.append("T")
+        elif _winner_includes_player(m.winner, player):
+            results.append("W")
+        else:
+            results.append("L")
+    return results
+
+
 @router.get("/match/{match_id}")
 def get_match_detail(match_id: str, db: Session = Depends(get_db)):
     match = db.query(MatchHistory).filter(MatchHistory.match_id == match_id).first()
@@ -219,11 +243,27 @@ def get_head_to_head(player1: str, player2: str, db: Session = Depends(get_db)):
             "avg_strike_rate": sr, "bowling_best": best_bowl,
         }
 
+    h2h_form: list[str] = []
+    for m, _sa, _sb in matches[:6]:
+        if m.winner == "TIE":
+            h2h_form.append("T")
+        elif _winner_includes_player(m.winner, player1):
+            h2h_form.append("W")
+        else:
+            h2h_form.append("L")
+
+    form = {
+        player1: _player_recent_form(player1, db),
+        player2: _player_recent_form(player2, db),
+    }
+
     return {
         "has_history": True,
         "total_matches": len(matches),
         player1: _format(player1),
         player2: _format(player2),
+        "h2h_form": h2h_form,
+        "form": form,
     }
 
 

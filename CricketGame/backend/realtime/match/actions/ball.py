@@ -146,7 +146,7 @@ async def resolve_pending_ball(manager, room, innings) -> bool:
         room.pending_moves = {}
 
         if room.tournament:
-            await asyncio.sleep(10)
+            await asyncio.sleep(6)
             await manager._start_next_tournament_match(room)
         else:
             await manager.broadcast_lobby(room)
@@ -245,7 +245,7 @@ async def cancel_match(manager, room, player) -> None:
         save_match_history(manager, room, match, None, room.tournament_id)
         room.match = None
         room.pending_moves = {}
-        await asyncio.sleep(10)
+        await asyncio.sleep(6)
         await manager._start_next_tournament_match(room)
     else:
         await manager.broadcast(room, {"type": "MATCH_CANCELLED", "msg": "Match Cancelled by Host"})

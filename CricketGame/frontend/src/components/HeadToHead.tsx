@@ -18,7 +18,9 @@ interface H2HPlayerStats {
 interface H2HData {
     has_history: boolean
     total_matches?: number
-    [key: string]: H2HPlayerStats | boolean | number | undefined
+    h2h_form?: string[]
+    form?: Record<string, string[]>
+    [key: string]: H2HPlayerStats | boolean | number | string[] | Record<string, string[]> | undefined
 }
 
 interface Props {
@@ -103,8 +105,41 @@ export default function HeadToHead({ player1, player2, defaultOpen = false }: Pr
             </button>
 
             {/* Collapsible Content */}
-            <div className={`transition-all duration-300 ease-in-out ${open ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+            <div className={`transition-all duration-300 ease-in-out ${open ? 'max-h-[520px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
                 <div className="px-4 pb-3 pt-1">
+                    {/* Form dots */}
+                    {(data.h2h_form?.length || data.form) && (
+                        <div className="mb-3 space-y-1.5">
+                            <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Form</div>
+
+                            {data.h2h_form && data.h2h_form.length > 0 && (
+                                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                                    <FormDots results={data.h2h_form} />
+                                    <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider min-w-[58px] text-center">H2H</span>
+                                    <div className="flex justify-end">
+                                        <FormDots results={data.h2h_form.map(r => r === 'W' ? 'L' : r === 'L' ? 'W' : 'T')} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {data.form && (data.form[player1]?.length || data.form[player2]?.length) ? (
+                                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-[9px] text-orange-600 font-semibold truncate max-w-[80px]">{player1}</span>
+                                        <FormDots results={data.form[player1] ?? []} />
+                                    </div>
+                                    <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider min-w-[58px] text-center">Overall</span>
+                                    <div className="flex flex-col gap-0.5 items-end">
+                                        <span className="text-[9px] text-cyan-600 font-semibold truncate max-w-[80px]">{player2}</span>
+                                        <FormDots results={data.form[player2] ?? []} />
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            <div className="border-t border-slate-100 mt-2" />
+                        </div>
+                    )}
+
                     {/* Player Names Header */}
                     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mb-3">
                         <span className="text-sm font-bold text-orange-600 truncate text-left">{player1}</span>
@@ -123,6 +158,23 @@ export default function HeadToHead({ player1, player2, defaultOpen = false }: Pr
                     </div>
                 </div>
             </div>
+        </div>
+    )
+}
+
+/** Colored W/L/T indicator dots */
+function FormDots({ results }: { results: string[] }) {
+    return (
+        <div className="flex gap-0.5">
+            {results.map((r, i) => (
+                <span
+                    key={i}
+                    className={`w-3 h-3 rounded-full ${
+                        r === 'W' ? 'bg-green-500' : r === 'L' ? 'bg-red-500' : 'bg-amber-400'
+                    }`}
+                    title={r === 'W' ? 'Win' : r === 'L' ? 'Loss' : 'Tie'}
+                />
+            ))}
         </div>
     )
 }

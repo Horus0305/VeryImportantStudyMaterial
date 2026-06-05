@@ -150,7 +150,7 @@ async def toss_choice(manager, room, player, msg: dict) -> None:
     })
 
     match.start_innings_1()
-    await asyncio.sleep(2)
+    await asyncio.sleep(8)
     await manager._send_match_state(room)
     if match.active_innings:
         from .actions.captain import _trigger_captain_picks_if_needed

@@ -157,7 +157,7 @@ export default function RoomPage({ token, username, onLogout }: Props) {
             case 'TOSS_DECISION':
                 setTossData(msg)
                 setScreen('toss_decision')
-                setTimeout(() => setScreen('game'), 3000)
+                setTimeout(() => setScreen('game'), 12000)
                 break
 
             case 'MATCH_STATE':
