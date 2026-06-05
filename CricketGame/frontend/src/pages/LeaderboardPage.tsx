@@ -106,13 +106,6 @@ function RankTable<T extends { username: string }>({
     const getValue = (row: T, col: ColDef<T>) =>
         typeof col.key === 'function' ? col.key(row) : (row[col.key] as string | number)
 
-    const hideClass = (hide?: 'sm' | 'md' | 'lg') => {
-        if (hide === 'sm') return 'hidden sm:table-cell'
-        if (hide === 'md') return 'hidden md:table-cell'
-        if (hide === 'lg') return 'hidden lg:table-cell'
-        return ''
-    }
-
     return (
         <div className={`bg-white border ${accentBorder} rounded-2xl overflow-hidden transition-all group shadow-sm`}>
             <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
@@ -132,10 +125,10 @@ function RankTable<T extends { username: string }>({
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-100">
-                                <th className="text-left px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 w-10">#</th>
-                                <th className="text-left px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">Player</th>
+                                <th className="text-left px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 w-10 sticky left-0 z-20 bg-slate-50">#</th>
+                                <th className="text-left px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 sticky left-[56px] z-20 bg-slate-50 border-r border-slate-200 min-w-[130px]">Player</th>
                                 {cols.map(c => (
-                                    <th key={String(c.header)} className={`text-right px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 ${hideClass(c.hide)}`}>
+                                    <th key={String(c.header)} className="text-right px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">
                                         {c.header}
                                     </th>
                                 ))}
@@ -144,10 +137,11 @@ function RankTable<T extends { username: string }>({
                         <tbody className="divide-y divide-slate-100">
                             {rows.map((row, i) => {
                                 const isMe = row.username === currentUser
+                                const stickyBg = isMe ? 'bg-emerald-50' : 'bg-white group-hover/row:bg-slate-50'
                                 return (
-                                    <tr key={row.username} className={isMe ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}>
-                                        <td className="px-4 py-2.5"><RankBadge n={i + 1} /></td>
-                                        <td className="px-4 py-2.5">
+                                    <tr key={row.username} className={`group/row ${isMe ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}`}>
+                                        <td className={`px-4 py-2.5 sticky left-0 z-10 transition-colors ${stickyBg}`}><RankBadge n={i + 1} /></td>
+                                        <td className={`px-4 py-2.5 sticky left-[56px] z-10 transition-colors border-r border-slate-200 ${stickyBg}`}>
                                             <div className="flex items-center gap-2">
                                                 <Avatar name={row.username} />
                                                 <span className={`font-semibold text-sm ${isMe ? 'text-emerald-600' : 'text-slate-700'}`}>
@@ -157,7 +151,7 @@ function RankTable<T extends { username: string }>({
                                             </div>
                                         </td>
                                         {cols.map(c => (
-                                            <td key={String(c.header)} className={`px-4 py-2.5 text-right font-mono text-sm ${c.bold ? 'font-bold text-slate-900' : 'text-slate-500'} ${c.highlight ?? ''} ${hideClass(c.hide)}`}>
+                                            <td key={String(c.header)} className={`px-4 py-2.5 text-right font-mono text-sm whitespace-nowrap ${c.bold ? 'font-bold text-slate-900' : 'text-slate-500'} ${c.highlight ?? ''}`}>
                                                 {getValue(row, c)}
                                             </td>
                                         ))}

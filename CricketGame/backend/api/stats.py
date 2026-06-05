@@ -264,7 +264,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
         if not rows:
             continue
         mp = sum(r.matches_played for r in rows)
-        if mp < 1:
+        if mp < 100:
             continue
 
         mw         = sum(r.matches_won for r in rows)
