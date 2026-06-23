@@ -320,8 +320,10 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
         r_conceded = sum(r.runs_conceded for r in rows)
         overs      = sum(r.overs_bowled for r in rows)
         potm       = sum(r.potm_count for r in rows)
-        t_won      = sum(r.tournaments_won for r in rows)
-        t_played   = sum(r.tournaments_played for r in rows)
+        
+        # Count tournament wins and played dynamically to avoid cache mismatch
+        t_won = db.query(TournamentHistory).filter(TournamentHistory.champion == player.username).count()
+        t_played = db.query(TournamentHistory).filter(TournamentHistory.players.contains(player.username)).count()
 
         best_w, best_r = 0, 999
         for r in rows:

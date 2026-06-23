@@ -1,18 +1,26 @@
 """
-CPU Strategy Engine — Short-Match Adaptive
-Optimized for 2-over and 5-over games.
+CPU Strategy Engine v2 — Frequency-Based Adaptive
+
+Data-driven rewrite based on analysis of 6,700+ balls across 700+ matches.
 
 Design principles:
-  1. Five-voter ensemble: global stats, user lifetime profile, situational
-     buckets, 1-ball sequence, and live case-based retrieval from MatchBallLog.
-  2. Each voter is weighted by sample_confidence (thin data → near-zero weight).
-  3. Signal agreement: when voters agree on the same top-3 numbers the blend
-     is trusted more; when they conflict the result falls toward uniform so
-     the CPU doesn't get baited by manufactured patterns.
-  4. In-game class-transition engine (bait guard, streak guard, H→Z) runs
-     AFTER the DB blend and dominates after 4+ balls — confidence capped at
-     0.65 for short-match safety.
-  5. Hard floor (9%) and peak cap (38%) on all final distributions.
+  1. Three-signal blend: local frequency (this match), global frequency
+     (player lifetime profile from DB), and transition prediction (after X,
+     what do they play next? from DB).
+  2. Weight schedule shifts with match length: early balls lean on global
+     profile, later balls lean on local frequency + transitions.
+  3. Bowling: use the blended prediction directly (pick numbers the opponent
+     is likely to play -> match -> wicket).
+  4. Batting: invert the blended prediction (avoid numbers the opponent is
+     likely to play -> dodge -> score).
+  5. Situational pressure is a lightweight modifier, not a cascading guard.
+  6. Hard floor (4%) and peak cap (45%) on all final distributions.
+
+Key insight from data:
+  - After playing 6, players play 6 again 46% of the time (3.2x random).
+  - MaD Rashi Chakka plays 6 sixty percent of all batting balls.
+  - The old 5-voter ensemble with 6 cascading guards added ~2% over random.
+  - Simple frequency counting + transitions massively outperform guards.
 """
 import random
 from typing import Dict, List, Tuple
@@ -26,40 +34,14 @@ from .cpu_learning_schema import (
 from .cpu_learning_utils import get_game_phase, get_score_situation, get_recent_event
 
 
-# ── Base prior ───────────────────────────────────────────────────────────────
-BASE_WEIGHTS: Dict[int, float] = {
-    0: 0.08,
-    1: 0.16,
-    2: 0.16,
-    3: 0.15,
-    4: 0.16,
-    5: 0.14,
-    6: 0.15,
-}
-
 # ── Tuning constants ─────────────────────────────────────────────────────────
 FLOOR_PROB      = 0.04              # Hard minimum for every number
 PEAK_CAP        = 0.45              # Hard maximum for any single number
 _FLOOR_BUDGET   = FLOOR_PROB * 7    # 0.28 — reserved for floor allocation
 _DISTR_SHARE    = 1.0 - _FLOOR_BUDGET  # 0.72 — proportionally distributed
-BAIT_WINDOW   = 6      # Window for frequency-bait scan
-BAIT_COUNT    = 3      # Occurrences in BAIT_WINDOW → bait suspected
-STREAK_LEN    = 3      # Same class N times → streak → switch expected
-SEQ_WINDOW    = 8      # Recent balls used for transition analysis
-MAX_CONF      = 0.65   # Confidence cap for short-match safety
+MAX_CONF        = 0.65              # Confidence cap for short-match safety
 
-HIGH_NUMS    = frozenset({4, 5, 6})
-LOW_NUMS     = frozenset({1, 2, 3})
-LOW_AND_ZERO = (0, 1, 2, 3)    # tuple for use in for-loops alongside HIGH_NUMS
-
-
-def _cls(n: int) -> str:
-    """Classify a move: H(4-6), L(1-3), Z(0)."""
-    if n == 0:
-        return 'Z'
-    if n >= 4:
-        return 'H'
-    return 'L'
+UNIFORM = {n: 1.0 / 7 for n in range(7)}
 
 
 def get_learning_phase(total_balls: int) -> Dict:
@@ -93,7 +75,7 @@ def get_learning_phase(total_balls: int) -> Dict:
 
 
 class CPUStrategyEngine:
-    """Sequence-aware CPU opponent for short cricket matches."""
+    """Frequency-based CPU opponent for short cricket matches."""
 
     def __init__(self, db_session_factory=None):
         self.db_session_factory = db_session_factory or SessionLocal
@@ -110,272 +92,169 @@ class CPUStrategyEngine:
         Select CPU's next move (0-6).
 
         Pipeline:
-          1. Load five DB voters → weighted ensemble with agreement mixing
-          2. Apply in-game sequence strategy (dominant after 4+ balls)
-          3. Add noise + apply floor/peak cap
-          4. Weighted random choice
+          1. Build 3 signals: local_freq, global_freq, transition_pred
+          2. Blend with weights that shift based on match length
+          3. Apply role-specific strategy (bowl=match, bat=dodge)
+          4. Lightweight situational pressure modifier
+          5. Add noise + floor/cap
+          6. Weighted random choice
         """
         db = self.db_session_factory()
         try:
-            global_dist, global_n = self._load_global_patterns(db, match_context)
-            user_dist,   user_n   = self._load_user_patterns(db, user_id, match_context)
-            sit_dist,    sit_n    = self._load_situational_patterns(db, user_id, match_context)
-            seq_dist,    seq_n    = self._load_sequence_patterns(db, user_id, match_context, opponent_history)
-            case_dist,   case_n   = self._load_casebased_patterns(db, user_id, match_context, opponent_history)
+            # ── Signal 1: Local frequency (this match) ────────────────────
+            local_freq = self._build_local_frequency(opponent_history)
 
+            # ── Signal 2: Global frequency (player lifetime from DB) ──────
+            global_freq, global_n = self._load_user_patterns(db, user_id, match_context)
+
+            # ── Signal 3: Transition prediction (after X -> ?) from DB ────
+            transition_pred, trans_n = self._load_sequence_patterns(
+                db, user_id, match_context, opponent_history
+            )
+
+            # ── Confidence from learning phase ────────────────────────────
             total_balls = self._get_total_balls_tracked(db, user_id)
             phase_info  = get_learning_phase(total_balls)
+            confidence  = min(phase_info['confidence'], MAX_CONF)
 
-            # Five voters, each weighted by (base_weight × sample_confidence).
-            # Voters with too little data are silenced automatically.
-            voters = [
-                {'dist': global_dist, 'base_weight': 0.15, 'samples': global_n, 'min_samples': 50},
-                {'dist': user_dist,   'base_weight': 0.20, 'samples': user_n,   'min_samples': 60},
-                {'dist': sit_dist,    'base_weight': 0.20, 'samples': sit_n,    'min_samples': 20},
-                {'dist': seq_dist,    'base_weight': 0.20, 'samples': seq_n,    'min_samples': 15},
-                {'dist': case_dist,   'base_weight': 0.25, 'samples': case_n,   'min_samples': 15},
-            ]
+            # ── Blend the 3 signals ───────────────────────────────────────
+            balls_played = len(opponent_history)
+            prediction = self._blend_signals(
+                local_freq, global_freq, global_n,
+                transition_pred, trans_n, balls_played,
+            )
 
-            db_prior   = self._blend_patterns_v2(voters, phase_info)
-            confidence = min(phase_info['confidence'], MAX_CONF)
-
-            # Role-specific sequence strategy
+            # ── Role-specific strategy ────────────────────────────────────
             if match_context['role'] == 'bowling':
-                strategic = self._bowling_strategy(db_prior, opponent_history, match_context, confidence)
+                strategic = self._bowling_strategy(prediction, match_context, confidence)
             else:
-                strategic = self._batting_strategy(db_prior, opponent_history, match_context, confidence)
+                strategic = self._batting_strategy(prediction, match_context, confidence)
 
+            # ── Noise + choose ────────────────────────────────────────────
             noisy = self._add_noise(strategic, confidence)
             return self._weighted_choice(noisy)
 
         finally:
             db.close()
 
-    # ── Ensemble voting ───────────────────────────────────────────────────────
+    # ── Local frequency builder ───────────────────────────────────────────────
 
-    def _compute_agreement(self, distributions: List[Dict[int, float]]) -> float:
+    def _build_local_frequency(self, opponent_history: List[int]) -> Dict[int, float]:
         """
-        Measure how much a set of distributions agree with each other.
+        Count each number in the current match history -> normalized distribution.
 
-        Uses average pairwise Jaccard similarity on each distribution's
-        top-3 numbers. Returns 0.0 (complete disagreement) to 1.0 (identical).
+        Returns uniform if history is empty.
         """
-        if len(distributions) < 2:
-            return 1.0
-        tops = [
-            set(sorted(d, key=d.get, reverse=True)[:3])
-            for d in distributions
-        ]
-        pairs, total_sim = 0, 0.0
-        for i in range(len(tops)):
-            for j in range(i + 1, len(tops)):
-                inter = len(tops[i] & tops[j])
-                union = len(tops[i] | tops[j])
-                total_sim += inter / union if union else 1.0
-                pairs += 1
-        return total_sim / pairs if pairs else 1.0
+        if not opponent_history:
+            return dict(UNIFORM)
 
-    def _blend_patterns_v2(
+        counts = {n: 0 for n in range(7)}
+        for move in opponent_history:
+            if 0 <= move <= 6:
+                counts[move] += 1
+
+        total = sum(counts.values())
+        if total == 0:
+            return dict(UNIFORM)
+
+        return {n: counts[n] / total for n in range(7)}
+
+    # ── 3-signal blend ────────────────────────────────────────────────────────
+
+    def _blend_signals(
         self,
-        voters: List[Dict],
-        phase_info: Dict,
+        local_freq: Dict[int, float],
+        global_freq: Dict[int, float],
+        global_n: int,
+        transition_pred: Dict[int, float],
+        trans_n: int,
+        balls_played: int,
     ) -> Dict[int, float]:
         """
-        Weighted ensemble blend with agreement-driven mixing.
+        Blend local frequency, global profile, and transition prediction.
 
-        Each voter dict:  {'dist': {0-6: float}, 'base_weight': float,
-                           'samples': int, 'min_samples': int}
+        Weight schedule based on balls played this match:
+          Ball 0-1:  local=0.0, global=0.80, transition=0.20
+          Ball 2-3:  local=0.25, global=0.50, transition=0.25
+          Ball 4-6:  local=0.40, global=0.30, transition=0.30
+          Ball 7+:   local=0.50, global=0.15, transition=0.35
 
-        Step 1 — effective weight = base_weight × sample_confidence
-                  sample_confidence = min(1.0, samples / min_samples)
-        Step 2 — weighted average of all active (weight > 0) distributions
-        Step 3 — mix blend toward uniform proportional to disagreement:
-                  agreement=1.0 → alpha=0.85 (trust the blend)
-                  agreement=0.0 → alpha=0.40 (fall back toward uniform)
+        If global or transition data is unavailable (n=0), their weight
+        is redistributed to the remaining signals.
         """
-        effective_weights = []
-        for v in voters:
-            sc  = min(1.0, v['samples'] / v['min_samples']) if v['min_samples'] > 0 else 0.0
-            effective_weights.append(v['base_weight'] * sc)
+        # Base weight schedule
+        if balls_played <= 1:
+            w_local, w_global, w_trans = 0.0, 0.80, 0.20
+        elif balls_played <= 3:
+            w_local, w_global, w_trans = 0.25, 0.50, 0.25
+        elif balls_played <= 6:
+            w_local, w_global, w_trans = 0.40, 0.30, 0.30
+        else:
+            w_local, w_global, w_trans = 0.50, 0.15, 0.35
 
-        total_eff = sum(effective_weights)
-        if total_eff < 0.05:
-            return dict(BASE_WEIGHTS)
+        # Zero out unavailable signals and redistribute
+        if global_n == 0:
+            w_local += w_global * 0.6
+            w_trans += w_global * 0.4
+            w_global = 0.0
+        if trans_n == 0:
+            w_local += w_trans * 0.5
+            w_global += w_trans * 0.5
+            w_trans = 0.0
+        if balls_played == 0:
+            w_local = 0.0  # No local data at all
+
+        # Normalize weights
+        total_w = w_local + w_global + w_trans
+        if total_w < 0.01:
+            return dict(UNIFORM)
+        w_local  /= total_w
+        w_global /= total_w
+        w_trans  /= total_w
 
         # Weighted blend
-        blended = {n: 0.0 for n in range(7)}
-        for v, ew in zip(voters, effective_weights):
-            for n in range(7):
-                blended[n] += v['dist'][n] * ew
-        blended = {n: val / total_eff for n, val in blended.items()}
+        blended = {}
+        for n in range(7):
+            blended[n] = (
+                w_local  * local_freq.get(n, 1/7) +
+                w_global * global_freq.get(n, 1/7) +
+                w_trans  * transition_pred.get(n, 1/7)
+            )
 
-        # Agreement: only consider voters with meaningful weight
-        active_dists = [v['dist'] for v, ew in zip(voters, effective_weights) if ew > 0.01]
-        agreement    = self._compute_agreement(active_dists) if len(active_dists) >= 2 else 1.0
-
-        # Mix toward uniform based on agreement level
-        alpha   = 0.40 + 0.45 * agreement   # [0.40, 0.85]
-        uniform = {n: 1.0 / 7 for n in range(7)}
-        result  = {n: alpha * blended[n] + (1 - alpha) * uniform[n] for n in range(7)}
-        return self._normalize(result)
-
-    # ── Sequence signal ───────────────────────────────────────────────────────
-
-    def _build_sequence_signal(self, history: List[int]) -> Dict:
-        """
-        Derive class-transition features from recent in-game history.
-
-        Returns:
-          last_class      - H/L/Z of last move
-          streak_class    - class if 3+ in a row, else None
-          streak_length   - consecutive same-class balls
-          bait_number     - number that appears ≥BAIT_COUNT in last BAIT_WINDOW, else None
-          transitions     - {from_class: {to_class: count}} built from this match
-          patterns        - set of named signals detected
-        """
-        if not history:
-            return {
-                'last_class': None, 'streak_class': None,
-                'streak_length': 0, 'bait_number': None,
-                'transitions': {}, 'patterns': set(),
-            }
-
-        recent  = history[-SEQ_WINDOW:]
-        classes = [_cls(n) for n in recent]
-
-        # Streak detection
-        last_class = classes[-1]
-        streak_len = 0
-        for c in reversed(classes):
-            if c == last_class:
-                streak_len += 1
-            else:
-                break
-        streak_class = last_class if streak_len >= STREAK_LEN else None
-
-        # Bait detection: same number too often in a short window
-        bait_number = None
-        if len(recent) >= BAIT_WINDOW:
-            window = recent[-BAIT_WINDOW:]
-            for num in range(7):
-                if window.count(num) >= BAIT_COUNT:
-                    bait_number = num
-                    break
-
-        # Class-transition table built from THIS match's history
-        transitions: Dict[str, Dict[str, int]] = {}
-        for i in range(len(classes) - 1):
-            fc, tc = classes[i], classes[i + 1]
-            transitions.setdefault(fc, {})
-            transitions[fc][tc] = transitions[fc].get(tc, 0) + 1
-
-        # Named pattern signals
-        patterns: set = set()
-        if len(recent) >= 2:
-            prev_cls = _cls(recent[-2])
-            curr_cls = _cls(recent[-1])
-            if curr_cls == 'H':
-                patterns.add('last_was_high')
-            if prev_cls != curr_cls:
-                patterns.add('just_switched')
-        if len(recent) >= 3 and all(_cls(n) == 'H' for n in recent[-3:]):
-            patterns.add('H_shuffle')
-
-        return {
-            'last_class': last_class,
-            'streak_class': streak_class,
-            'streak_length': streak_len,
-            'bait_number': bait_number,
-            'transitions': transitions,
-            'patterns': patterns,
-        }
+        return self._normalize(blended)
 
     # ── Bowling strategy ──────────────────────────────────────────────────────
 
     def _bowling_strategy(
         self,
-        weights: Dict[int, float],
-        opponent_history: List[int],
+        prediction: Dict[int, float],
         context: Dict,
         confidence: float,
     ) -> Dict[int, float]:
         """
-        CPU is BOWLING — wants to match batter's number (→ wicket).
+        CPU is BOWLING — wants to match batter's number (-> wicket).
 
-        Priority:
-          1. Bait guard: detect frequency manipulation → predict switch
-          2. Streak guard: 3+ same class → switch incoming
-          3. Class transition: what class typically follows the last one?
-          4. H→Z special case: after high, 0 is the most common escape
-          5. H-shuffle: bouncing 4/5/6 → stay in high class
-          6. Situational pressure adjustments
+        Uses the blended prediction directly: numbers the batter is
+        likely to play get higher weight. Situational pressure is a
+        lightweight modifier on top.
         """
-        if len(opponent_history) < 2:
-            return self._floor_and_cap(self._normalize(weights))
+        # Start from prediction — the CPU bowls what the batter is likely to play
+        s = dict(prediction)
 
-        s   = dict(weights)
-        sig = self._build_sequence_signal(opponent_history)
+        # Amplify the prediction signal based on confidence
+        # Higher confidence = sharpen the distribution toward predicted numbers
+        if confidence > 0.15:
+            # Sharpen: raise peaks, suppress lows
+            avg = sum(s.values()) / 7
+            sharpness = 1.0 + confidence * 1.5  # 1.0 to 1.975
+            for n in range(7):
+                if s[n] > avg:
+                    s[n] = avg + (s[n] - avg) * sharpness
+                else:
+                    s[n] = avg - (avg - s[n]) * min(sharpness * 0.7, 1.4)
+                s[n] = max(s[n], 0.01)
 
-        # ── 1. Frequency-bait guard ─────────────────────────────────────────
-        if sig['bait_number'] is not None:
-            bn = sig['bait_number']
-            bc = _cls(bn)
-            crush = max(0.18, 1.0 - 0.80 * confidence)
-            s[bn] *= crush
-            if bc == 'H':
-                s[0] *= 2.0
-                for n in LOW_NUMS: s[n] *= 1.6
-            else:
-                for n in HIGH_NUMS: s[n] *= 1.9
-                s[0] *= 1.3
-            return self._floor_and_cap(self._normalize(s))
-
-        # ── 2. Streak guard ─────────────────────────────────────────────────
-        # Batter is still IN the streak class right now → bowl that class to
-        # match. Switch prediction is handled by the transition signal (step 3)
-        # which uses the actual observed transition matrix — not a fixed guess.
-        if sig['streak_class'] is not None:
-            sc  = sig['streak_class']
-            sl  = sig['streak_length']
-            boost  = 1.0 + min(0.35 * (sl - STREAK_LEN + 1), 1.0)
-            dampen = max(0.50, 1.0 - 0.12 * (sl - STREAK_LEN + 1))
-            if sc == 'H':
-                for n in HIGH_NUMS: s[n] *= boost
-                for n in LOW_AND_ZERO: s[n] *= dampen
-            elif sc == 'L':
-                for n in LOW_NUMS: s[n] *= boost
-                s[0] *= boost * 0.7      # 0 is possible but less likely with L batter
-                for n in HIGH_NUMS: s[n] *= dampen
-            elif sc == 'Z':
-                s[0] *= boost * 1.5      # batter keeps playing 0 → bowl 0
-                for n in HIGH_NUMS: s[n] *= dampen
-            return self._floor_and_cap(self._normalize(s))
-
-        # ── 3. Class-transition signal ──────────────────────────────────────
-        lc = sig['last_class']
-        tr = sig['transitions']
-        if lc in tr and sum(tr[lc].values()) >= 2:
-            total = sum(tr[lc].values())
-            for next_c, cnt in tr[lc].items():
-                prob  = cnt / total
-                blend = 0.40 * confidence * prob
-                if next_c == 'H':
-                    for n in HIGH_NUMS: s[n] *= 1 + blend * 2.0
-                elif next_c == 'L':
-                    for n in LOW_NUMS:  s[n] *= 1 + blend * 2.0
-                elif next_c == 'Z':
-                    s[0] *= 1 + blend * 3.5
-
-        # ── 4. H→Z special case ─────────────────────────────────────────────
-        if 'last_was_high' in sig['patterns']:
-            s[0] *= 1.50
-            for n in LOW_NUMS: s[n] *= 1.15
-
-        # ── 5. H-shuffle ────────────────────────────────────────────────────
-        if 'H_shuffle' in sig['patterns']:
-            for n in HIGH_NUMS: s[n] *= 1.35
-
-        # ── 6. Situational pressure ──────────────────────────────────────────
+        # Situational pressure modifier (lightweight)
         pressure = get_score_situation(
             batting_first=context['batting_first'],
             current_score=context['current_score'],
@@ -384,12 +263,18 @@ class CPUStrategyEngine:
             balls_left=context['balls_left'],
             total_overs=context['total_overs'],
         )
+
+        # Under pressure, batters tend toward high numbers -> boost 4,5,6
         if 'desperate' in pressure or 'very_tight' in pressure:
-            for n in HIGH_NUMS: s[n] *= 1.25
-            s[0] *= 1.20
+            for n in (4, 5, 6):
+                s[n] *= 1.20
+            s[0] *= 1.15  # Some batters play 0 as a desperation move
+
+        # Near all-out, batters play conservatively
         if context['wickets_lost'] >= 7:
-            s[0] *= 1.35
-            for n in HIGH_NUMS: s[n] *= 1.15
+            s[0] *= 1.25
+            for n in (4, 5, 6):
+                s[n] *= 1.10
 
         return self._floor_and_cap(self._normalize(s))
 
@@ -397,70 +282,37 @@ class CPUStrategyEngine:
 
     def _batting_strategy(
         self,
-        weights: Dict[int, float],
-        opponent_history: List[int],
+        prediction: Dict[int, float],
         context: Dict,
         confidence: float,
     ) -> Dict[int, float]:
         """
-        CPU is BATTING — wants to NOT match bowler's number (→ score runs).
+        CPU is BATTING — wants to NOT match bowler's number (-> score runs).
 
-        Predicts what the bowler will pick, then moves away from it.
+        Inverts the blended prediction: numbers the bowler is likely to
+        play get LOWER weight (avoid them). Numbers they're unlikely to
+        play get HIGHER weight (safe to bat there).
         """
-        if len(opponent_history) < 2:
-            return self._floor_and_cap(self._normalize(weights))
+        # Invert: high prediction -> low weight, low prediction -> high weight
+        max_pred = max(prediction.values())
+        min_pred = min(prediction.values())
 
-        s   = dict(weights)
-        sig = self._build_sequence_signal(opponent_history)
+        if max_pred - min_pred < 0.01:
+            # Prediction is flat / no signal -> use uniform
+            s = dict(UNIFORM)
+        else:
+            # Inversion strength scales with confidence
+            strength = 0.5 + confidence * 1.0  # 0.5 to 1.15
 
-        # ── 1. Bait guard (bowler side) ──────────────────────────────────────
-        if sig['bait_number'] is not None:
-            bn = sig['bait_number']
-            bc = _cls(bn)
-            s[bn] = min(s[bn] * 1.5, BASE_WEIGHTS[bn] * 1.4)
-            if bc == 'H':
-                for n in LOW_AND_ZERO: s[n] *= 0.60
-            else:
-                for n in HIGH_NUMS: s[n] *= 0.60
-            return self._floor_and_cap(self._normalize(s))
+            s = {}
+            for n in range(7):
+                # Mirror the prediction: highest predicted -> lowest weight
+                inverted = max_pred - prediction[n] + min_pred
+                # Blend inversion with uniform (don't over-dodge)
+                s[n] = (1.0 - strength * 0.6) * UNIFORM[n] + strength * 0.6 * inverted
+                s[n] = max(s[n], 0.01)
 
-        # ── 2. Streak guard ──────────────────────────────────────────────────
-        # Bowler is still bowling the streak class RIGHT NOW — avoid it.
-        if sig['streak_class'] is not None:
-            sc  = sig['streak_class']
-            sl  = sig['streak_length']
-            avoid = max(0.40, 1.0 - min(0.22 * (sl - STREAK_LEN + 1), 0.55))
-            if sc == 'H':
-                for n in HIGH_NUMS: s[n] *= avoid
-                s[0] *= 1.05
-                for n in LOW_NUMS: s[n] *= 1.05
-            elif sc == 'L':
-                for n in LOW_AND_ZERO: s[n] *= avoid
-                for n in HIGH_NUMS: s[n] *= 1.05
-            elif sc == 'Z':
-                s[0] *= avoid
-                for n in HIGH_NUMS: s[n] *= 1.20
-            return self._floor_and_cap(self._normalize(s))
-
-        # ── 3. Class-transition: avoid predicted class ───────────────────────
-        lc = sig['last_class']
-        tr = sig['transitions']
-        if lc in tr and sum(tr[lc].values()) >= 2:
-            total = sum(tr[lc].values())
-            for next_c, cnt in tr[lc].items():
-                prob  = cnt / total
-                avoid = 0.42 * confidence * prob
-                if next_c == 'H':
-                    for n in HIGH_NUMS: s[n] *= max(0.45, 1 - avoid * 2.0)
-                elif next_c == 'L':
-                    for n in LOW_NUMS:  s[n] *= max(0.45, 1 - avoid * 2.0)
-                elif next_c == 'Z':
-                    s[0] *= max(0.45, 1 - avoid * 3.5)
-
-        if 'last_was_high' in sig['patterns']:
-            s[0] *= 0.75
-
-        # ── 4. Situational adjustments ───────────────────────────────────────
+        # Situational pressure modifier
         pressure = get_score_situation(
             batting_first=context['batting_first'],
             current_score=context['current_score'],
@@ -469,16 +321,26 @@ class CPUStrategyEngine:
             balls_left=context['balls_left'],
             total_overs=context['total_overs'],
         )
+
+        # Under pressure, CPU batter should go for high runs
         if 'desperate' in pressure or 'very_tight' in pressure:
-            for n in HIGH_NUMS: s[n] *= 1.40
+            for n in (4, 5, 6):
+                s[n] *= 1.40
             s[0] *= 0.70
-            for n in LOW_NUMS:  s[n] *= 0.80
+            for n in (1, 2, 3):
+                s[n] *= 0.80
         elif 'comfortable' in pressure:
-            for n in LOW_NUMS:  s[n] *= 1.20
-            for n in (5, 6):    s[n] *= 0.80
+            for n in (1, 2, 3):
+                s[n] *= 1.20
+            for n in (5, 6):
+                s[n] *= 0.80
+
+        # Near all-out, play conservatively
         if context['wickets_lost'] >= 7:
-            for n in LOW_NUMS:  s[n] *= 1.25
-            for n in (5, 6):    s[n] *= 0.65
+            for n in (1, 2, 3):
+                s[n] *= 1.25
+            for n in (5, 6):
+                s[n] *= 0.65
 
         return self._floor_and_cap(self._normalize(s))
 
@@ -566,37 +428,6 @@ class CPUStrategyEngine:
 
     # ── DB pattern loaders ────────────────────────────────────────────────────
 
-    def _load_global_patterns(
-        self, db: Session, context: Dict
-    ) -> Tuple[Dict[int, float], int]:
-        game_phase     = get_game_phase(context['current_over'], context['total_overs'])
-        score_pressure = get_score_situation(
-            batting_first=context['batting_first'],
-            current_score=context['current_score'],
-            target=context.get('target'),
-            wickets_lost=context['wickets_lost'],
-            balls_left=context['balls_left'],
-            total_overs=context['total_overs'],
-        )
-        pattern = db.query(CPUGlobalPattern).filter(
-            CPUGlobalPattern.match_format    == context['match_format'],
-            CPUGlobalPattern.game_phase      == game_phase,
-            CPUGlobalPattern.role            == context['role'],
-            CPUGlobalPattern.score_situation == score_pressure,
-            CPUGlobalPattern.wickets_lost    == context['wickets_lost'],
-        ).first()
-        if pattern and pattern.total_samples > 10:
-            return (
-                {
-                    0: pattern.num_0_freq, 1: pattern.num_1_freq,
-                    2: pattern.num_2_freq, 3: pattern.num_3_freq,
-                    4: pattern.num_4_freq, 5: pattern.num_5_freq,
-                    6: pattern.num_6_freq,
-                },
-                pattern.total_samples,
-            )
-        return dict(BASE_WEIGHTS), 0
-
     def _load_user_patterns(
         self, db: Session, user_id: int, context: Dict
     ) -> Tuple[Dict[int, float], int]:
@@ -633,42 +464,6 @@ class CPUStrategyEngine:
                 profile.total_balls_bowled,
             )
 
-    def _load_situational_patterns(
-        self, db: Session, user_id: int, context: Dict
-    ) -> Tuple[Dict[int, float], int]:
-        if user_id == -1:
-            return {i: 1.0 / 7 for i in range(7)}, 0
-        game_phase     = get_game_phase(context['current_over'], context['total_overs'])
-        score_pressure = get_score_situation(
-            batting_first=context['batting_first'],
-            current_score=context['current_score'],
-            target=context.get('target'),
-            wickets_lost=context['wickets_lost'],
-            balls_left=context['balls_left'],
-            total_overs=context['total_overs'],
-        )
-        recent_event  = get_recent_event(context.get('last_3_results', []))
-        opponent_role = 'batting' if context['role'] == 'bowling' else 'bowling'
-        pattern = db.query(CPUSituationalPattern).filter(
-            CPUSituationalPattern.user_id       == user_id,
-            CPUSituationalPattern.match_format  == context['match_format'],
-            CPUSituationalPattern.game_phase    == game_phase,
-            CPUSituationalPattern.role          == opponent_role,
-            CPUSituationalPattern.score_pressure == score_pressure,
-            CPUSituationalPattern.recent_event  == recent_event,
-        ).first()
-        if pattern and pattern.sample_count > 5:
-            return (
-                {
-                    0: pattern.num_0_freq, 1: pattern.num_1_freq,
-                    2: pattern.num_2_freq, 3: pattern.num_3_freq,
-                    4: pattern.num_4_freq, 5: pattern.num_5_freq,
-                    6: pattern.num_6_freq,
-                },
-                pattern.sample_count,
-            )
-        return {i: 1.0 / 7 for i in range(7)}, 0
-
     def _load_sequence_patterns(
         self, db: Session, user_id: int, context: Dict, opponent_history: List[int]
     ) -> Tuple[Dict[int, float], int]:
@@ -694,69 +489,6 @@ class CPUStrategyEngine:
                 pattern.sample_count,
             )
         return {i: 1.0 / 7 for i in range(7)}, 0
-
-    def _load_casebased_patterns(
-        self, db: Session, user_id: int, context: Dict, opponent_history: List[int]
-    ) -> Tuple[Dict[int, float], int]:
-        """
-        Live case-based retrieval from MatchBallLog.
-
-        Finds all past balls where the opponent was in a similar game situation
-        (format + phase + pressure) and returns their move distribution.
-
-        Falls back to a relaxed query (format + phase only) when the strict
-        filter returns fewer than 8 balls. Returns uniform + 0 if still sparse.
-        """
-        if user_id == -1:
-            return {i: 1.0 / 7 for i in range(7)}, 0
-
-        game_phase     = get_game_phase(context['current_over'], context['total_overs'])
-        score_pressure = get_score_situation(
-            batting_first=context['batting_first'],
-            current_score=context['current_score'],
-            target=context.get('target'),
-            wickets_lost=context['wickets_lost'],
-            balls_left=context['balls_left'],
-            total_overs=context['total_overs'],
-        )
-
-        # When CPU is bowling we predict the batter; when batting, the bowler.
-        if context['role'] == 'bowling':
-            id_filter  = MatchBallLog.batter_user_id == user_id
-            move_col   = MatchBallLog.bat_move
-        else:
-            id_filter  = MatchBallLog.bowler_user_id == user_id
-            move_col   = MatchBallLog.bowl_move
-
-        # Strict query: format + phase + pressure
-        rows = db.query(move_col).filter(
-            id_filter,
-            MatchBallLog.match_format  == context['match_format'],
-            MatchBallLog.game_phase    == game_phase,
-            MatchBallLog.score_pressure == score_pressure,
-        ).all()
-
-        # Relaxed fallback: drop pressure filter
-        if len(rows) < 8:
-            rows = db.query(move_col).filter(
-                id_filter,
-                MatchBallLog.match_format == context['match_format'],
-                MatchBallLog.game_phase   == game_phase,
-            ).all()
-
-        if len(rows) < 5:
-            return {i: 1.0 / 7 for i in range(7)}, 0
-
-        counts: Dict[int, int] = {n: 0 for n in range(7)}
-        for (move,) in rows:
-            if 0 <= move <= 6:
-                counts[move] += 1
-
-        total = sum(counts.values())
-        if total == 0:
-            return {i: 1.0 / 7 for i in range(7)}, 0
-
-        return {n: counts[n] / total for n in range(7)}, total
 
     def _get_total_balls_tracked(self, db: Session, user_id: int) -> int:
         if user_id == -1:
