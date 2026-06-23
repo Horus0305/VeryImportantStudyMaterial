@@ -27,3 +27,23 @@ def test_migrate_formats_correct_header():
     assert "format_stats_2v2_merged" in data
     assert "duplicate_rows_removed" in data
     assert "match_history_fixed" in data
+
+def test_create_room_with_passcode():
+    from backend.core.auth import create_token
+    from backend.core.config import ROOM_CREATION_PASSWORD
+    token = create_token("testuser")
+    
+    # 1. Missing password
+    res = client.post(f"/rooms?token={token}")
+    assert res.status_code == 422
+
+    # 2. Incorrect password
+    res = client.post(f"/rooms?token={token}&password=wrongpassword")
+    assert res.status_code == 403
+    assert res.json()["detail"] == "Incorrect room creation password"
+
+    # 3. Correct password
+    res = client.post(f"/rooms?token={token}&password={ROOM_CREATION_PASSWORD}")
+    assert res.status_code == 200
+    assert "room_code" in res.json()
+

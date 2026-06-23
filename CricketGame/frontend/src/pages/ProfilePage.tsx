@@ -81,6 +81,9 @@ export default function ProfilePage({ token, username, onRename }: Props) {
     const [renameError, setRenameError] = useState('')
     const [renameLoading, setRenameLoading] = useState(false)
     const [cpuLoading, setCpuLoading] = useState(false)
+    const [showCpuPasscodeModal, setShowCpuPasscodeModal] = useState(false)
+    const [cpuPasscode, setCpuPasscode] = useState('')
+    const [cpuPasscodeError, setCpuPasscodeError] = useState('')
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -128,14 +131,21 @@ export default function ProfilePage({ token, username, onRename }: Props) {
         fetchMatches()
     }, [username, activeTab])
 
-    const startCpuMatch = async () => {
+    const startCpuMatch = async (password: string): Promise<boolean> => {
         setCpuLoading(true)
+        setCpuPasscodeError('')
         try {
-            const res = await fetch(`${API}/rooms/cpu?token=${token}`, { method: 'POST' })
+            const res = await fetch(`${API}/rooms/cpu?token=${token}&password=${encodeURIComponent(password)}`, { method: 'POST' })
             const data = await res.json()
-            if (!res.ok) return
+            if (!res.ok) {
+                setCpuPasscodeError(data.detail || 'Failed to create CPU room.')
+                return false
+            }
             navigate(`/room/${data.room_code}`)
+            return true
         } catch {
+            setCpuPasscodeError('Network error.')
+            return false
         } finally {
             setCpuLoading(false)
         }
@@ -354,7 +364,7 @@ export default function ProfilePage({ token, username, onRename }: Props) {
                                 <p className="text-slate-400 text-xs font-medium uppercase tracking-widest">Single-player practice vs AI</p>
                             </div>
                             <button
-                                onClick={startCpuMatch}
+                                onClick={() => setShowCpuPasscodeModal(true)}
                                 disabled={cpuLoading}
                                 className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white px-8 py-3 rounded text-sm font-bold uppercase tracking-widest transition-colors shadow-lg shadow-emerald-500/20"
                             >
@@ -605,6 +615,97 @@ export default function ProfilePage({ token, username, onRename }: Props) {
                     </div>
                 </div>
             </footer>
+
+            {/* CPU Passcode Modal */}
+            {showCpuPasscodeModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md">
+                    <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 sm:p-8 transform transition-all scale-100 text-slate-900">
+                        {/* Modal Header */}
+                        <div className="text-center mb-6">
+                            <div className="inline-flex items-center justify-center w-12 h-12 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-xl mb-3 text-2xl">
+                                🔐
+                            </div>
+                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-wide" style={DISPLAY_FONT}>
+                                Host Passcode Required
+                            </h3>
+                            <p className="text-xs text-slate-400 mt-1.5">
+                                Enter the master host passcode to start a CPU match.
+                            </p>
+                        </div>
+
+                        {/* Modal Body / Form */}
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            if (!cpuPasscode.trim()) {
+                                setCpuPasscodeError('Passcode is required');
+                                return;
+                            }
+                            const success = await startCpuMatch(cpuPasscode);
+                            if (success) {
+                                setShowCpuPasscodeModal(false);
+                                setCpuPasscode('');
+                            }
+                        }} className="space-y-4">
+                            <div>
+                                <label htmlFor="cpu-modal-passcode" className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+                                    Passcode
+                                </label>
+                                <input
+                                    id="cpu-modal-passcode"
+                                    type="password"
+                                    placeholder="Enter passcode"
+                                    value={cpuPasscode}
+                                    onChange={e => {
+                                        setCpuPasscode(e.target.value)
+                                        setCpuPasscodeError('')
+                                    }}
+                                    autoFocus
+                                    disabled={cpuLoading}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition-all text-sm font-mono text-center tracking-widest"
+                                />
+                            </div>
+
+                            {/* Show passcode error */}
+                            {cpuPasscodeError && (
+                                <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
+                                    <span className="text-red-500 text-xs">⚠</span>
+                                    <p className="text-xs text-red-600 font-medium">{cpuPasscodeError}</p>
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowCpuPasscodeModal(false)
+                                        setCpuPasscode('')
+                                        setCpuPasscodeError('')
+                                    }}
+                                    disabled={cpuLoading}
+                                    className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-bold uppercase tracking-widest text-xs rounded-xl transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={cpuLoading}
+                                    className="flex-1 py-3 bg-linear-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold uppercase tracking-widest text-xs rounded-xl shadow-md shadow-emerald-600/15 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                >
+                                    {cpuLoading ? (
+                                        <>
+                                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Verifying...
+                                        </>
+                                    ) : (
+                                        'Confirm Host'
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

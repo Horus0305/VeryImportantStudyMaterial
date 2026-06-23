@@ -22,6 +22,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./cricket.db")
 
+ROOM_CREATION_PASSWORD = os.getenv("ROOM_CREATION_PASSWORD", "cricket-play-2026")
+
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 

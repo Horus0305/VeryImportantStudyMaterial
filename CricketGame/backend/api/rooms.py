@@ -1,23 +1,28 @@
 from fastapi import APIRouter, HTTPException, Query
 from ..core.auth import decode_token
+from ..core.config import ROOM_CREATION_PASSWORD
 from ..realtime.ws_manager import room_manager
 import socket
 
 router = APIRouter(tags=["rooms"])
 
 @router.post("/rooms")
-def create_room(token: str = Query(...)):
+def create_room(token: str = Query(...), password: str = Query(...)):
     username = decode_token(token)
     if not username:
         raise HTTPException(status_code=401, detail="Invalid token")
+    if password != ROOM_CREATION_PASSWORD:
+        raise HTTPException(status_code=403, detail="Incorrect room creation password")
     code = room_manager.create_room(username)
     return {"room_code": code}
 
 @router.post("/rooms/cpu")
-def create_cpu_room(token: str = Query(...)):
+def create_cpu_room(token: str = Query(...), password: str = Query(...)):
     username = decode_token(token)
     if not username:
         raise HTTPException(status_code=401, detail="Invalid token")
+    if password != ROOM_CREATION_PASSWORD:
+        raise HTTPException(status_code=403, detail="Incorrect room creation password")
     code = room_manager.create_cpu_room(username)
     return {"room_code": code}
 

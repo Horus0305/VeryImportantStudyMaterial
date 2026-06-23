@@ -380,19 +380,22 @@ export default function RoomPage({ token, username, onLogout }: Props) {
     }, [])
 
     // Room creation
-    const createRoom = async () => {
+    const createRoom = async (password: string): Promise<boolean> => {
         try {
-            const res = await fetch(`${API}/rooms?token=${token}`, { method: 'POST' })
+            const res = await fetch(`${API}/rooms?token=${token}&password=${encodeURIComponent(password)}`, { method: 'POST' })
             const data = await res.json()
             if (res.ok) {
                 const code = data.room_code as string
                 navigate(`/room/${code}`)
                 // Connection is handled by useEffect when URL changes
+                return true
             } else {
                 setError(data.detail || 'Failed to create room.')
+                return false
             }
         } catch {
             setError('Cannot connect to server.')
+            return false
         }
     }
 
