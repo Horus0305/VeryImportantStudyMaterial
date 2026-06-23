@@ -3,6 +3,23 @@ Configuration — Central settings for the backend.
 """
 import os
 
+# Load env variables from .env file
+for env_dir in [
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),  # backend/
+    os.getcwd()  # current working directory
+]:
+    env_path = os.path.join(env_dir, ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, val = line.split("=", 1)
+                    val = val.strip().strip("'").strip('"')
+                    os.environ.setdefault(key.strip(), val)
+
 APP_ENV = os.getenv("APP_ENV", "development").lower()
 
 SECRET_KEY = os.getenv("SECRET_KEY")

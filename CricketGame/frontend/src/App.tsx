@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import LoginPage from './pages/LoginPage'
 import AuthPage from './pages/AuthPage'
@@ -17,7 +17,6 @@ function AuthenticatedLoginRedirect() {
 }
 
 function App() {
-  const navigate = useNavigate()
   const [token, setToken] = useState<string>(sessionStorage.getItem('token') ?? '')
   const [username, setUsername] = useState<string>(sessionStorage.getItem('username') ?? '')
 

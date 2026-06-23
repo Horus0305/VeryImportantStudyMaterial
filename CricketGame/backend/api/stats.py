@@ -3,7 +3,7 @@ import re
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from ..cpu.cpu_strategy_engine import CPUStrategyEngine
@@ -42,12 +42,13 @@ def _player_recent_form(player: str, db: Session, limit: int = 6) -> list[str]:
         db.query(MatchHistory)
         .filter(
             or_(
-                MatchHistory.side_a.contains(player),
-                MatchHistory.side_b.contains(player),
+                text("exists (select 1 from json_each(side_a) where value = :player)"),
+                text("exists (select 1 from json_each(side_b) where value = :player)")
             )
         )
         .order_by(MatchHistory.timestamp.desc())
         .limit(limit)
+        .params(player=player)
         .all()
     )
     results = []
@@ -73,8 +74,8 @@ def get_match_detail(match_id: str, db: Session = Depends(get_db)):
 def get_user_matches(username: str, mode: str = Query(None), limit: int = 100, db: Session = Depends(get_db)):
     query = db.query(MatchHistory).filter(
         or_(
-            MatchHistory.side_a.contains(username),
-            MatchHistory.side_b.contains(username),
+            text("exists (select 1 from json_each(side_a) where value = :username)"),
+            text("exists (select 1 from json_each(side_b) where value = :username)")
         )
     )
     if mode:
@@ -83,7 +84,7 @@ def get_user_matches(username: str, mode: str = Query(None), limit: int = 100, d
         else:
             query = query.filter(MatchHistory.mode == mode)
 
-    rows = query.order_by(MatchHistory.timestamp.desc()).all()
+    rows = query.order_by(MatchHistory.timestamp.desc()).params(username=username).all()
     out = []
     safe_limit = min(max(limit, 0), 500)
     if safe_limit == 0:
@@ -143,17 +144,18 @@ def get_head_to_head(player1: str, player2: str, db: Session = Depends(get_db)):
         db.query(MatchHistory)
         .filter(
             or_(
-                MatchHistory.side_a.contains(player1),
-                MatchHistory.side_b.contains(player1),
+                text("exists (select 1 from json_each(side_a) where value = :player1)"),
+                text("exists (select 1 from json_each(side_b) where value = :player1)")
             )
         )
         .filter(
             or_(
-                MatchHistory.side_a.contains(player2),
-                MatchHistory.side_b.contains(player2),
+                text("exists (select 1 from json_each(side_a) where value = :player2)"),
+                text("exists (select 1 from json_each(side_b) where value = :player2)")
             )
         )
         .order_by(MatchHistory.timestamp.desc())
+        .params(player1=player1, player2=player2)
         .all()
     )
     matches: list[tuple[MatchHistory, list[str], list[str]]] = []
@@ -323,7 +325,9 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
         
         # Count tournament wins and played dynamically to avoid cache mismatch
         t_won = db.query(TournamentHistory).filter(TournamentHistory.champion == player.username).count()
-        t_played = db.query(TournamentHistory).filter(TournamentHistory.players.contains(player.username)).count()
+        t_played = db.query(TournamentHistory).filter(
+            text("exists (select 1 from json_each(players) where value = :username)")
+        ).params(username=player.username).count()
 
         best_w, best_r = 0, 999
         for r in rows:
