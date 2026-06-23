@@ -345,5 +345,28 @@ def rebuild_database(db_path):
     print("Database rebuild complete!")
 
 if __name__ == '__main__':
-    rebuild_database("cricket_prod.db")
-    rebuild_database("cricket.db")
+    # Resolve database path dynamically
+    db_url = os.environ.get("DATABASE_URL")
+    db_path = None
+    if db_url and db_url.startswith("sqlite://"):
+        db_path = db_url.replace("sqlite:///", "").replace("sqlite://", "")
+    
+    candidates = [
+        db_path,
+        os.path.expanduser("~/data/cricket.db"),
+        "/home/ecricket2026/data/cricket.db",
+        "cricket_prod.db",
+        "cricket.db"
+    ]
+    
+    processed = set()
+    for path in candidates:
+        if path and os.path.exists(path):
+            abs_path = os.path.abspath(path)
+            if abs_path not in processed:
+                rebuild_database(abs_path)
+                processed.add(abs_path)
+                
+    if not processed:
+        print("No database files found to clean up.")
+
