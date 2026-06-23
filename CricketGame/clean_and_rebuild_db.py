@@ -37,6 +37,13 @@ def rebuild_database(db_path):
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
+    # Check if this is an initialized database containing the players table
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='players'")
+    if not cur.fetchone():
+        print(f"Table 'players' not found in {db_path}. Skipping.")
+        conn.close()
+        return
+
     # 2. Get allowed and excluded players
     cur.execute("SELECT id, username FROM players")
     all_players = {r['id']: r['username'] for r in cur.fetchall()}
