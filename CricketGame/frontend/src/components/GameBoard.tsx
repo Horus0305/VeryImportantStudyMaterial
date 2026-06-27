@@ -624,8 +624,7 @@ export default function GameBoard({ state, ballFlash, sendMsg, isHost }: Props) 
                 {/* Main scrollable stats content */}
                 <div className="p-4 sm:p-6 flex-1 space-y-4 sm:space-y-6">
                     {/* H2H Collapsible Component */}
-                    {state.striker && state.bowler &&
-                        !state.striker.startsWith('CPU') && !state.bowler.startsWith('CPU') && (
+                    {state.striker && state.bowler && (
                             <HeadToHead
                                 player1={state.striker}
                                 player2={state.bowler}

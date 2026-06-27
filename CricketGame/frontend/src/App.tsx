@@ -65,6 +65,9 @@ function App() {
         <Route path="/profile" element={
           <ProfilePage token={token} username={username} onLogout={handleLogout} onRename={handleRename} />
         } />
+        <Route path="/profile/:viewUsername" element={
+          <ProfilePage token={token} username={username} onLogout={handleLogout} onRename={handleRename} />
+        } />
         <Route path="/match/:matchId" element={
           <MatchDetailPage />
         } />

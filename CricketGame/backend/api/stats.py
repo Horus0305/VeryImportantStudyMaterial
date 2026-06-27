@@ -291,104 +291,22 @@ def _parse_run_margin(result_text: str | None) -> int | None:
 
 @router.get("/leaderboard")
 def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
-    from ..data.models import FormatStats
-    from datetime import datetime as _dt
-
-    players = db.query(Player).all()
     entries: dict[str, dict] = {}
 
-    # ── 1. Aggregate FormatStats ──────────────────────────────────
-    for player in players:
-        rows = db.query(FormatStats).filter(
-            FormatStats.player_id == player.id,
-            FormatStats.format == 'tournament',
-        ).all()
-        if not rows:
-            continue
-        mp = sum(r.matches_played for r in rows)
-        if mp < 100:
-            continue
+    # Per-player tracking structures
+    player_innings = defaultdict(list)
+    player_not_out = defaultdict(int)
+    player_dismissals = defaultdict(int)
+    player_bat_balls = defaultdict(int)
+    player_chasing_runs = defaultdict(int)
+    player_chasing_inn = defaultdict(int)
+    player_bowl_wkts = defaultdict(int)
+    player_bowl_runs = defaultdict(int)
+    player_bowl_balls = defaultdict(int)
+    player_bowl_best_w = defaultdict(int)
+    player_bowl_best_r = defaultdict(lambda: 999)
 
-        mw         = sum(r.matches_won for r in rows)
-        runs       = sum(r.total_runs for r in rows)
-        balls      = sum(r.total_balls_faced for r in rows)
-        hs         = max((r.highest_score for r in rows), default=0)
-        fours      = sum(r.fours for r in rows)
-        sixes      = sum(r.sixes for r in rows)
-        fifties    = sum(r.fifties for r in rows)
-        hundreds   = sum(r.hundreds for r in rows)
-        innings_b  = sum(r.innings_batted for r in rows)
-        wickets    = sum(r.wickets_taken for r in rows)
-        r_conceded = sum(r.runs_conceded for r in rows)
-        overs      = sum(r.overs_bowled for r in rows)
-        potm       = sum(r.potm_count for r in rows)
-        
-        # Count tournament wins and played dynamically to avoid cache mismatch
-        t_won = db.query(TournamentHistory).filter(TournamentHistory.champion == player.username).count()
-        t_played = db.query(TournamentHistory).filter(
-            text("exists (select 1 from json_each(players) where value = :username)")
-        ).params(username=player.username).count()
-
-        best_w, best_r = 0, 999
-        for r in rows:
-            if r.best_bowling_wickets > best_w or (
-                r.best_bowling_wickets == best_w and r.best_bowling_runs < best_r
-            ):
-                best_w, best_r = r.best_bowling_wickets, r.best_bowling_runs
-
-        entries[player.username] = {
-            "username":           player.username,
-            "matches_played":     mp,
-            "matches_won":        mw,
-            "matches_lost":       mp - mw,
-            "win_pct":            round(mw / mp * 100, 1),
-            "total_runs":         runs,
-            "highest_score":      hs,
-            "batting_avg":        round(runs / innings_b, 2) if innings_b else 0.0,
-            "strike_rate":        round(runs / balls * 100, 1) if balls else 0.0,
-            "fours":              fours,
-            "sixes":              sixes,
-            "boundaries":         fours + sixes,
-            "fifties":            fifties,
-            "hundreds":           hundreds,
-            "wickets_taken":      wickets,
-            "best_bowling":       f"{best_w}/{best_r}" if best_w else "—",
-            "bowling_avg":        round(r_conceded / wickets, 2) if wickets else None,
-            "economy":            round(r_conceded / overs, 2) if overs else None,
-            "potm_count":         potm,
-            "tournaments_won":    t_won,
-            "tournaments_played": t_played,
-            # computed from MatchHistory / TournamentHistory below
-            "playoffs_reached":    0,
-            "finals_reached":      0,
-            "total_balls":         balls,
-            "ducks":               0,
-            "ducks_taken":         0,
-            "close_losses":        0,   # lost by < 10 runs
-            "heavy_losses":        0,   # lost by > 30 runs
-            "six_shower":          0,   # innings where bowling side conceded 3+ sixes
-            "max_duck_streak":     0,   # longest consecutive duck streak
-            "not_out_pct":         0.0,
-            "miser_innings":       0,
-            "chasing_avg":         0.0,
-            "wickets_per_ball":    0.0,
-            "balls_per_dismissal": 0.0,
-            "finals_lost":         0,
-        }
-
-    # Per-player chronological innings for duck streak calculation
-    player_innings: dict[str, list[bool]] = defaultdict(list)
-
-    # Tracking dicts for new stats
-    player_not_out:      dict[str, int] = defaultdict(int)
-    player_dismissals:   dict[str, int] = defaultdict(int)
-    player_bat_balls:    dict[str, int] = defaultdict(int)
-    player_chasing_runs: dict[str, int] = defaultdict(int)
-    player_chasing_inn:  dict[str, int] = defaultdict(int)
-    player_bowl_wkts:    dict[str, int] = defaultdict(int)
-    player_bowl_balls:   dict[str, int] = defaultdict(int)
-
-    # ── 2. Scan MatchHistory ──────────────────────────────────────
+    # ── 1. Scan MatchHistory for Tournament matches ──────────────────────
     all_matches = (
         db.query(MatchHistory)
         .filter(MatchHistory.mode == 'tournament')
@@ -401,7 +319,68 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
         side_b = _json_list(match.side_b)
         margin = _parse_run_margin(match.result_text)
 
-        # Determine losing side for close/heavy loss stats
+        all_players_in_match = set(side_a + side_b)
+
+        # Initialize player entries on-the-fly
+        for p in all_players_in_match:
+            if p.startswith("CPU Bot") or p.startswith("CPU bot"):
+                continue
+            if p not in entries:
+                entries[p] = {
+                    "username":           p,
+                    "matches_played":     0,
+                    "matches_won":        0,
+                    "matches_lost":       0,
+                    "win_pct":            0.0,
+                    "total_runs":         0,
+                    "highest_score":      0,
+                    "batting_avg":        0.0,
+                    "strike_rate":        0.0,
+                    "fours":              0,
+                    "sixes":              0,
+                    "boundaries":         0,
+                    "fifties":            0,
+                    "hundreds":           0,
+                    "wickets_taken":      0,
+                    "best_bowling":       "—",
+                    "bowling_avg":        None,
+                    "economy":            None,
+                    "potm_count":         0,
+                    "tournaments_won":    0,
+                    "tournaments_played": 0,
+                    "playoffs_reached":    0,
+                    "finals_reached":      0,
+                    "total_balls":         0,
+                    "ducks":               0,
+                    "ducks_taken":         0,
+                    "close_losses":        0,
+                    "heavy_losses":        0,
+                    "six_shower":          0,
+                    "max_duck_streak":     0,
+                    "not_out_pct":         0.0,
+                    "miser_innings":       0,
+                    "chasing_avg":         0.0,
+                    "wickets_per_ball":    0.0,
+                    "balls_per_dismissal": 0.0,
+                    "finals_lost":         0,
+                }
+
+        # Track win / loss
+        for p in all_players_in_match:
+            if p.startswith("CPU Bot") or p.startswith("CPU bot"):
+                continue
+            entries[p]["matches_played"] += 1
+            if match.winner == "TIE":
+                pass
+            elif _winner_includes_player(match.winner, p):
+                entries[p]["matches_won"] += 1
+            else:
+                entries[p]["matches_lost"] += 1
+
+        if match.potm and match.potm in entries:
+            entries[match.potm]["potm_count"] += 1
+
+        # Track close/heavy losses
         losing_side: list[str] = []
         if match.winner and match.winner != "TIE" and margin is not None:
             winner_names = {n.strip() for n in match.winner.split(",") if n.strip()}
@@ -443,6 +422,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
                     if p in entries:
                         entries[p]["six_shower"] += 1
 
+            # Batting card stats
             for bc in batting_cards:
                 name = bc.get("name")
                 if not name or name not in entries:
@@ -452,23 +432,39 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
                 is_duck = bc.get("runs", -1) == 0 and is_out
                 player_innings[name].append(is_duck)
 
+                runs = bc.get("runs", 0)
+                balls = bc.get("balls", 0)
+
+                entries[name]["total_runs"] += runs
+                entries[name]["total_balls"] += balls
+                entries[name]["fours"] += bc.get("fours", 0)
+                entries[name]["sixes"] += bc.get("sixes", 0)
+                entries[name]["boundaries"] += bc.get("fours", 0) + bc.get("sixes", 0)
+
+                if runs > entries[name]["highest_score"]:
+                    entries[name]["highest_score"] = runs
+                if runs >= 100:
+                    entries[name]["hundreds"] += 1
+                elif runs >= 50:
+                    entries[name]["fifties"] += 1
+
                 if is_duck:
                     entries[name]["ducks"] += 1
                     bowler = _extract_bowler(bc.get("dismissal"))
                     if bowler and bowler in entries:
                         entries[bowler]["ducks_taken"] += 1
 
-                # New stat tracking
                 if is_out:
                     player_dismissals[name] += 1
                 else:
                     player_not_out[name] += 1
-                player_bat_balls[name] += bc.get("balls", 0)
+
+                player_bat_balls[name] += balls
                 if is_chasing:
-                    player_chasing_runs[name] += bc.get("runs", 0)
+                    player_chasing_runs[name] += runs
                     player_chasing_inn[name] += 1
 
-            # Bowling card — The Miser + The Oracle
+            # Bowling card stats
             for bw in sc.get("bowling", []):
                 name = bw.get("name")
                 if not name or name not in entries:
@@ -479,39 +475,72 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
                 parts = overs_str.split(".")
                 balls_b = int(parts[0]) * 6 + (int(parts[1]) if len(parts) > 1 and parts[1] else 0)
                 overs_f = balls_b / 6
+
                 player_bowl_wkts[name] += wkts
+                player_bowl_runs[name] += runs_b
                 player_bowl_balls[name] += balls_b
+
+                if wkts > player_bowl_best_w[name] or (
+                    wkts == player_bowl_best_w[name] and runs_b < player_bowl_best_r[name]
+                ):
+                    player_bowl_best_w[name] = wkts
+                    player_bowl_best_r[name] = runs_b
+
                 if overs_f >= 1.0 and runs_b / overs_f <= 8.0:
                     entries[name]["miser_innings"] += 1
 
-    # ── 3. Compute max consecutive duck streak ────────────────────
-    for player, innings_list in player_innings.items():
-        if player not in entries:
-            continue
+    # ── 2. Finalize basic stats & averages ───────────────────────────────────
+    for p in list(entries.keys()):
+        e = entries[p]
+        e["win_pct"] = round(e["matches_won"] / e["matches_played"] * 100, 1) if e["matches_played"] else 0.0
+
+        # Batting avg and strike rate
+        total_inn = player_not_out[p] + player_dismissals[p]
+        e["batting_avg"] = round(e["total_runs"] / player_dismissals[p], 2) if player_dismissals[p] else (float(e["total_runs"]) if total_inn else 0.0)
+        e["strike_rate"] = round(e["total_runs"] / e["total_balls"] * 100, 1) if e["total_balls"] else 0.0
+
+        # Bowling stats
+        wkts = player_bowl_wkts[p]
+        runs_c = player_bowl_runs[p]
+        balls_c = player_bowl_balls[p]
+        e["wickets_taken"] = wkts
+        best_w = player_bowl_best_w[p]
+        best_r = player_bowl_best_r[p]
+        e["best_bowling"] = f"{best_w}/{best_r}" if best_w > 0 else "—"
+        e["bowling_avg"] = round(runs_c / wkts, 2) if wkts else None
+        e["economy"] = round((runs_c / balls_c) * 6, 2) if balls_c else None
+
+        # Duck streaks
         max_streak = cur = 0
-        for is_duck in innings_list:
+        for is_duck in player_innings[p]:
             cur = cur + 1 if is_duck else 0
             if cur > max_streak:
                 max_streak = cur
-        entries[player]["max_duck_streak"] = max_streak
+        e["max_duck_streak"] = max_streak
 
-    # ── 4. Finalize new computed stats ────────────────────────────
-    for player in list(entries.keys()):
-        e = entries[player]
-        total_inn = player_not_out[player] + player_dismissals[player]
+        # Advanced stats threshold checks
         if total_inn >= 50:
-            e["not_out_pct"] = round(player_not_out[player] / total_inn * 100, 1)
-        if player_chasing_inn[player] >= 30:
-            e["chasing_avg"] = round(player_chasing_runs[player] / player_chasing_inn[player], 2)
-        if player_bowl_wkts[player] >= 20 and player_bowl_balls[player] > 0:
-            e["wickets_per_ball"] = round(player_bowl_wkts[player] / player_bowl_balls[player], 4)
-        if player_dismissals[player] >= 30:
-            e["balls_per_dismissal"] = round(player_bat_balls[player] / player_dismissals[player], 1)
+            e["not_out_pct"] = round(player_not_out[p] / total_inn * 100, 1)
+        if player_chasing_inn[p] >= 30:
+            e["chasing_avg"] = round(player_chasing_runs[p] / player_chasing_inn[p], 2)
+        if wkts >= 20 and balls_c > 0:
+            e["wickets_per_ball"] = round(wkts / balls_c, 4)
+        if player_dismissals[p] >= 30:
+            e["balls_per_dismissal"] = round(player_bat_balls[p] / player_dismissals[p], 1)
 
-    # ── 5. Playoff / Final achievements — scan TournamentHistory ──
+    # ── 3. Scan TournamentHistory for achievements ───────────────────────────
     for t in db.query(TournamentHistory).all():
         try:
+            players_list = _json_list(t.players)
             bracket = json.loads(t.playoff_bracket) if t.playoff_bracket else {}
+
+            for player in players_list:
+                if player in entries:
+                    entries[player]["tournaments_played"] += 1
+
+            if t.champion and t.champion in entries:
+                entries[t.champion]["tournaments_won"] += 1
+
             # Finalists
             final_pair = bracket.get("final") or []
             for player in final_pair:
@@ -531,7 +560,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
                     for player in match_pair:
                         if player:
                             playoff_players.add(player)
-            
+
             for player in playoff_players:
                 if player in entries:
                     entries[player]["playoffs_reached"] += 1

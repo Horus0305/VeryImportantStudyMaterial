@@ -221,8 +221,8 @@ export default function TossScreen({ screen, tossData, username, sendMsg, isHost
                             </div>
 
                             {(() => {
-                                const p1 = battingFirst?.find(p => !p.startsWith('CPU'))
-                                const p2 = bowlingFirst?.find(p => !p.startsWith('CPU'))
+                                const p1 = battingFirst?.[0]
+                                const p2 = bowlingFirst?.[0]
                                 return p1 && p2 ? <div className="mt-2"><HeadToHead player1={p1} player2={p2} defaultOpen={true} /></div> : null
                             })()}
                         </div>

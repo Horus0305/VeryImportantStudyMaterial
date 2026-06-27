@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Trophy, Skull, BarChart3, TrendingUp, TrendingDown, Target, Zap, Award, AlertTriangle, Flame, Shield, Lock, Eye, Heart, Clock } from 'lucide-react'
 
 const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
@@ -142,13 +142,13 @@ function RankTable<T extends { username: string }>({
                                     <tr key={row.username} className={`group/row ${isMe ? 'bg-emerald-50' : 'hover:bg-slate-50 transition-colors'}`}>
                                         <td className={`px-4 py-2.5 sticky left-0 z-10 transition-colors ${stickyBg}`}><RankBadge n={i + 1} /></td>
                                         <td className={`px-4 py-2.5 sticky left-[56px] z-10 transition-colors border-r border-slate-200 ${stickyBg}`}>
-                                            <div className="flex items-center gap-2">
+                                            <Link to={`/profile/${encodeURIComponent(row.username)}`} className="flex items-center gap-2 hover:underline cursor-pointer">
                                                 <Avatar name={row.username} />
                                                 <span className={`font-semibold text-sm ${isMe ? 'text-emerald-600' : 'text-slate-700'}`}>
                                                     {row.username}
                                                 </span>
                                                 {isMe && <span className="text-[8px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-600 rounded-full px-1.5 py-0.5 border border-emerald-200">You</span>}
-                                            </div>
+                                            </Link>
                                         </td>
                                         {cols.map(c => (
                                             <td key={String(c.header)} className={`px-4 py-2.5 text-right font-mono text-sm whitespace-nowrap ${c.bold ? 'font-bold text-slate-900' : 'text-slate-500'} ${c.highlight ?? ''}`}>
@@ -810,13 +810,13 @@ function PlayerCell({ entry, currentUser, sticky }: { entry: Entry; currentUser:
     const stickyClass = sticky ? `sticky left-[56px] z-10 border-r border-slate-200 transition-colors ${isMe ? 'bg-emerald-50' : 'bg-white group-hover/row:bg-slate-50'}` : ''
     return (
         <td className={`px-4 py-3 min-w-32.5 ${stickyClass}`}>
-            <div className="flex items-center gap-2">
+            <Link to={`/profile/${encodeURIComponent(entry.username)}`} className="flex items-center gap-2 hover:underline cursor-pointer">
                 <div className={`w-7 h-7 ${color} rounded-full flex items-center justify-center text-white text-xs font-bold uppercase shrink-0`}>
                     {entry.username[0]}
                 </div>
                 <span className={`font-semibold text-sm ${isMe ? 'text-emerald-600' : 'text-slate-700'}`}>{entry.username}</span>
                 {isMe && <span className="text-[8px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-600 rounded-full px-1.5 py-0.5 border border-emerald-200 shrink-0">You</span>}
-            </div>
+            </Link>
         </td>
     )
 }

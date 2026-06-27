@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Bell, Edit3, ChevronRight, Check } from 'lucide-react'
 
 interface FormatStats {
@@ -68,8 +68,14 @@ const TAB_LABELS: Record<string, string> = {
 
 const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
 
-export default function ProfilePage({ token, username, onRename }: Props) {
+
+
+    export default function ProfilePage({ token, username, onRename }: Props) {
     const navigate = useNavigate()
+    const { viewUsername } = useParams<{ viewUsername?: string }>()
+    const targetUsername = viewUsername || username
+    const isOwnProfile = !viewUsername || viewUsername === username
+
     const [stats, setStats] = useState<PlayerStats | null>(null)
     const [activeTab, setActiveTab] = useState<'overall' | '1v1' | 'team' | 'cpu' | 'tournament'>('overall')
     const [loading, setLoading] = useState(true)
@@ -77,7 +83,7 @@ export default function ProfilePage({ token, username, onRename }: Props) {
     const [matchHistory, setMatchHistory] = useState<MatchHistoryEntry[]>([])
     const [tournamentHistory, setTournamentHistory] = useState<TournamentHistoryEntry[]>([])
     const [isEditingName, setIsEditingName] = useState(false)
-    const [nameInput, setNameInput] = useState(username)
+    const [nameInput, setNameInput] = useState(targetUsername)
     const [renameError, setRenameError] = useState('')
     const [renameLoading, setRenameLoading] = useState(false)
     const [cpuLoading, setCpuLoading] = useState(false)
@@ -87,12 +93,12 @@ export default function ProfilePage({ token, username, onRename }: Props) {
 
     useEffect(() => {
         const fetchInitialData = async () => {
-            if (!username) return
+            if (!targetUsername) return
             setLoading(true)
             try {
                 const [statsRes, tournamentsRes] = await Promise.all([
-                    fetch(`${API}/auth/stats/${username}`),
-                    fetch(`${API}/api/tournaments/${username}`)
+                    fetch(`${API}/auth/stats/${targetUsername}`),
+                    fetch(`${API}/api/tournaments/${targetUsername}`)
                 ])
 
                 if (!statsRes.ok) {
@@ -111,25 +117,25 @@ export default function ProfilePage({ token, username, onRename }: Props) {
             }
         }
         fetchInitialData()
-    }, [username, navigate])
+    }, [targetUsername, navigate])
 
-    useEffect(() => setNameInput(username), [username])
+    useEffect(() => setNameInput(targetUsername), [targetUsername])
 
     useEffect(() => {
         const fetchMatches = async () => {
-            if (!username) return
+            if (!targetUsername) return
             const queryMode = activeTab === 'overall' ? '' : `mode=${activeTab}&`
             if (activeTab === 'tournament') return
 
             try {
-                const res = await fetch(`${API}/api/matches/${username}?${queryMode}`)
+                const res = await fetch(`${API}/api/matches/${targetUsername}?${queryMode}`)
                 if (res.ok) setMatchHistory(await res.json())
             } catch (err) {
                 console.error("Failed to fetch matches:", err)
             }
         }
         fetchMatches()
-    }, [username, activeTab])
+    }, [targetUsername, activeTab])
 
     const startCpuMatch = async (password: string): Promise<boolean> => {
         setCpuLoading(true)
@@ -208,9 +214,9 @@ export default function ProfilePage({ token, username, onRename }: Props) {
             {/* Nav */}
             <nav className="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-50">
                 <div className="w-full px-4 sm:px-6 lg:px-8 h-14 lg:h-16 flex items-center justify-between">
-                    <button onClick={() => navigate('/')} className="flex items-center gap-1.5 lg:gap-2 text-slate-500 hover:text-emerald-600 transition-colors">
+                    <button onClick={() => isOwnProfile ? navigate('/') : navigate(-1)} className="flex items-center gap-1.5 lg:gap-2 text-slate-500 hover:text-emerald-600 transition-colors">
                         <ArrowLeft className="w-4 h-4 lg:w-5 lg:h-5" />
-                        <span className="text-xs lg:text-sm font-bold uppercase tracking-widest">Back to Hub</span>
+                        <span className="text-xs lg:text-sm font-bold uppercase tracking-widest">{isOwnProfile ? 'Back to Hub' : 'Back'}</span>
                     </button>
                     <div className="flex items-center gap-4 lg:gap-6">
                         <button className="text-slate-400 hover:text-emerald-600 transition-colors hidden sm:block">
@@ -231,7 +237,7 @@ export default function ProfilePage({ token, username, onRename }: Props) {
                         {/* Avatar */}
                         <div className="relative group">
                             <div className="w-24 h-24 lg:w-32 lg:h-32 bg-slate-900 rounded-xl shadow-xl flex items-center justify-center text-emerald-500 transform lg:-rotate-2 border-4 border-white transition-transform duration-300 group-hover:scale-105">
-                                <span className="text-6xl lg:text-7xl leading-none" style={DISPLAY_FONT}>{username.charAt(0).toUpperCase()}</span>
+                                <span className="text-6xl lg:text-7xl leading-none" style={DISPLAY_FONT}>{targetUsername.charAt(0).toUpperCase()}</span>
                                 <div className="absolute -bottom-2 -right-2 lg:-bottom-3 lg:-right-3 w-8 h-8 lg:w-10 lg:h-10 bg-emerald-500 text-white rounded-lg flex items-center justify-center border-2 border-white shadow-sm">
                                     <Check className="w-4 h-4 lg:w-5 lg:h-5 stroke-[3]" />
                                 </div>
@@ -259,19 +265,19 @@ export default function ProfilePage({ token, username, onRename }: Props) {
                                     />
                                     <div className="flex gap-2">
                                         <button onClick={submitRename} disabled={renameLoading} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 font-bold uppercase rounded transition-colors disabled:opacity-50">Save</button>
-                                        <button onClick={() => { setIsEditingName(false); setNameInput(username) }} className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1 font-bold uppercase rounded transition-colors">Cancel</button>
+                                        <button onClick={() => { setIsEditingName(false); setNameInput(targetUsername) }} className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1 font-bold uppercase rounded transition-colors">Cancel</button>
                                     </div>
                                     {renameError && <span className="text-xs text-red-500 font-bold">{renameError}</span>}
                                 </div>
                             ) : (
                                 <h1 className="text-5xl md:text-7xl lg:text-8xl leading-none tracking-tight text-slate-900 uppercase truncate max-w-full" style={DISPLAY_FONT}>
-                                    {username}
+                                    {targetUsername}
                                 </h1>
                             )}
                         </div>
                     </div>
 
-                    {!isEditingName && (
+                    {!isEditingName && isOwnProfile && (
                         <div className="flex flex-col items-center lg:items-end gap-4 w-full lg:w-auto mt-2 lg:mt-0">
                             <button
                                 onClick={() => setIsEditingName(true)}
@@ -357,7 +363,7 @@ export default function ProfilePage({ token, username, onRename }: Props) {
                 <div className="lg:col-span-8 flex flex-col gap-8 lg:gap-12">
 
                     {/* CPU Match Start */}
-                    {activeTab === 'cpu' && (
+                    {activeTab === 'cpu' && isOwnProfile && (
                         <div className="bg-slate-900 rounded-xl p-6 shadow-xl text-white flex flex-col sm:flex-row items-center justify-between gap-4 border border-slate-800">
                             <div>
                                 <h3 className="text-2xl uppercase italic tracking-wide" style={DISPLAY_FONT}>Quick CPU Match</h3>
