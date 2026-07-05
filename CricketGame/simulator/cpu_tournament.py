@@ -20,7 +20,7 @@ import random
 from typing import Dict, Optional, Tuple
 
 from .engine_sim import SimEngine, NaiveEngine, UniformEngine
-from .career_sim import OpponentMemory
+from .career_sim import OpponentMemory, current_streak
 
 
 def play_innings_vs(
@@ -52,20 +52,28 @@ def play_innings_vs(
 
         # Batter predicts the bowler
         prev_bowl = bowl_history[-1] if bowl_history else None
+        bowl_streak = current_streak(bowl_history)
         g, gn = bat_memory.global_signal('bowling')
         tp, tn = bat_memory.transition_signal('bowling', prev_bowl)
+        sp, sn = (bat_memory.streak_signal('bowling', *bowl_streak)
+                  if bowl_streak[1] else (None, 0))
         bat_num, _ = bat_engine.select_move(
             g, bowl_history, {**common, 'role': 'batting'},
             bat_memory.confidence(), global_n=gn, trans_n=tn, transition_pred=tp,
+            streak_n=sn, streak_pred=sp,
         )
 
         # Bowler predicts the batter
         prev_bat = bat_history[-1] if bat_history else None
+        bat_streak = current_streak(bat_history)
         g2, gn2 = bowl_memory.global_signal('batting')
         tp2, tn2 = bowl_memory.transition_signal('batting', prev_bat)
+        sp2, sn2 = (bowl_memory.streak_signal('batting', *bat_streak)
+                    if bat_streak[1] else (None, 0))
         bowl_num, _ = bowl_engine.select_move(
             g2, bat_history, {**common, 'role': 'bowling'},
             bowl_memory.confidence(), global_n=gn2, trans_n=tn2, transition_pred=tp2,
+            streak_n=sn2, streak_pred=sp2,
         )
 
         was_out = bat_num == bowl_num
@@ -76,9 +84,9 @@ def play_innings_vs(
 
         # Both sides remember what the opponent just did
         bat_memory.record('bowling', prev_bowl, bowl_num,
-                          was_scored=(not was_out and bowl_num != 0))
+                          was_scored=(not was_out and bowl_num != 0), streak=bowl_streak)
         bowl_memory.record('batting', prev_bat, bat_num,
-                           was_scored=(not was_out and bat_num != 0))
+                           was_scored=(not was_out and bat_num != 0), streak=bat_streak)
 
         bat_history.append(bat_num)
         bowl_history.append(bowl_num)

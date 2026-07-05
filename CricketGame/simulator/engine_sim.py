@@ -40,6 +40,20 @@ STREAK_TRUST_SAMPLES = 15
 STREAK_MAX_WEIGHT    = 0.40
 LIVE_TRANS_TRUST_OBS  = 4
 LIVE_TRANS_MAX_WEIGHT = 0.45
+LIVE2_TRUST_OBS  = 4
+LIVE2_MIN_OBS    = 2
+LIVE2_MAX_WEIGHT = 0.50
+SIT_TRUST_SAMPLES = 12
+SIT_MAX_WEIGHT    = 0.25
+
+ENDGAME_WIN_EV = 10.0
+ENDGAME_DENY   = 10.0
+
+READ_ALARM_FLOOR = 0.26
+READ_ALARM_CEIL  = 0.50
+READ_MIN_BALLS   = 8
+READ_NOISE_BOOST = 0.5
+READ_BLUFF_BOOST = 0.10
 
 BOWL_WICKET_VALUE = 5.0
 EARNED_CAP_BONUS  = 0.15
@@ -123,13 +137,15 @@ class SimEngine:
         transition_pred = transition_pred or dict(UNIFORM)
         balls_played = len(opponent_history)
         live_pred, live_n = self._build_live_transitions(opponent_history)
+        live2_pred, live2_n = self._build_live_transitions2(opponent_history)
 
         prediction = self._blend_signals(
             local_freq, db_prior, global_n, transition_pred, trans_n, balls_played,
-            streak_pred, streak_n, live_pred, live_n,
+            streak_pred, streak_n, live_pred, live_n, live2_pred, live2_n,
         )
 
-        earned = self._earned_accuracy(opponent_history)
+        alarm  = self._read_alarm(context)
+        earned = self._earned_accuracy(opponent_history) * (1.0 - alarm)
         cap    = PEAK_CAP + EARNED_CAP_BONUS * earned
 
         if context['role'] == 'bowling':
@@ -137,7 +153,7 @@ class SimEngine:
         else:
             strategic = self._batting_strategy(prediction, context, confidence, cap)
 
-        noisy = self._add_noise(strategic, confidence, cap, earned)
+        noisy = self._add_noise(strategic, confidence, cap, earned, alarm)
         final = self._floor_and_cap(self._normalize(noisy), cap)
         return self._weighted_choice(final), final
 
@@ -170,6 +186,31 @@ class SimEngine:
             return dict(UNIFORM), 0
         return {n: counts[n] / total for n in range(7)}, total
 
+    def _build_live_transitions2(self, history: List[int]) -> Tuple[Dict[int, float], int]:
+        """2-gram in-match transitions: what followed the last TWO moves?"""
+        if len(history) < 3:
+            return dict(UNIFORM), 0
+        pair = (history[-2], history[-1])
+        counts = {n: 0 for n in range(7)}
+        total = 0
+        for i in range(len(history) - 2):
+            if (history[i], history[i + 1]) == pair:
+                counts[history[i + 2]] += 1
+                total += 1
+        if total < LIVE2_MIN_OBS:
+            return dict(UNIFORM), 0
+        return {n: counts[n] / total for n in range(7)}, total
+
+    def _read_alarm(self, context: Dict) -> float:
+        """0-1 alarm that the opponent is predicting the CPU (batting only)."""
+        if context['role'] != 'batting':
+            return 0.0
+        balls_faced = context['total_overs'] * 6 - context['balls_left']
+        if balls_faced < READ_MIN_BALLS:
+            return 0.0
+        rate = context['wickets_lost'] / balls_faced
+        return max(0.0, min(1.0, (rate - READ_ALARM_FLOOR) / (READ_ALARM_CEIL - READ_ALARM_FLOOR)))
+
     # ── Earned sharpness ──────────────────────────────────────────────────────
 
     def _earned_accuracy(self, history: List[int]) -> float:
@@ -198,18 +239,27 @@ class SimEngine:
     def _blend_signals(
         self, local_freq, global_freq, global_n, transition_pred, trans_n, balls_played,
         streak_pred=None, streak_n=0, live_pred=None, live_n=0,
+        live2_pred=None, live2_n=0, sit_pred=None, sit_n=0,
     ) -> Dict[int, float]:
         w_local  = LOCAL_MAX_WEIGHT  * min(1.0, balls_played / LOCAL_TRUST_BALLS)
         w_global = GLOBAL_MAX_WEIGHT * min(1.0, global_n / GLOBAL_TRUST_SAMPLES)
         w_trans  = TRANS_MAX_WEIGHT  * min(1.0, trans_n / TRANS_TRUST_SAMPLES)
         w_streak = STREAK_MAX_WEIGHT * min(1.0, streak_n / STREAK_TRUST_SAMPLES)
         w_live   = LIVE_TRANS_MAX_WEIGHT * min(1.0, live_n / LIVE_TRANS_TRUST_OBS)
+        w_live2  = LIVE2_MAX_WEIGHT  * min(1.0, live2_n / LIVE2_TRUST_OBS)
+        w_sit    = SIT_MAX_WEIGHT    * min(1.0, sit_n / SIT_TRUST_SAMPLES)
         if streak_pred is None:
             w_streak = 0.0
             streak_pred = UNIFORM
         if live_pred is None:
             w_live = 0.0
             live_pred = UNIFORM
+        if live2_pred is None:
+            w_live2 = 0.0
+            live2_pred = UNIFORM
+        if sit_pred is None:
+            w_sit = 0.0
+            sit_pred = UNIFORM
 
         # Streak is a coarser back-off: defer to a sharp transition signal
         # (career or live).
@@ -217,6 +267,7 @@ class SimEngine:
             sharpest = max(
                 max(transition_pred.values()) if trans_n > 0 else 0.0,
                 max(live_pred.values()) if live_n > 0 else 0.0,
+                max(live2_pred.values()) if live2_n > 0 else 0.0,
             )
             w_streak *= max(0.0, 1.0 - sharpest)
 
@@ -230,7 +281,7 @@ class SimEngine:
             drift = max(0.0, min(1.0, (tv - DRIFT_TV_NOISE) / (1.0 - DRIFT_TV_NOISE)))
             w_global *= 1.0 - DRIFT_MAX_DISCOUNT * drift
 
-        total_w = w_local + w_global + w_trans + w_streak + w_live
+        total_w = w_local + w_global + w_trans + w_streak + w_live + w_live2 + w_sit
         if total_w < 0.01:
             return dict(UNIFORM)
         w_local  /= total_w
@@ -238,6 +289,8 @@ class SimEngine:
         w_trans  /= total_w
         w_streak /= total_w
         w_live   /= total_w
+        w_live2  /= total_w
+        w_sit    /= total_w
 
         blended = {}
         for n in range(7):
@@ -246,7 +299,9 @@ class SimEngine:
                 w_global * global_freq.get(n, 1 / 7) +
                 w_trans  * transition_pred.get(n, 1 / 7) +
                 w_streak * streak_pred.get(n, 1 / 7) +
-                w_live   * live_pred.get(n, 1 / 7)
+                w_live   * live_pred.get(n, 1 / 7) +
+                w_live2  * live2_pred.get(n, 1 / 7) +
+                w_sit    * sit_pred.get(n, 1 / 7)
             )
         return self._normalize(blended)
 
@@ -265,8 +320,19 @@ class SimEngine:
                     s[n] = avg - (avg - s[n]) * min(sharpness * 0.7, 1.4)
                 s[n] = max(s[n], 0.01)
 
-        # Payout weighting: bowl-side EV ∝ p(n) × (n + wicket value).
-        s = self._normalize({n: s[n] * (n + BOWL_WICKET_VALUE) for n in range(7)})
+        # Payout weighting: bowl-side EV ∝ p(n) × (deny value + wicket value).
+        # In the endgame any number that would win the match for the batter
+        # is a must-stop regardless of run count.
+        target = context.get('target')
+        runs_to_win = (target - context['current_score']) if target is not None else None
+        endgame = runs_to_win is not None and 0 < runs_to_win <= 6
+
+        def _deny(n: int) -> float:
+            if endgame and n >= runs_to_win:
+                return ENDGAME_DENY
+            return float(n)
+
+        s = self._normalize({n: s[n] * (_deny(n) + BOWL_WICKET_VALUE) for n in range(7)})
 
         pressure = rrr_pressure(context)
         if pressure > 0:
@@ -295,8 +361,19 @@ class SimEngine:
         w_cost = min(BAT_WICKET_COST_MAX,
                      BAT_WICKET_COST_RATE * max(0.0, scarcity - 1.0))
 
+        # Endgame: every number >= runs_to_win wins outright — choose among
+        # them purely by "least likely to be matched".
+        target = context.get('target')
+        runs_to_win = (target - context['current_score']) if target is not None else None
+        endgame = runs_to_win is not None and 0 < runs_to_win <= 6
+
+        def _value(n: int) -> float:
+            if endgame and n >= runs_to_win:
+                return ENDGAME_WIN_EV
+            return float(n)
+
         ev = {
-            n: n * (1.0 - prediction[n]) - w_cost * prediction[n]
+            n: _value(n) * (1.0 - prediction[n]) - w_cost * prediction[n]
             for n in range(7)
         }
 
@@ -322,15 +399,16 @@ class SimEngine:
 
     # ── Noise ─────────────────────────────────────────────────────────────────
 
-    def _add_noise(self, weights, confidence, cap=PEAK_CAP, earned=0.0):
+    def _add_noise(self, weights, confidence, cap=PEAK_CAP, earned=0.0, alarm=0.0):
         peak       = max(weights.values()) if weights else 0.0
         base_noise = 0.07 + (0.10 * confidence) + max(0.0, peak - 0.25) * 0.28
         base_noise *= 1.0 - EARNED_NOISE_CUT * earned
+        base_noise *= 1.0 + READ_NOISE_BOOST * alarm
         noisy = {}
         for n in range(7):
             noise    = random.uniform(-base_noise, base_noise)
             noisy[n] = max(FLOOR_PROB, weights[n] + noise)
-        bluff_prob = 0.08 + max(0.0, peak - 0.28) * 0.14
+        bluff_prob = 0.08 + max(0.0, peak - 0.28) * 0.14 + READ_BLUFF_BOOST * alarm
         if random.random() < bluff_prob:
             low3      = sorted(noisy.items(), key=lambda x: x[1])[:3]
             bluff_num = low3[random.randint(0, 2)][0]
