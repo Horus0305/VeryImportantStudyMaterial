@@ -1,9 +1,16 @@
 """
 Self-contained CPU engine for simulation — no database required.
 
+Mirrors backend/cpu/cpu_strategy_engine.py (v2: frequency blend + required
+run-rate awareness) exactly, minus all database code. The DB-backed signals
+(global per-user profile, sequence-transition pattern) are represented here
+by `global_n`/`trans_n` sample counts the caller controls — the benchmark
+defaults both to 0 to isolate in-match (local-frequency) adaptation, i.e.
+"how good is the engine against an opponent it has zero history on."
+
 Three engine variants for comparison:
-  SimEngine    — full v3 engine (sequence signals, bait/streak guards)
-  NaiveEngine  — no in-game adaptation, just picks from db_prior
+  SimEngine     — full v2 engine (local/global/transition blend + RRR)
+  NaiveEngine   — no in-game adaptation, just picks from db_prior
   UniformEngine — pure uniform random (Nash equilibrium baseline)
 
 Each select_move() returns (chosen_number, distribution_dict) so the
@@ -16,16 +23,37 @@ from typing import Dict, List, Optional, Tuple
 # ── Constants (must match cpu_strategy_engine.py exactly) ────────────────────
 FLOOR_PROB    = 0.04
 PEAK_CAP      = 0.45
-_FLOOR_BUDGET = FLOOR_PROB * 7   # 0.28
-_DISTR_SHARE  = 1.0 - _FLOOR_BUDGET  # 0.72
-BAIT_WINDOW   = 6
-BAIT_COUNT    = 3
-STREAK_LEN    = 3
-SEQ_WINDOW    = 8
+_FLOOR_BUDGET = FLOOR_PROB * 7        # 0.28
+_DISTR_SHARE  = 1.0 - _FLOOR_BUDGET   # 0.72
+MAX_CONF      = 0.65
 
-HIGH_NUMS = frozenset({4, 5, 6})
-LOW_NUMS  = frozenset({1, 2, 3})
-LOW_AND_ZERO = (0, 1, 2, 3)   # tuple so it's iterable in for-loops
+RRR_NEUTRAL = 6.0    # runs/over treated as "par" — no pressure either way
+RRR_MAX     = 15.0   # runs/over treated as maximum realistic pressure
+
+LOCAL_TRUST_BALLS    = 8
+GLOBAL_TRUST_SAMPLES = 100
+TRANS_TRUST_SAMPLES  = 20
+LOCAL_MAX_WEIGHT  = 0.50
+GLOBAL_MAX_WEIGHT = 0.30
+TRANS_MAX_WEIGHT  = 0.45
+STREAK_TRUST_SAMPLES = 15
+STREAK_MAX_WEIGHT    = 0.40
+
+BOWL_WICKET_VALUE = 5.0
+EARNED_CAP_BONUS  = 0.15
+EARNED_NOISE_CUT  = 0.50
+_TOP3_CHANCE      = 3.0 / 7.0
+
+BAT_WICKET_COST_RATE = 2.0
+BAT_WICKET_COST_MAX  = 8.0
+BAT_TEMP_BASE        = 1.5
+BAT_TEMP_CONF_CUT    = 0.6
+
+DRIFT_MIN_BALLS    = 6
+DRIFT_TV_NOISE     = 0.40
+DRIFT_MAX_DISCOUNT = 0.75
+
+UNIFORM: Dict[int, float] = {n: 1.0 / 7 for n in range(7)}
 
 BASE_WEIGHTS: Dict[int, float] = {
     0: 0.08, 1: 0.16, 2: 0.16, 3: 0.15,
@@ -33,30 +61,30 @@ BASE_WEIGHTS: Dict[int, float] = {
 }
 
 
-def _cls(n: int) -> str:
-    if n == 0: return 'Z'
-    if n >= 4: return 'H'
-    return 'L'
-
-
-def score_pressure(batting_first: bool, current_score: int, target: Optional[int],
-                   wickets_lost: int, balls_left: int, total_overs: int) -> str:
-    """Simplified pressure classifier matching cpu_learning_utils logic."""
+def compute_required_run_rate(context: Dict) -> float:
+    """Runs-per-over the chasing side needs from this point on. 0.0 if not chasing."""
+    target = context.get('target')
     if target is None:
-        if wickets_lost >= 7:
-            return 'defending_tight'
-        return 'normal'
-    needed = target - current_score + 1
+        return 0.0
+    runs_needed = target - context['current_score']
+    if runs_needed <= 0:
+        return 0.0
+    balls_left = context['balls_left']
     if balls_left <= 0:
-        return 'chasing_desperate'
-    rrr = needed / balls_left          # required runs per ball
-    if needed <= 0:
-        return 'chasing_comfortable'
-    if rrr > 2.0:
-        return 'chasing_desperate'
-    if rrr > 1.3:
-        return 'chasing_very_tight'
-    return 'chasing_normal'
+        return RRR_MAX
+    return runs_needed / balls_left * 6.0
+
+
+def rrr_pressure(context: Dict) -> float:
+    """Signed pressure derived from required run rate, roughly in [-0.7, 1.6]."""
+    rrr = compute_required_run_rate(context)
+    if rrr <= 0.0:
+        return 0.0
+    pressure = (rrr - RRR_NEUTRAL) / (RRR_MAX - RRR_NEUTRAL)
+    if pressure > 0:
+        wickets_lost = context.get('wickets_lost', 0)
+        pressure *= 1.0 + min(wickets_lost, 8) * 0.06
+    return max(-0.7, min(1.6, pressure))
 
 
 def entropy(weights: Dict[int, float]) -> float:
@@ -68,12 +96,12 @@ def entropy(weights: Dict[int, float]) -> float:
     return h
 
 
-# ── Full v3 engine ────────────────────────────────────────────────────────────
+# ── Full v2 engine ────────────────────────────────────────────────────────────
 
 class SimEngine:
     """
-    Complete v3 engine: DB prior (injected) + in-game sequence signals.
-    Mirror of CPUStrategyEngine minus all database code.
+    Complete v2 engine: 3-signal blend (local/global/transition) + required
+    run-rate awareness. Mirror of CPUStrategyEngine minus all database code.
     """
 
     def select_move(
@@ -82,216 +110,193 @@ class SimEngine:
         opponent_history: List[int],
         context: Dict,
         confidence: float = 0.5,
+        global_n: int = 0,
+        trans_n: int = 0,
+        transition_pred: Optional[Dict[int, float]] = None,
+        streak_n: int = 0,
+        streak_pred: Optional[Dict[int, float]] = None,
     ) -> Tuple[int, Dict[int, float]]:
         """Returns (chosen_number, final_distribution)."""
+        local_freq = self._build_local_frequency(opponent_history)
+        transition_pred = transition_pred or dict(UNIFORM)
+        balls_played = len(opponent_history)
+
+        prediction = self._blend_signals(
+            local_freq, db_prior, global_n, transition_pred, trans_n, balls_played,
+            streak_pred, streak_n,
+        )
+
+        earned = self._earned_accuracy(opponent_history)
+        cap    = PEAK_CAP + EARNED_CAP_BONUS * earned
+
         if context['role'] == 'bowling':
-            strategic = self._bowling_strategy(db_prior, opponent_history, context, confidence)
+            strategic = self._bowling_strategy(prediction, context, confidence, cap)
         else:
-            strategic = self._batting_strategy(db_prior, opponent_history, context, confidence)
-        noisy = self._add_noise(strategic, confidence)
-        final = self._floor_and_cap(self._normalize(noisy))
+            strategic = self._batting_strategy(prediction, context, confidence, cap)
+
+        noisy = self._add_noise(strategic, confidence, cap, earned)
+        final = self._floor_and_cap(self._normalize(noisy), cap)
         return self._weighted_choice(final), final
 
-    # ── Sequence signal ───────────────────────────────────────────────────────
+    # ── Local frequency builder ───────────────────────────────────────────────
 
-    def _build_sequence_signal(self, history: List[int]) -> Dict:
-        if not history:
-            return {
-                'last_class': None, 'streak_class': None, 'streak_length': 0,
-                'bait_number': None, 'transitions': {}, 'patterns': set(),
-            }
-        recent  = history[-SEQ_WINDOW:]
-        classes = [_cls(n) for n in recent]
-        last_class = classes[-1]
+    def _build_local_frequency(self, opponent_history: List[int]) -> Dict[int, float]:
+        if not opponent_history:
+            return dict(UNIFORM)
+        counts = {n: 0 for n in range(7)}
+        for move in opponent_history:
+            if 0 <= move <= 6:
+                counts[move] += 1
+        total = sum(counts.values())
+        if total == 0:
+            return dict(UNIFORM)
+        return {n: counts[n] / total for n in range(7)}
 
-        streak_len = 0
-        for c in reversed(classes):
-            if c == last_class: streak_len += 1
-            else: break
-        streak_class = last_class if streak_len >= STREAK_LEN else None
+    # ── Earned sharpness ──────────────────────────────────────────────────────
 
-        bait_number = None
-        if len(recent) >= BAIT_WINDOW:
-            window = recent[-BAIT_WINDOW:]
-            for num in range(7):
-                if window.count(num) >= BAIT_COUNT:
-                    bait_number = num
-                    break
+    def _earned_accuracy(self, history: List[int]) -> float:
+        """Top-3 prediction hit rate this match, scaled above chance (3/7)."""
+        if len(history) < 5:
+            return 0.0
+        hits = checks = 0
+        for i in range(3, len(history)):
+            prior = history[:i]
+            scores = {n: 0.0 for n in range(7)}
+            for m in prior:
+                scores[m] += 1.0
+            prev = prior[-1]
+            for j in range(len(prior) - 1):
+                if prior[j] == prev:
+                    scores[prior[j + 1]] += 2.0
+            top3 = sorted(scores, key=scores.get, reverse=True)[:3]
+            if history[i] in top3:
+                hits += 1
+            checks += 1
+        acc = hits / checks
+        return max(0.0, min(1.0, (acc - _TOP3_CHANCE) / (1.0 - _TOP3_CHANCE)))
 
-        transitions: Dict[str, Dict[str, int]] = {}
-        for i in range(len(classes) - 1):
-            fc, tc = classes[i], classes[i + 1]
-            transitions.setdefault(fc, {})
-            transitions[fc][tc] = transitions[fc].get(tc, 0) + 1
+    # ── 3-signal blend ────────────────────────────────────────────────────────
 
-        patterns: set = set()
-        if len(recent) >= 2:
-            if _cls(recent[-1]) == 'H':
-                patterns.add('last_was_high')
-            if _cls(recent[-2]) != _cls(recent[-1]):
-                patterns.add('just_switched')
-        if len(recent) >= 3 and all(_cls(n) == 'H' for n in recent[-3:]):
-            patterns.add('H_shuffle')
+    def _blend_signals(
+        self, local_freq, global_freq, global_n, transition_pred, trans_n, balls_played,
+        streak_pred=None, streak_n=0,
+    ) -> Dict[int, float]:
+        w_local  = LOCAL_MAX_WEIGHT  * min(1.0, balls_played / LOCAL_TRUST_BALLS)
+        w_global = GLOBAL_MAX_WEIGHT * min(1.0, global_n / GLOBAL_TRUST_SAMPLES)
+        w_trans  = TRANS_MAX_WEIGHT  * min(1.0, trans_n / TRANS_TRUST_SAMPLES)
+        w_streak = STREAK_MAX_WEIGHT * min(1.0, streak_n / STREAK_TRUST_SAMPLES)
+        if streak_pred is None:
+            w_streak = 0.0
+            streak_pred = UNIFORM
 
-        return {
-            'last_class': last_class, 'streak_class': streak_class,
-            'streak_length': streak_len, 'bait_number': bait_number,
-            'transitions': transitions, 'patterns': patterns,
-        }
+        # Streak is a coarser back-off: defer to a sharp transition signal.
+        if w_streak > 0 and trans_n > 0:
+            w_streak *= max(0.0, 1.0 - max(transition_pred.values()))
+
+        # Drift guard: current behavior contradicting the stored profile
+        # means the profile is stale — discount it.
+        if balls_played >= DRIFT_MIN_BALLS and w_global > 0:
+            tv = 0.5 * sum(
+                abs(local_freq.get(n, 1 / 7) - global_freq.get(n, 1 / 7))
+                for n in range(7)
+            )
+            drift = max(0.0, min(1.0, (tv - DRIFT_TV_NOISE) / (1.0 - DRIFT_TV_NOISE)))
+            w_global *= 1.0 - DRIFT_MAX_DISCOUNT * drift
+
+        total_w = w_local + w_global + w_trans + w_streak
+        if total_w < 0.01:
+            return dict(UNIFORM)
+        w_local  /= total_w
+        w_global /= total_w
+        w_trans  /= total_w
+        w_streak /= total_w
+
+        blended = {}
+        for n in range(7):
+            blended[n] = (
+                w_local  * local_freq.get(n, 1 / 7) +
+                w_global * global_freq.get(n, 1 / 7) +
+                w_trans  * transition_pred.get(n, 1 / 7) +
+                w_streak * streak_pred.get(n, 1 / 7)
+            )
+        return self._normalize(blended)
 
     # ── Bowling strategy ──────────────────────────────────────────────────────
 
-    def _bowling_strategy(self, weights, opponent_history, context, confidence):
-        if len(opponent_history) < 2:
-            return self._floor_and_cap(self._normalize(weights))
-        s   = dict(weights)
-        sig = self._build_sequence_signal(opponent_history)
+    def _bowling_strategy(self, prediction: Dict[int, float], context: Dict, confidence: float, cap: float = PEAK_CAP) -> Dict[int, float]:
+        s = dict(prediction)
 
-        # 1. Bait guard
-        if sig['bait_number'] is not None:
-            bn = sig['bait_number']
-            bc = _cls(bn)
-            crush = max(0.18, 1.0 - 0.80 * confidence)
-            s[bn] *= crush
-            if bc == 'H':
-                s[0] *= 2.0
-                for n in LOW_NUMS: s[n] *= 1.6
-            else:
-                for n in HIGH_NUMS: s[n] *= 1.9
-                s[0] *= 1.3
-            return self._floor_and_cap(self._normalize(s))
+        if confidence > 0.15:
+            avg = sum(s.values()) / 7
+            sharpness = 1.0 + confidence * 1.5
+            for n in range(7):
+                if s[n] > avg:
+                    s[n] = avg + (s[n] - avg) * sharpness
+                else:
+                    s[n] = avg - (avg - s[n]) * min(sharpness * 0.7, 1.4)
+                s[n] = max(s[n], 0.01)
 
-        # 2. Streak guard — batter is still IN the streak class → bowl it to match
-        if sig['streak_class'] is not None:
-            sc, sl = sig['streak_class'], sig['streak_length']
-            boost  = 1.0 + min(0.35 * (sl - STREAK_LEN + 1), 1.0)
-            dampen = max(0.50, 1.0 - 0.12 * (sl - STREAK_LEN + 1))
-            if sc == 'H':
-                for n in HIGH_NUMS: s[n] *= boost
-                for n in LOW_AND_ZERO: s[n] *= dampen
-            elif sc == 'L':
-                for n in LOW_NUMS: s[n] *= boost
-                s[0] *= boost * 0.7
-                for n in HIGH_NUMS: s[n] *= dampen
-            elif sc == 'Z':
-                s[0] *= boost * 1.5
-                for n in HIGH_NUMS: s[n] *= dampen
-            return self._floor_and_cap(self._normalize(s))
+        # Payout weighting: bowl-side EV ∝ p(n) × (n + wicket value).
+        s = self._normalize({n: s[n] * (n + BOWL_WICKET_VALUE) for n in range(7)})
 
-        # 3. Class-transition signal
-        lc = sig['last_class']
-        tr = sig['transitions']
-        if lc in tr and sum(tr[lc].values()) >= 2:
-            total = sum(tr[lc].values())
-            for next_c, cnt in tr[lc].items():
-                prob  = cnt / total
-                blend = 0.40 * confidence * prob
-                if next_c == 'H':
-                    for n in HIGH_NUMS: s[n] *= 1 + blend * 2.0
-                elif next_c == 'L':
-                    for n in LOW_NUMS:  s[n] *= 1 + blend * 2.0
-                elif next_c == 'Z':
-                    s[0] *= 1 + blend * 3.5
+        pressure = rrr_pressure(context)
+        if pressure > 0:
+            boost = 1.0 + 0.35 * pressure
+            for n in (4, 5, 6):
+                s[n] *= boost
+            s[0] *= 1.0 + 0.20 * pressure
+        elif pressure < 0:
+            for n in (4, 5, 6):
+                s[n] *= max(0.75, 1.0 + 0.25 * pressure)
 
-        # 4. H→Z special case
-        if 'last_was_high' in sig['patterns']:
-            s[0] *= 1.50
-            for n in LOW_NUMS: s[n] *= 1.15
-
-        # 5. H-shuffle
-        if 'H_shuffle' in sig['patterns']:
-            for n in HIGH_NUMS: s[n] *= 1.35
-
-        # 6. Situational pressure
-        pressure = score_pressure(
-            context['batting_first'], context['current_score'], context.get('target'),
-            context['wickets_lost'], context['balls_left'], context['total_overs'],
-        )
-        if 'desperate' in pressure or 'very_tight' in pressure:
-            for n in HIGH_NUMS: s[n] *= 1.25
-            s[0] *= 1.20
         if context['wickets_lost'] >= 7:
-            s[0] *= 1.35
-            for n in HIGH_NUMS: s[n] *= 1.15
+            s[0] *= 1.25
+            for n in (4, 5, 6):
+                s[n] *= 1.10
 
-        return self._floor_and_cap(self._normalize(s))
+        return self._floor_and_cap(self._normalize(s), cap)
 
     # ── Batting strategy ──────────────────────────────────────────────────────
 
-    def _batting_strategy(self, weights, opponent_history, context, confidence):
-        if len(opponent_history) < 2:
-            return self._floor_and_cap(self._normalize(weights))
-        s   = dict(weights)
-        sig = self._build_sequence_signal(opponent_history)
+    def _batting_strategy(self, prediction: Dict[int, float], context: Dict, confidence: float, cap: float = PEAK_CAP) -> Dict[int, float]:
+        # EV(n) = n × (1 − p(n)) − W × p(n); W scales with wicket scarcity.
+        wickets_left = max(1, 10 - context['wickets_lost'])
+        balls_left   = max(1, context['balls_left'])
+        scarcity     = balls_left / wickets_left
+        w_cost = min(BAT_WICKET_COST_MAX,
+                     BAT_WICKET_COST_RATE * max(0.0, scarcity - 1.0))
 
-        # 1. Bait guard (bowler side)
-        if sig['bait_number'] is not None:
-            bn = sig['bait_number']
-            bc = _cls(bn)
-            s[bn] = min(s[bn] * 1.5, BASE_WEIGHTS[bn] * 1.4)
-            if bc == 'H':
-                for n in LOW_AND_ZERO: s[n] *= 0.60
-            else:
-                for n in HIGH_NUMS: s[n] *= 0.60
-            return self._floor_and_cap(self._normalize(s))
+        ev = {
+            n: n * (1.0 - prediction[n]) - w_cost * prediction[n]
+            for n in range(7)
+        }
 
-        # 2. Streak guard — avoid the CURRENT streak class (bowler is still in it)
-        if sig['streak_class'] is not None:
-            sc, sl = sig['streak_class'], sig['streak_length']
-            avoid  = max(0.40, 1.0 - min(0.22 * (sl - STREAK_LEN + 1), 0.55))
-            if sc == 'H':
-                for n in HIGH_NUMS: s[n] *= avoid
-                s[0] *= 1.05
-                for n in LOW_NUMS: s[n] *= 1.05
-            elif sc == 'L':
-                for n in LOW_AND_ZERO: s[n] *= avoid
-                for n in HIGH_NUMS: s[n] *= 1.05
-            elif sc == 'Z':
-                s[0] *= avoid
-                for n in HIGH_NUMS: s[n] *= 1.20
-            return self._floor_and_cap(self._normalize(s))
+        temp   = BAT_TEMP_BASE - BAT_TEMP_CONF_CUT * confidence
+        ev_max = max(ev.values())
+        s = self._normalize({n: math.exp((ev[n] - ev_max) / temp) for n in range(7)})
 
-        # 3. Class-transition: avoid predicted class
-        lc = sig['last_class']
-        tr = sig['transitions']
-        if lc in tr and sum(tr[lc].values()) >= 2:
-            total = sum(tr[lc].values())
-            for next_c, cnt in tr[lc].items():
-                prob  = cnt / total
-                avoid = 0.42 * confidence * prob
-                if next_c == 'H':
-                    for n in HIGH_NUMS: s[n] *= max(0.45, 1 - avoid * 2.0)
-                elif next_c == 'L':
-                    for n in LOW_NUMS:  s[n] *= max(0.45, 1 - avoid * 2.0)
-                elif next_c == 'Z':
-                    s[0] *= max(0.45, 1 - avoid * 3.5)
+        pressure = rrr_pressure(context)
+        if pressure > 0:
+            boost = 1.0 + 0.45 * pressure
+            for n in (4, 5, 6):
+                s[n] *= boost
+            s[0] *= max(0.55, 1.0 - 0.35 * pressure)
+            for n in (1, 2, 3):
+                s[n] *= max(0.65, 1.0 - 0.20 * pressure)
+        elif pressure < 0:
+            for n in (1, 2, 3):
+                s[n] *= 1.0 + 0.25 * (-pressure)
+            for n in (5, 6):
+                s[n] *= max(0.75, 1.0 + 0.25 * pressure)
 
-        if 'last_was_high' in sig['patterns']:
-            s[0] *= 0.75
-
-        # 4. Situational adjustments
-        pressure = score_pressure(
-            context['batting_first'], context['current_score'], context.get('target'),
-            context['wickets_lost'], context['balls_left'], context['total_overs'],
-        )
-        if 'desperate' in pressure or 'very_tight' in pressure:
-            for n in HIGH_NUMS: s[n] *= 1.40
-            s[0] *= 0.70
-            for n in LOW_NUMS:  s[n] *= 0.80
-        elif 'comfortable' in pressure:
-            for n in LOW_NUMS:  s[n] *= 1.20
-            for n in (5, 6):    s[n] *= 0.80
-        if context['wickets_lost'] >= 7:
-            for n in LOW_NUMS:  s[n] *= 1.25
-            for n in (5, 6):    s[n] *= 0.65
-
-        return self._floor_and_cap(self._normalize(s))
+        return self._floor_and_cap(self._normalize(s), cap)
 
     # ── Noise ─────────────────────────────────────────────────────────────────
 
-    def _add_noise(self, weights, confidence):
+    def _add_noise(self, weights, confidence, cap=PEAK_CAP, earned=0.0):
         peak       = max(weights.values()) if weights else 0.0
         base_noise = 0.07 + (0.10 * confidence) + max(0.0, peak - 0.25) * 0.28
+        base_noise *= 1.0 - EARNED_NOISE_CUT * earned
         noisy = {}
         for n in range(7):
             noise    = random.uniform(-base_noise, base_noise)
@@ -301,7 +306,7 @@ class SimEngine:
             low3      = sorted(noisy.items(), key=lambda x: x[1])[:3]
             bluff_num = low3[random.randint(0, 2)][0]
             noisy[bluff_num] *= 2.5
-        return self._floor_and_cap(self._normalize(noisy))
+        return self._floor_and_cap(self._normalize(noisy), cap)
 
     # ── Math helpers ──────────────────────────────────────────────────────────
 
@@ -317,19 +322,19 @@ class SimEngine:
             return {i: 1.0 / 7 for i in range(7)}
         return {n: FLOOR_PROB + _DISTR_SHARE * (weights[n] / total) for n in range(7)}
 
-    def _cap_peak(self, weights):
+    def _cap_peak(self, weights, cap=PEAK_CAP):
         w = dict(weights)
         for _ in range(10):
-            if max(w.values()) <= PEAK_CAP + 1e-9:
+            if max(w.values()) <= cap + 1e-9:
                 break
             excess, capped = 0.0, {}
             for n, v in w.items():
-                if v > PEAK_CAP:
-                    excess   += v - PEAK_CAP
-                    capped[n] = PEAK_CAP
+                if v > cap:
+                    excess   += v - cap
+                    capped[n] = cap
                 else:
                     capped[n] = v
-            non_capped = [n for n in capped if capped[n] < PEAK_CAP]
+            non_capped = [n for n in capped if capped[n] < cap]
             if non_capped:
                 share = excess / len(non_capped)
                 for n in non_capped:
@@ -337,8 +342,8 @@ class SimEngine:
             w = capped
         return w
 
-    def _floor_and_cap(self, weights):
-        return self._cap_peak(self._apply_floor(weights))
+    def _floor_and_cap(self, weights, cap=PEAK_CAP):
+        return self._cap_peak(self._apply_floor(weights), cap)
 
     def _weighted_choice(self, weights):
         total = sum(weights.values())
@@ -356,12 +361,12 @@ class SimEngine:
 
 class NaiveEngine(SimEngine):
     """
-    CPU with no in-game sequence adaptation.
+    CPU with no in-game adaptation at all.
     Always picks from the db_prior directly with minimal noise.
-    Baseline to show how much the sequence strategy adds.
+    Baseline to show how much the local/global/transition blend adds.
     """
 
-    def select_move(self, db_prior, opponent_history, context, confidence=0.5):
+    def select_move(self, db_prior, opponent_history, context, confidence=0.5, **kwargs):
         final = self._floor_and_cap(self._normalize(db_prior))
         # Low noise — CPU is static and predictable
         noisy = {}
@@ -380,6 +385,6 @@ class UniformEngine:
     Any CPU that scores better than this is genuinely exploiting bot patterns.
     """
 
-    def select_move(self, db_prior, opponent_history, context, confidence=0.5):
+    def select_move(self, db_prior, opponent_history, context, confidence=0.5, **kwargs):
         dist = {i: 1.0 / 7 for i in range(7)}
         return random.randint(0, 6), dist

@@ -45,7 +45,7 @@ def run_benchmark(n_matches: int = 1000, total_overs: int = 2, seed: int = 42) -
     engines = [
         ("CPU Uniform  (Nash baseline)",   UniformEngine()),
         ("CPU Naive    (no adaptation)",   NaiveEngine()),
-        ("CPU V3       (full engine)",     SimEngine()),
+        ("CPU V2       (freq blend+RRR)",  SimEngine()),
     ]
 
     db_prior    = dict(BASE_WEIGHTS)   # no DB data — tests in-game signal only

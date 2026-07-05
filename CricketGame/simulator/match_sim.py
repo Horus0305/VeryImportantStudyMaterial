@@ -11,7 +11,7 @@ the chasing team overtakes the target.
 import random
 from typing import Dict, List, Optional, Tuple
 
-from .engine_sim import BASE_WEIGHTS, score_pressure
+from .engine_sim import BASE_WEIGHTS
 
 
 def _build_cpu_context(

@@ -22,6 +22,7 @@ Key insight from data:
   - The old 5-voter ensemble with 6 cascading guards added ~2% over random.
   - Simple frequency counting + transitions massively outperform guards.
 """
+import math
 import random
 from typing import Dict, List, Tuple
 from sqlalchemy.orm import Session
@@ -29,9 +30,8 @@ from sqlalchemy.orm import Session
 from ..data.database import SessionLocal
 from .cpu_learning_schema import (
     CPUGlobalPattern, CPUUserProfile, CPUSituationalPattern,
-    CPUSequencePattern, CPULearningProgress, MatchBallLog,
+    CPUSequencePattern, CPUStreakPattern, CPULearningProgress, MatchBallLog,
 )
-from .cpu_learning_utils import get_game_phase, get_score_situation, get_recent_event
 
 
 # ── Tuning constants ─────────────────────────────────────────────────────────
@@ -42,6 +42,94 @@ _DISTR_SHARE    = 1.0 - _FLOOR_BUDGET  # 0.72 — proportionally distributed
 MAX_CONF        = 0.65              # Confidence cap for short-match safety
 
 UNIFORM = {n: 1.0 / 7 for n in range(7)}
+
+# ── Signal trust scaling (see _blend_signals) ────────────────────────────────
+LOCAL_TRUST_BALLS    = 8     # in-match balls for local_freq to reach full trust
+GLOBAL_TRUST_SAMPLES = 100   # DB samples for global_freq to reach full trust
+TRANS_TRUST_SAMPLES  = 20    # DB samples for transition_pred to reach full trust
+
+LOCAL_MAX_WEIGHT  = 0.50
+GLOBAL_MAX_WEIGHT = 0.30
+TRANS_MAX_WEIGHT  = 0.45
+
+STREAK_TRUST_SAMPLES = 15    # DB samples for streak_pred to reach full trust
+STREAK_MAX_WEIGHT    = 0.40
+
+# ── Bowling payout weighting ─────────────────────────────────────────────────
+# Matching the batter's number takes a wicket AND denies those runs, so
+# matching their 6 is worth (6 + wicket) while matching their 0 is worth
+# only the wicket. Bowl-side EV ∝ p(n) × (n + BOWL_WICKET_VALUE).
+BOWL_WICKET_VALUE = 5.0
+
+# ── Batting expected value (see _batting_strategy) ───────────────────────────
+# EV(n) = n × (1 − p(n)) − W × p(n).  W is the run cost of the CPU's own
+# wicket, scaled by scarcity: when remaining wickets outnumber remaining
+# balls a wicket costs almost nothing (short formats), but it climbs
+# steeply once the tail is exposed.
+BAT_WICKET_COST_RATE = 2.0   # cost per unit of scarcity above parity
+BAT_WICKET_COST_MAX  = 8.0   # ceiling on the wicket cost
+BAT_TEMP_BASE        = 1.5   # softmax temperature at zero confidence
+BAT_TEMP_CONF_CUT    = 0.6   # temperature reduction at full confidence
+
+# ── Profile drift guard ──────────────────────────────────────────────────────
+# Humans evolve: after getting beaten they change style, which makes their
+# stored profile stale — worse than useless, since the CPU would keep
+# countering habits the player no longer has. When this match's observed
+# behavior (local_freq) diverges sharply from the stored profile
+# (global_freq), profile trust is cut for the rest of the match and the
+# CPU leans on what it sees NOW.
+DRIFT_MIN_BALLS    = 6     # local sample needed before judging drift
+DRIFT_TV_NOISE     = 0.40  # total-variation distance expected from sampling noise alone
+DRIFT_MAX_DISCOUNT = 0.75  # stored-profile trust can be cut by up to 75%
+
+# ── Earned sharpness ─────────────────────────────────────────────────────────
+# When the opponent's recent moves keep landing inside our top-3 prediction,
+# they have EARNED a sharper response: peak cap rises and noise drops.
+# A baiter defeats predictions by definition, which zeroes this out — so the
+# extra commitment only unlocks against genuinely predictable play.
+EARNED_CAP_BONUS = 0.15   # peak cap may rise from 0.45 up to 0.60
+EARNED_NOISE_CUT = 0.50   # up to 50% noise reduction
+_TOP3_CHANCE     = 3.0 / 7.0  # top-3 hit rate of a uniform-random opponent
+
+# ── Required run-rate awareness ──────────────────────────────────────────────
+RRR_NEUTRAL = 6.0   # runs/over treated as "par" — no pressure either way
+RRR_MAX     = 15.0  # runs/over treated as maximum realistic pressure
+
+
+def compute_required_run_rate(context: Dict) -> float:
+    """
+    Runs-per-over the chasing side needs from this point on.
+    Returns 0.0 when batting first (no target) or when the chase is already won.
+    """
+    target = context.get('target')
+    if target is None:
+        return 0.0
+    runs_needed = target - context['current_score']
+    if runs_needed <= 0:
+        return 0.0
+    balls_left = context['balls_left']
+    if balls_left <= 0:
+        return RRR_MAX
+    return runs_needed / balls_left * 6.0
+
+
+def rrr_pressure(context: Dict) -> float:
+    """
+    Signed pressure derived from the required run rate, roughly in [-0.7, 1.6].
+      > 0  chasing side needs to accelerate relative to a par rate
+      < 0  chasing side is comfortably ahead of the required rate
+      = 0  batting first (no target exists yet)
+    Wickets lost sharpen positive pressure: the same required rate is harder
+    to chase safely with fewer wickets in hand.
+    """
+    rrr = compute_required_run_rate(context)
+    if rrr <= 0.0:
+        return 0.0
+    pressure = (rrr - RRR_NEUTRAL) / (RRR_MAX - RRR_NEUTRAL)
+    if pressure > 0:
+        wickets_lost = context.get('wickets_lost', 0)
+        pressure *= 1.0 + min(wickets_lost, 8) * 0.06  # up to +48% at 8 down
+    return max(-0.7, min(1.6, pressure))
 
 
 def get_learning_phase(total_balls: int) -> Dict:
@@ -112,26 +200,36 @@ class CPUStrategyEngine:
                 db, user_id, match_context, opponent_history
             )
 
+            # ── Signal 4: Streak prediction (N same-class balls -> ?) ─────
+            streak_pred, streak_n = self._load_streak_patterns(
+                db, user_id, match_context, opponent_history
+            )
+
             # ── Confidence from learning phase ────────────────────────────
             total_balls = self._get_total_balls_tracked(db, user_id)
             phase_info  = get_learning_phase(total_balls)
             confidence  = min(phase_info['confidence'], MAX_CONF)
 
-            # ── Blend the 3 signals ───────────────────────────────────────
+            # ── Blend the 4 signals ───────────────────────────────────────
             balls_played = len(opponent_history)
             prediction = self._blend_signals(
                 local_freq, global_freq, global_n,
                 transition_pred, trans_n, balls_played,
+                streak_pred, streak_n,
             )
+
+            # ── Earned sharpness: how predictable has this opponent been? ─
+            earned = self._earned_accuracy(opponent_history)
+            cap    = PEAK_CAP + EARNED_CAP_BONUS * earned
 
             # ── Role-specific strategy ────────────────────────────────────
             if match_context['role'] == 'bowling':
-                strategic = self._bowling_strategy(prediction, match_context, confidence)
+                strategic = self._bowling_strategy(prediction, match_context, confidence, cap)
             else:
-                strategic = self._batting_strategy(prediction, match_context, confidence)
+                strategic = self._batting_strategy(prediction, match_context, confidence, cap)
 
             # ── Noise + choose ────────────────────────────────────────────
-            noisy = self._add_noise(strategic, confidence)
+            noisy = self._add_noise(strategic, confidence, cap, earned)
             return self._weighted_choice(noisy)
 
         finally:
@@ -159,6 +257,44 @@ class CPUStrategyEngine:
 
         return {n: counts[n] / total for n in range(7)}
 
+    # ── Earned sharpness ──────────────────────────────────────────────────────
+
+    def _earned_accuracy(self, history: List[int]) -> float:
+        """
+        Measure how predictable the opponent has been THIS match.
+
+        Replays the match: for each ball i, build a simple prediction from
+        the balls before it (local frequency + in-match 1-gram transitions)
+        and score a hit when the actual move landed in the top-3. Returns
+        0.0-1.0 scaled above chance level (a uniform-random opponent scores
+        ~3/7 on top-3, which maps to 0.0).
+
+        A frequency-baiter defeats this automatically: their switch balls
+        miss the prediction, dragging accuracy back toward chance.
+        """
+        if len(history) < 5:
+            return 0.0
+
+        hits = checks = 0
+        for i in range(3, len(history)):
+            prior = history[:i]
+            scores = {n: 0.0 for n in range(7)}
+            for m in prior:
+                scores[m] += 1.0
+            # In-match transitions from the current previous move,
+            # weighted heavier than raw frequency.
+            prev = prior[-1]
+            for j in range(len(prior) - 1):
+                if prior[j] == prev:
+                    scores[prior[j + 1]] += 2.0
+            top3 = sorted(scores, key=scores.get, reverse=True)[:3]
+            if history[i] in top3:
+                hits += 1
+            checks += 1
+
+        acc = hits / checks
+        return max(0.0, min(1.0, (acc - _TOP3_CHANCE) / (1.0 - _TOP3_CHANCE)))
+
     # ── 3-signal blend ────────────────────────────────────────────────────────
 
     def _blend_signals(
@@ -169,48 +305,53 @@ class CPUStrategyEngine:
         transition_pred: Dict[int, float],
         trans_n: int,
         balls_played: int,
+        streak_pred: Dict[int, float] = None,
+        streak_n: int = 0,
     ) -> Dict[int, float]:
         """
-        Blend local frequency, global profile, and transition prediction.
+        Blend local frequency, global profile, transition prediction, and
+        streak prediction.
 
-        Weight schedule based on balls played this match:
-          Ball 0-1:  local=0.0, global=0.80, transition=0.20
-          Ball 2-3:  local=0.25, global=0.50, transition=0.25
-          Ball 4-6:  local=0.40, global=0.30, transition=0.30
-          Ball 7+:   local=0.50, global=0.15, transition=0.35
-
-        If global or transition data is unavailable (n=0), their weight
-        is redistributed to the remaining signals.
+        Each signal's weight scales with its OWN evidence rather than a
+        shared match-length clock. local_freq resets every innings, so it
+        genuinely has nothing useful to say on ball 0 -- its weight ramps
+        with balls_played. The DB signals (global/transition/streak)
+        represent this player's whole history against the CPU; a pattern
+        confirmed thousands of times is just as trustworthy on ball 1 of a
+        new match as ball 10, so their weight ramps with their own sample
+        counts instead.
         """
-        # Base weight schedule
-        if balls_played <= 1:
-            w_local, w_global, w_trans = 0.0, 0.80, 0.20
-        elif balls_played <= 3:
-            w_local, w_global, w_trans = 0.25, 0.50, 0.25
-        elif balls_played <= 6:
-            w_local, w_global, w_trans = 0.40, 0.30, 0.30
-        else:
-            w_local, w_global, w_trans = 0.50, 0.15, 0.35
+        w_local  = LOCAL_MAX_WEIGHT  * min(1.0, balls_played / LOCAL_TRUST_BALLS)
+        w_global = GLOBAL_MAX_WEIGHT * min(1.0, global_n / GLOBAL_TRUST_SAMPLES)
+        w_trans  = TRANS_MAX_WEIGHT  * min(1.0, trans_n / TRANS_TRUST_SAMPLES)
+        w_streak = STREAK_MAX_WEIGHT * min(1.0, streak_n / STREAK_TRUST_SAMPLES)
+        if streak_pred is None:
+            w_streak = 0.0
+            streak_pred = UNIFORM
 
-        # Zero out unavailable signals and redistribute
-        if global_n == 0:
-            w_local += w_global * 0.6
-            w_trans += w_global * 0.4
-            w_global = 0.0
-        if trans_n == 0:
-            w_local += w_trans * 0.5
-            w_global += w_trans * 0.5
-            w_trans = 0.0
-        if balls_played == 0:
-            w_local = 0.0  # No local data at all
+        # The streak signal is a coarser back-off model: when the
+        # exact-number transition signal is sharp, class-level streak data
+        # adds dilution, not information — let the finer model win.
+        if w_streak > 0 and trans_n > 0:
+            w_streak *= max(0.0, 1.0 - max(transition_pred.values()))
 
-        # Normalize weights
-        total_w = w_local + w_global + w_trans
+        # Drift guard: if this match's behavior contradicts the stored
+        # profile, the profile is stale (the player evolved) — discount it.
+        if balls_played >= DRIFT_MIN_BALLS and w_global > 0:
+            tv = 0.5 * sum(
+                abs(local_freq.get(n, 1 / 7) - global_freq.get(n, 1 / 7))
+                for n in range(7)
+            )
+            drift = max(0.0, min(1.0, (tv - DRIFT_TV_NOISE) / (1.0 - DRIFT_TV_NOISE)))
+            w_global *= 1.0 - DRIFT_MAX_DISCOUNT * drift
+
+        total_w = w_local + w_global + w_trans + w_streak
         if total_w < 0.01:
             return dict(UNIFORM)
         w_local  /= total_w
         w_global /= total_w
         w_trans  /= total_w
+        w_streak /= total_w
 
         # Weighted blend
         blended = {}
@@ -218,7 +359,8 @@ class CPUStrategyEngine:
             blended[n] = (
                 w_local  * local_freq.get(n, 1/7) +
                 w_global * global_freq.get(n, 1/7) +
-                w_trans  * transition_pred.get(n, 1/7)
+                w_trans  * transition_pred.get(n, 1/7) +
+                w_streak * streak_pred.get(n, 1/7)
             )
 
         return self._normalize(blended)
@@ -230,13 +372,16 @@ class CPUStrategyEngine:
         prediction: Dict[int, float],
         context: Dict,
         confidence: float,
+        cap: float = PEAK_CAP,
     ) -> Dict[int, float]:
         """
         CPU is BOWLING — wants to match batter's number (-> wicket).
 
         Uses the blended prediction directly: numbers the batter is
-        likely to play get higher weight. Situational pressure is a
-        lightweight modifier on top.
+        likely to play get higher weight, then payout-weighted — matching
+        their 6 takes the wicket AND denies six runs, matching their 0
+        only takes the wicket. Situational pressure is a lightweight
+        modifier on top.
         """
         # Start from prediction — the CPU bowls what the batter is likely to play
         s = dict(prediction)
@@ -254,29 +399,31 @@ class CPUStrategyEngine:
                     s[n] = avg - (avg - s[n]) * min(sharpness * 0.7, 1.4)
                 s[n] = max(s[n], 0.01)
 
-        # Situational pressure modifier (lightweight)
-        pressure = get_score_situation(
-            batting_first=context['batting_first'],
-            current_score=context['current_score'],
-            target=context.get('target'),
-            wickets_lost=context['wickets_lost'],
-            balls_left=context['balls_left'],
-            total_overs=context['total_overs'],
-        )
+        # Payout weighting: bowl-side EV ∝ p(n) × (n + wicket value).
+        # Denying the batter's 6 matters more than denying their 1.
+        s = self._normalize({n: s[n] * (n + BOWL_WICKET_VALUE) for n in range(7)})
 
-        # Under pressure, batters tend toward high numbers -> boost 4,5,6
-        if 'desperate' in pressure or 'very_tight' in pressure:
+        # ── Required run-rate awareness ────────────────────────────────────
+        # CPU bowling while defending a target: the higher the batter's
+        # required rate, the more likely they gamble on boundaries.
+        pressure = rrr_pressure(context)
+        if pressure > 0:
+            boost = 1.0 + 0.35 * pressure
             for n in (4, 5, 6):
-                s[n] *= 1.20
-            s[0] *= 1.15  # Some batters play 0 as a desperation move
+                s[n] *= boost
+            s[0] *= 1.0 + 0.20 * pressure  # mistimed big shots -> more dots/wickets too
+        elif pressure < 0:
+            # Batter is comfortably ahead of the rate -> plays safe
+            for n in (4, 5, 6):
+                s[n] *= max(0.75, 1.0 + 0.25 * pressure)
 
-        # Near all-out, batters play conservatively
+        # Near all-out, batters play conservatively regardless of chase state
         if context['wickets_lost'] >= 7:
             s[0] *= 1.25
             for n in (4, 5, 6):
                 s[n] *= 1.10
 
-        return self._floor_and_cap(self._normalize(s))
+        return self._floor_and_cap(self._normalize(s), cap)
 
     # ── Batting strategy ──────────────────────────────────────────────────────
 
@@ -285,76 +432,82 @@ class CPUStrategyEngine:
         prediction: Dict[int, float],
         context: Dict,
         confidence: float,
+        cap: float = PEAK_CAP,
     ) -> Dict[int, float]:
         """
-        CPU is BATTING — wants to NOT match bowler's number (-> score runs).
+        CPU is BATTING — maximize expected runs, not just survival.
 
-        Inverts the blended prediction: numbers the bowler is likely to
-        play get LOWER weight (avoid them). Numbers they're unlikely to
-        play get HIGHER weight (safe to bat there).
+        EV(n) = n × (1 − p(n)) − W × p(n)
+          p(n): blended probability the bowler bowls n
+          W:    scarcity-scaled cost of the CPU's own wicket — near zero
+                while wickets outnumber the balls left (dodging into cheap
+                singles wastes runs there), climbing steeply once losing
+                a wicket could actually end the innings early.
+
+        Weights are a softmax over EV (sharper with confidence), so a
+        heavily-predicted 6 still loses to a safe 5, but a merely-average
+        risk on a boundary beats a guaranteed single.
         """
-        # Invert: high prediction -> low weight, low prediction -> high weight
-        max_pred = max(prediction.values())
-        min_pred = min(prediction.values())
+        # Scarcity-scaled wicket cost
+        wickets_left = max(1, 10 - context['wickets_lost'])
+        balls_left   = max(1, context['balls_left'])
+        scarcity     = balls_left / wickets_left
+        w_cost = min(BAT_WICKET_COST_MAX,
+                     BAT_WICKET_COST_RATE * max(0.0, scarcity - 1.0))
 
-        if max_pred - min_pred < 0.01:
-            # Prediction is flat / no signal -> use uniform
-            s = dict(UNIFORM)
-        else:
-            # Inversion strength scales with confidence
-            strength = 0.5 + confidence * 1.0  # 0.5 to 1.15
+        ev = {
+            n: n * (1.0 - prediction[n]) - w_cost * prediction[n]
+            for n in range(7)
+        }
 
-            s = {}
-            for n in range(7):
-                # Mirror the prediction: highest predicted -> lowest weight
-                inverted = max_pred - prediction[n] + min_pred
-                # Blend inversion with uniform (don't over-dodge)
-                s[n] = (1.0 - strength * 0.6) * UNIFORM[n] + strength * 0.6 * inverted
-                s[n] = max(s[n], 0.01)
+        # Softmax over EV; higher confidence -> sharper commitment
+        temp  = BAT_TEMP_BASE - BAT_TEMP_CONF_CUT * confidence
+        ev_max = max(ev.values())
+        s = self._normalize({n: math.exp((ev[n] - ev_max) / temp) for n in range(7)})
 
-        # Situational pressure modifier
-        pressure = get_score_situation(
-            batting_first=context['batting_first'],
-            current_score=context['current_score'],
-            target=context.get('target'),
-            wickets_lost=context['wickets_lost'],
-            balls_left=context['balls_left'],
-            total_overs=context['total_overs'],
-        )
-
-        # Under pressure, CPU batter should go for high runs
-        if 'desperate' in pressure or 'very_tight' in pressure:
+        # ── Required run-rate awareness ────────────────────────────────────
+        # CPU batting while chasing: the higher the ask, the more it must
+        # gamble on boundaries; comfortably ahead -> bat to keep wickets in hand.
+        pressure = rrr_pressure(context)
+        if pressure > 0:
+            boost = 1.0 + 0.45 * pressure
             for n in (4, 5, 6):
-                s[n] *= 1.40
-            s[0] *= 0.70
+                s[n] *= boost
+            s[0] *= max(0.55, 1.0 - 0.35 * pressure)
             for n in (1, 2, 3):
-                s[n] *= 0.80
-        elif 'comfortable' in pressure:
+                s[n] *= max(0.65, 1.0 - 0.20 * pressure)
+        elif pressure < 0:
             for n in (1, 2, 3):
-                s[n] *= 1.20
+                s[n] *= 1.0 + 0.25 * (-pressure)
             for n in (5, 6):
-                s[n] *= 0.80
+                s[n] *= max(0.75, 1.0 + 0.25 * pressure)
 
-        # Near all-out, play conservatively
-        if context['wickets_lost'] >= 7:
-            for n in (1, 2, 3):
-                s[n] *= 1.25
-            for n in (5, 6):
-                s[n] *= 0.65
+        # (No separate near-all-out guard: the scarcity-scaled wicket cost
+        # in the EV term already makes the CPU protective when the tail
+        # is exposed.)
 
-        return self._floor_and_cap(self._normalize(s))
+        return self._floor_and_cap(self._normalize(s), cap)
 
     # ── Noise ─────────────────────────────────────────────────────────────────
 
-    def _add_noise(self, weights: Dict[int, float], confidence: float) -> Dict[int, float]:
+    def _add_noise(
+        self,
+        weights: Dict[int, float],
+        confidence: float,
+        cap: float = PEAK_CAP,
+        earned: float = 0.0,
+    ) -> Dict[int, float]:
         """
         Add controlled randomness to prevent full predictability.
 
-        Base noise scales with confidence (higher confidence = more noise to compensate).
+        Base noise scales with confidence (higher confidence = more noise to
+        compensate), then shrinks by up to EARNED_NOISE_CUT when the opponent
+        has proven predictable this match (see _earned_accuracy).
         Bluff: ~8% chance to boost a low-probability number.
         """
         peak = max(weights.values()) if weights else 0.0
         base_noise = 0.07 + (0.10 * confidence) + max(0.0, peak - 0.25) * 0.28
+        base_noise *= 1.0 - EARNED_NOISE_CUT * earned
 
         noisy = {}
         for n in range(7):
@@ -367,7 +520,7 @@ class CPUStrategyEngine:
             bluff_num = sorted_by_prob[random.randint(0, 2)][0]
             noisy[bluff_num] *= 2.5
 
-        return self._floor_and_cap(self._normalize(noisy))
+        return self._floor_and_cap(self._normalize(noisy), cap)
 
     # ── Math helpers ──────────────────────────────────────────────────────────
 
@@ -386,24 +539,24 @@ class CPUStrategyEngine:
             for n in range(7)
         }
 
-    def _cap_peak(self, weights: Dict[int, float]) -> Dict[int, float]:
+    def _cap_peak(self, weights: Dict[int, float], cap: float = PEAK_CAP) -> Dict[int, float]:
         """
-        Iteratively cap any value exceeding PEAK_CAP, distributing excess
+        Iteratively cap any value exceeding `cap`, distributing excess
         uniformly across non-capped numbers.
         """
         w = dict(weights)
         for _ in range(10):
-            if max(w.values()) <= PEAK_CAP + 1e-9:
+            if max(w.values()) <= cap + 1e-9:
                 break
             excess  = 0.0
             capped  = {}
             for n, v in w.items():
-                if v > PEAK_CAP:
-                    excess   += v - PEAK_CAP
-                    capped[n] = PEAK_CAP
+                if v > cap:
+                    excess   += v - cap
+                    capped[n] = cap
                 else:
                     capped[n] = v
-            non_capped = [n for n in capped if capped[n] < PEAK_CAP]
+            non_capped = [n for n in capped if capped[n] < cap]
             if non_capped:
                 share = excess / len(non_capped)
                 for n in non_capped:
@@ -411,8 +564,8 @@ class CPUStrategyEngine:
             w = capped
         return w
 
-    def _floor_and_cap(self, weights: Dict[int, float]) -> Dict[int, float]:
-        return self._cap_peak(self._apply_floor(weights))
+    def _floor_and_cap(self, weights: Dict[int, float], cap: float = PEAK_CAP) -> Dict[int, float]:
+        return self._cap_peak(self._apply_floor(weights), cap)
 
     def _weighted_choice(self, weights: Dict[int, float]) -> int:
         total = sum(weights.values())
@@ -471,12 +624,74 @@ class CPUStrategyEngine:
             return {i: 1.0 / 7 for i in range(7)}, 0
         last_move     = opponent_history[-1]
         opponent_role = 'batting' if context['role'] == 'bowling' else 'bowling'
-        pattern = db.query(CPUSequencePattern).filter(
-            CPUSequencePattern.user_id         == user_id,
-            CPUSequencePattern.match_format    == context['match_format'],
-            CPUSequencePattern.role            == opponent_role,
-            CPUSequencePattern.previous_move   == last_move,
-            CPUSequencePattern.previous_result == 'scored',
+
+        # Use the ACTUAL result of the last ball when available — players
+        # behave differently after a wicket or a dot than after scoring.
+        # Fall back to the (most common) 'scored' row when the specific
+        # result row is too thin.
+        last_result = 'scored'
+        last_3 = context.get('last_3_results') or []
+        if last_3:
+            lr = last_3[-1]
+            if lr.get('is_out'):
+                last_result = 'out'
+            elif lr.get('runs', 0) == 0:
+                last_result = 'dot'
+
+        for result_key in ([last_result, 'scored'] if last_result != 'scored'
+                           else ['scored']):
+            pattern = db.query(CPUSequencePattern).filter(
+                CPUSequencePattern.user_id         == user_id,
+                CPUSequencePattern.match_format    == context['match_format'],
+                CPUSequencePattern.role            == opponent_role,
+                CPUSequencePattern.previous_move   == last_move,
+                CPUSequencePattern.previous_result == result_key,
+            ).first()
+            if pattern and pattern.sample_count > 3:
+                return (
+                    {
+                        0: pattern.next_0_freq, 1: pattern.next_1_freq,
+                        2: pattern.next_2_freq, 3: pattern.next_3_freq,
+                        4: pattern.next_4_freq, 5: pattern.next_5_freq,
+                        6: pattern.next_6_freq,
+                    },
+                    pattern.sample_count,
+                )
+        return {i: 1.0 / 7 for i in range(7)}, 0
+
+    def _load_streak_patterns(
+        self, db: Session, user_id: int, context: Dict, opponent_history: List[int]
+    ) -> Tuple[Dict[int, float], int]:
+        """
+        Streak signal: after N consecutive same-class balls (H/L/Z), what
+        does this player do next? Disambiguates multi-ball habits like
+        'three highs then escape with 0' that the 1-ball transition table
+        averages into noise.
+        """
+        if user_id == -1 or not opponent_history:
+            return {i: 1.0 / 7 for i in range(7)}, 0
+
+        def _cls(n: int) -> str:
+            if n == 0:
+                return 'Z'
+            return 'H' if n >= 4 else 'L'
+
+        streak_class = _cls(opponent_history[-1])
+        streak_len = 0
+        for m in reversed(opponent_history):
+            if _cls(m) == streak_class:
+                streak_len += 1
+            else:
+                break
+        streak_len = min(streak_len, 4)
+
+        opponent_role = 'batting' if context['role'] == 'bowling' else 'bowling'
+        pattern = db.query(CPUStreakPattern).filter(
+            CPUStreakPattern.user_id      == user_id,
+            CPUStreakPattern.match_format == context['match_format'],
+            CPUStreakPattern.role         == opponent_role,
+            CPUStreakPattern.streak_class == streak_class,
+            CPUStreakPattern.streak_len   == streak_len,
         ).first()
         if pattern and pattern.sample_count > 3:
             return (

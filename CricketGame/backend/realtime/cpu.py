@@ -37,13 +37,13 @@ def cpu_pick_move(manager, room, role: str, cpu_name: str) -> int:
     total_balls = innings.total_overs * 6
     balls_remaining = total_balls - balls_bowled
 
-    last_3_results = []
-    if len(innings.ball_log) >= 3:
-        for ball_result in innings.ball_log[-3:]:
-            last_3_results.append({
-                "runs": ball_result.get("runs", 0),
-                "is_out": ball_result.get("is_out", False)
-            })
+    last_3_results = [
+        {
+            "runs": ball_result.get("runs", 0),
+            "is_out": ball_result.get("is_out", False),
+        }
+        for ball_result in innings.ball_log[-3:]
+    ]
 
     match_context = {
         "match_format": f"{match.total_overs}over",

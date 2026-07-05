@@ -177,6 +177,42 @@ class CPUSequencePattern(Base):
     last_updated = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class CPUStreakPattern(Base):
+    """
+    Streak-aware sequential dependencies — what users do after N consecutive
+    same-class moves (H=4-6, L=1-3, Z=0). Captures multi-ball habits a
+    single-ball transition can't represent, e.g. "three highs, then escape
+    with 0" or "five highs then switch low".
+    """
+    __tablename__ = "cpu_streak_patterns"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Keys
+    user_id = Column(Integer, nullable=False, index=True)
+    match_format = Column(String(20), nullable=False)
+    role = Column(String(10), nullable=False)         # 'batting' or 'bowling'
+    streak_class = Column(String(1), nullable=False)  # 'H', 'L', or 'Z'
+    streak_len = Column(Integer, nullable=False)      # 1-4 (4 = "4 or more")
+
+    # Next move frequencies
+    next_0_freq = Column(Float, nullable=False, default=0.0)
+    next_1_freq = Column(Float, nullable=False, default=0.0)
+    next_2_freq = Column(Float, nullable=False, default=0.0)
+    next_3_freq = Column(Float, nullable=False, default=0.0)
+    next_4_freq = Column(Float, nullable=False, default=0.0)
+    next_5_freq = Column(Float, nullable=False, default=0.0)
+    next_6_freq = Column(Float, nullable=False, default=0.0)
+
+    sample_count = Column(Integer, nullable=False, default=0)
+    last_updated = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'match_format', 'role', 'streak_class', 'streak_len',
+                        name='uq_streak_pattern'),
+    )
+
+
 class CPULearningProgress(Base):
     """Tracks learning phase per user."""
     __tablename__ = "cpu_learning_progress"

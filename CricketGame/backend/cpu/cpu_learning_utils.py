@@ -221,7 +221,10 @@ def exponential_moving_average_update(
     return new_freqs, total_samples + 1
 
 
-# Constants for EMA
-MAX_SAMPLES_GLOBAL = 1000  # Slower adaptation, more stable
-MAX_SAMPLES_USER = 500  # Faster personalization
-MAX_SAMPLES_SITUATIONAL = 200  # Most adaptive to recent behavior
+# Constants for EMA — these set how fast OLD data fades. The EMA alpha
+# bottoms out at 1/MAX, giving a half-life of ~0.69×MAX balls. Humans evolve
+# after losing streaks, so per-user memories deliberately forget faster than
+# the population-level global patterns.
+MAX_SAMPLES_GLOBAL = 1000  # population stats: slow, stable (~690-ball half-life)
+MAX_SAMPLES_USER = 250  # per-user profile: ~170-ball half-life (~15 matches)
+MAX_SAMPLES_SITUATIONAL = 120  # situational/sequence: ~80-ball half-life

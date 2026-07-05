@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from .cpu_learning_schema import (
     MatchBallLog, CPUGlobalPattern, CPUUserProfile, CPUSituationalPattern,
-    CPUSequencePattern, CPULearningProgress, CPULearningQueue
+    CPUSequencePattern, CPUStreakPattern, CPULearningProgress, CPULearningQueue
 )
 from .cpu_learning_utils import (
     exponential_moving_average_update, normalize_frequencies,
@@ -90,24 +90,37 @@ class CPULearningProcessor:
         ball = db.query(MatchBallLog).filter(MatchBallLog.id == ball_log_id).first()
         if not ball:
             return
-        
+
         # Update global patterns (both batting and bowling perspectives)
+        # Population-level, not tied to any one player's habits — safe to
+        # learn from every ball regardless of who the opponent was.
         self._update_global_pattern(db, ball, 'batting', ball.bat_move)
         self._update_global_pattern(db, ball, 'bowling', ball.bowl_move)
-        
+
+        # Per-user personalization only learns from balls actually played
+        # against the CPU. PvP balls reflect how a player behaves against a
+        # human opponent, not against the CPU it's trying to predict, so they
+        # would just be noise in these tables.
+        is_vs_cpu = ball.batter_user_id == -1 or ball.bowler_user_id == -1
+        if not is_vs_cpu:
+            return
+
         # Update user profiles (skip CPU user_id = -1)
         if ball.batter_user_id != -1:
             self._update_user_profile(db, ball.batter_user_id, ball.match_format, 'batting', ball.bat_move)
             self._update_user_learning_progress(db, ball.batter_user_id)
             self._update_situational_pattern(db, ball, ball.batter_user_id, 'batting', ball.bat_move)
-        
+
         if ball.bowler_user_id != -1:
             self._update_user_profile(db, ball.bowler_user_id, ball.match_format, 'bowling', ball.bowl_move)
             self._update_user_learning_progress(db, ball.bowler_user_id)
             self._update_situational_pattern(db, ball, ball.bowler_user_id, 'bowling', ball.bowl_move)
-        
+
         # Update sequence patterns
         self._update_sequence_patterns(db, ball)
+
+        # Update streak patterns (multi-ball class habits)
+        self._update_streak_patterns(db, ball)
     
     def _update_global_pattern(self, db: Session, ball: MatchBallLog, role: str, move: int):
         """Update global pattern aggregates."""
@@ -414,6 +427,97 @@ class CPULearningProcessor:
         
         db.flush()
     
+    @staticmethod
+    def _move_class(n: int) -> str:
+        """Classify a move: H (4-6), L (1-3), Z (0)."""
+        if n == 0:
+            return 'Z'
+        return 'H' if n >= 4 else 'L'
+
+    def _update_streak_patterns(self, db: Session, ball: MatchBallLog):
+        """
+        Update streak patterns: after N consecutive same-class moves,
+        what did the player do next? Captures habits like 'x3 high then 0'
+        that a single-ball transition table averages into noise.
+        """
+        for user_id, move_col, move in (
+            (ball.batter_user_id, MatchBallLog.bat_move, ball.bat_move),
+            (ball.bowler_user_id, MatchBallLog.bowl_move, ball.bowl_move),
+        ):
+            if user_id == -1:
+                continue
+            role = 'batting' if move_col is MatchBallLog.bat_move else 'bowling'
+            id_col = (MatchBallLog.batter_user_id if role == 'batting'
+                      else MatchBallLog.bowler_user_id)
+
+            # Last few balls by this player in this match, most recent first
+            prev_moves = [
+                m for (m,) in db.query(move_col).filter(
+                    MatchBallLog.match_id == ball.match_id,
+                    id_col == user_id,
+                    MatchBallLog.ball_number < ball.ball_number,
+                ).order_by(MatchBallLog.ball_number.desc()).limit(6).all()
+            ]
+            if not prev_moves:
+                continue
+
+            # Streak ending at the previous ball
+            streak_class = self._move_class(prev_moves[0])
+            streak_len = 0
+            for m in prev_moves:
+                if self._move_class(m) == streak_class:
+                    streak_len += 1
+                else:
+                    break
+            streak_len = min(streak_len, 4)
+
+            pattern = db.query(CPUStreakPattern).filter(
+                CPUStreakPattern.user_id == user_id,
+                CPUStreakPattern.match_format == ball.match_format,
+                CPUStreakPattern.role == role,
+                CPUStreakPattern.streak_class == streak_class,
+                CPUStreakPattern.streak_len == streak_len,
+            ).first()
+
+            if pattern:
+                old_freqs = [
+                    pattern.next_0_freq, pattern.next_1_freq, pattern.next_2_freq,
+                    pattern.next_3_freq, pattern.next_4_freq, pattern.next_5_freq,
+                    pattern.next_6_freq,
+                ]
+                new_freqs, new_count = exponential_moving_average_update(
+                    old_freqs, move, pattern.sample_count, MAX_SAMPLES_SITUATIONAL
+                )
+                pattern.next_0_freq = new_freqs[0]
+                pattern.next_1_freq = new_freqs[1]
+                pattern.next_2_freq = new_freqs[2]
+                pattern.next_3_freq = new_freqs[3]
+                pattern.next_4_freq = new_freqs[4]
+                pattern.next_5_freq = new_freqs[5]
+                pattern.next_6_freq = new_freqs[6]
+                pattern.sample_count = new_count
+            else:
+                freqs = [0.0] * 7
+                freqs[move] = 1.0
+                pattern = CPUStreakPattern(
+                    user_id=user_id,
+                    match_format=ball.match_format,
+                    role=role,
+                    streak_class=streak_class,
+                    streak_len=streak_len,
+                    next_0_freq=freqs[0],
+                    next_1_freq=freqs[1],
+                    next_2_freq=freqs[2],
+                    next_3_freq=freqs[3],
+                    next_4_freq=freqs[4],
+                    next_5_freq=freqs[5],
+                    next_6_freq=freqs[6],
+                    sample_count=1,
+                )
+                db.add(pattern)
+
+            db.flush()
+
     def _get_recent_event_for_ball(self, db: Session, ball: MatchBallLog) -> str:
         """Determine recent event based on previous balls."""
         # Get last 3 balls for this batter in this match
