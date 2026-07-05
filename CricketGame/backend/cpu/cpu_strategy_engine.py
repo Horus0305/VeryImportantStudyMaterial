@@ -55,6 +55,12 @@ TRANS_MAX_WEIGHT  = 0.45
 STREAK_TRUST_SAMPLES = 15    # DB samples for streak_pred to reach full trust
 STREAK_MAX_WEIGHT    = 0.40
 
+# Live (in-match) transitions: what followed the opponent's current last
+# move earlier in THIS innings. Zero latency and immune to career-data
+# dilution — punishes a pattern started this match within a few balls.
+LIVE_TRANS_TRUST_OBS  = 4    # in-match observations for full trust
+LIVE_TRANS_MAX_WEIGHT = 0.45
+
 # ── Bowling payout weighting ─────────────────────────────────────────────────
 # Matching the batter's number takes a wicket AND denies those runs, so
 # matching their 6 is worth (6 + wicket) while matching their 0 is worth
@@ -205,17 +211,21 @@ class CPUStrategyEngine:
                 db, user_id, match_context, opponent_history
             )
 
+            # ── Signal 5: Live in-match transitions (zero latency) ────────
+            live_pred, live_n = self._build_live_transitions(opponent_history)
+
             # ── Confidence from learning phase ────────────────────────────
             total_balls = self._get_total_balls_tracked(db, user_id)
             phase_info  = get_learning_phase(total_balls)
             confidence  = min(phase_info['confidence'], MAX_CONF)
 
-            # ── Blend the 4 signals ───────────────────────────────────────
+            # ── Blend the 5 signals ───────────────────────────────────────
             balls_played = len(opponent_history)
             prediction = self._blend_signals(
                 local_freq, global_freq, global_n,
                 transition_pred, trans_n, balls_played,
                 streak_pred, streak_n,
+                live_pred, live_n,
             )
 
             # ── Earned sharpness: how predictable has this opponent been? ─
@@ -256,6 +266,26 @@ class CPUStrategyEngine:
             return dict(UNIFORM)
 
         return {n: counts[n] / total for n in range(7)}
+
+    def _build_live_transitions(self, history: List[int]) -> Tuple[Dict[int, float], int]:
+        """
+        In-match transition signal: what has followed the opponent's CURRENT
+        last move earlier in this innings? Complements the DB transition
+        table — a habit started this match dominates here immediately
+        instead of being EMA-diluted into career data.
+        """
+        if len(history) < 2:
+            return dict(UNIFORM), 0
+        last = history[-1]
+        counts = {n: 0 for n in range(7)}
+        total = 0
+        for i in range(len(history) - 1):
+            if history[i] == last:
+                counts[history[i + 1]] += 1
+                total += 1
+        if total == 0:
+            return dict(UNIFORM), 0
+        return {n: counts[n] / total for n in range(7)}, total
 
     # ── Earned sharpness ──────────────────────────────────────────────────────
 
@@ -307,6 +337,8 @@ class CPUStrategyEngine:
         balls_played: int,
         streak_pred: Dict[int, float] = None,
         streak_n: int = 0,
+        live_pred: Dict[int, float] = None,
+        live_n: int = 0,
     ) -> Dict[int, float]:
         """
         Blend local frequency, global profile, transition prediction, and
@@ -325,15 +357,24 @@ class CPUStrategyEngine:
         w_global = GLOBAL_MAX_WEIGHT * min(1.0, global_n / GLOBAL_TRUST_SAMPLES)
         w_trans  = TRANS_MAX_WEIGHT  * min(1.0, trans_n / TRANS_TRUST_SAMPLES)
         w_streak = STREAK_MAX_WEIGHT * min(1.0, streak_n / STREAK_TRUST_SAMPLES)
+        w_live   = LIVE_TRANS_MAX_WEIGHT * min(1.0, live_n / LIVE_TRANS_TRUST_OBS)
         if streak_pred is None:
             w_streak = 0.0
             streak_pred = UNIFORM
+        if live_pred is None:
+            w_live = 0.0
+            live_pred = UNIFORM
 
-        # The streak signal is a coarser back-off model: when the
-        # exact-number transition signal is sharp, class-level streak data
-        # adds dilution, not information — let the finer model win.
-        if w_streak > 0 and trans_n > 0:
-            w_streak *= max(0.0, 1.0 - max(transition_pred.values()))
+        # The streak signal is a coarser back-off model: when an
+        # exact-number transition signal (career or live) is sharp,
+        # class-level streak data adds dilution, not information —
+        # let the finer model win.
+        if w_streak > 0:
+            sharpest = max(
+                max(transition_pred.values()) if trans_n > 0 else 0.0,
+                max(live_pred.values()) if live_n > 0 else 0.0,
+            )
+            w_streak *= max(0.0, 1.0 - sharpest)
 
         # Drift guard: if this match's behavior contradicts the stored
         # profile, the profile is stale (the player evolved) — discount it.
@@ -345,13 +386,14 @@ class CPUStrategyEngine:
             drift = max(0.0, min(1.0, (tv - DRIFT_TV_NOISE) / (1.0 - DRIFT_TV_NOISE)))
             w_global *= 1.0 - DRIFT_MAX_DISCOUNT * drift
 
-        total_w = w_local + w_global + w_trans + w_streak
+        total_w = w_local + w_global + w_trans + w_streak + w_live
         if total_w < 0.01:
             return dict(UNIFORM)
         w_local  /= total_w
         w_global /= total_w
         w_trans  /= total_w
         w_streak /= total_w
+        w_live   /= total_w
 
         # Weighted blend
         blended = {}
@@ -360,7 +402,8 @@ class CPUStrategyEngine:
                 w_local  * local_freq.get(n, 1/7) +
                 w_global * global_freq.get(n, 1/7) +
                 w_trans  * transition_pred.get(n, 1/7) +
-                w_streak * streak_pred.get(n, 1/7)
+                w_streak * streak_pred.get(n, 1/7) +
+                w_live   * live_pred.get(n, 1/7)
             )
 
         return self._normalize(blended)

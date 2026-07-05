@@ -38,6 +38,8 @@ GLOBAL_MAX_WEIGHT = 0.30
 TRANS_MAX_WEIGHT  = 0.45
 STREAK_TRUST_SAMPLES = 15
 STREAK_MAX_WEIGHT    = 0.40
+LIVE_TRANS_TRUST_OBS  = 4
+LIVE_TRANS_MAX_WEIGHT = 0.45
 
 BOWL_WICKET_VALUE = 5.0
 EARNED_CAP_BONUS  = 0.15
@@ -120,10 +122,11 @@ class SimEngine:
         local_freq = self._build_local_frequency(opponent_history)
         transition_pred = transition_pred or dict(UNIFORM)
         balls_played = len(opponent_history)
+        live_pred, live_n = self._build_live_transitions(opponent_history)
 
         prediction = self._blend_signals(
             local_freq, db_prior, global_n, transition_pred, trans_n, balls_played,
-            streak_pred, streak_n,
+            streak_pred, streak_n, live_pred, live_n,
         )
 
         earned = self._earned_accuracy(opponent_history)
@@ -152,6 +155,21 @@ class SimEngine:
             return dict(UNIFORM)
         return {n: counts[n] / total for n in range(7)}
 
+    def _build_live_transitions(self, history: List[int]) -> Tuple[Dict[int, float], int]:
+        """In-match transitions: what followed the current last move this innings?"""
+        if len(history) < 2:
+            return dict(UNIFORM), 0
+        last = history[-1]
+        counts = {n: 0 for n in range(7)}
+        total = 0
+        for i in range(len(history) - 1):
+            if history[i] == last:
+                counts[history[i + 1]] += 1
+                total += 1
+        if total == 0:
+            return dict(UNIFORM), 0
+        return {n: counts[n] / total for n in range(7)}, total
+
     # ── Earned sharpness ──────────────────────────────────────────────────────
 
     def _earned_accuracy(self, history: List[int]) -> float:
@@ -179,19 +197,28 @@ class SimEngine:
 
     def _blend_signals(
         self, local_freq, global_freq, global_n, transition_pred, trans_n, balls_played,
-        streak_pred=None, streak_n=0,
+        streak_pred=None, streak_n=0, live_pred=None, live_n=0,
     ) -> Dict[int, float]:
         w_local  = LOCAL_MAX_WEIGHT  * min(1.0, balls_played / LOCAL_TRUST_BALLS)
         w_global = GLOBAL_MAX_WEIGHT * min(1.0, global_n / GLOBAL_TRUST_SAMPLES)
         w_trans  = TRANS_MAX_WEIGHT  * min(1.0, trans_n / TRANS_TRUST_SAMPLES)
         w_streak = STREAK_MAX_WEIGHT * min(1.0, streak_n / STREAK_TRUST_SAMPLES)
+        w_live   = LIVE_TRANS_MAX_WEIGHT * min(1.0, live_n / LIVE_TRANS_TRUST_OBS)
         if streak_pred is None:
             w_streak = 0.0
             streak_pred = UNIFORM
+        if live_pred is None:
+            w_live = 0.0
+            live_pred = UNIFORM
 
-        # Streak is a coarser back-off: defer to a sharp transition signal.
-        if w_streak > 0 and trans_n > 0:
-            w_streak *= max(0.0, 1.0 - max(transition_pred.values()))
+        # Streak is a coarser back-off: defer to a sharp transition signal
+        # (career or live).
+        if w_streak > 0:
+            sharpest = max(
+                max(transition_pred.values()) if trans_n > 0 else 0.0,
+                max(live_pred.values()) if live_n > 0 else 0.0,
+            )
+            w_streak *= max(0.0, 1.0 - sharpest)
 
         # Drift guard: current behavior contradicting the stored profile
         # means the profile is stale — discount it.
@@ -203,13 +230,14 @@ class SimEngine:
             drift = max(0.0, min(1.0, (tv - DRIFT_TV_NOISE) / (1.0 - DRIFT_TV_NOISE)))
             w_global *= 1.0 - DRIFT_MAX_DISCOUNT * drift
 
-        total_w = w_local + w_global + w_trans + w_streak
+        total_w = w_local + w_global + w_trans + w_streak + w_live
         if total_w < 0.01:
             return dict(UNIFORM)
         w_local  /= total_w
         w_global /= total_w
         w_trans  /= total_w
         w_streak /= total_w
+        w_live   /= total_w
 
         blended = {}
         for n in range(7):
@@ -217,7 +245,8 @@ class SimEngine:
                 w_local  * local_freq.get(n, 1 / 7) +
                 w_global * global_freq.get(n, 1 / 7) +
                 w_trans  * transition_pred.get(n, 1 / 7) +
-                w_streak * streak_pred.get(n, 1 / 7)
+                w_streak * streak_pred.get(n, 1 / 7) +
+                w_live   * live_pred.get(n, 1 / 7)
             )
         return self._normalize(blended)
 
