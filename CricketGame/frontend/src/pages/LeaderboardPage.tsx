@@ -187,11 +187,14 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
             .finally(() => setLoading(false))
     }, [])
 
+    const LEADERBOARD_MIN_MATCHES = 100
+
     const overallSorted  = useMemo(() => {
+        const ranked = data.filter(e => e.matches_played >= LEADERBOARD_MIN_MATCHES)
         if (overallSortBy === 'championships') {
-            return [...data].sort((a, b) => b.tournaments_won - a.tournaments_won || b.tournaments_played - a.tournaments_played || b.matches_won - a.matches_won)
+            return ranked.sort((a, b) => b.tournaments_won - a.tournaments_won || b.tournaments_played - a.tournaments_played || b.matches_won - a.matches_won)
         }
-        return [...data].sort((a, b) => b.matches_won - a.matches_won || b.win_pct - a.win_pct)
+        return ranked.sort((a, b) => b.matches_won - a.matches_won || b.win_pct - a.win_pct)
     }, [data, overallSortBy])
     const battingSorted  = useMemo(() => [...data].sort((a, b) => b.total_runs - a.total_runs || b.highest_score - a.highest_score), [data])
     const bowlingSorted  = useMemo(() => [...data].sort((a, b) => b.wickets_taken - a.wickets_taken), [data])

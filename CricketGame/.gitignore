@@ -55,3 +55,4 @@ Desktop.ini
 # Build
 dist/
 build/
+*.bak
