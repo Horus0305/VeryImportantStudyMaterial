@@ -72,6 +72,15 @@ def get_match_detail(match_id: str, db: Session = Depends(get_db)):
 
 @router.get("/matches/{username}")
 def get_user_matches(username: str, mode: str = Query(None), limit: int = 100, db: Session = Depends(get_db)):
+    MAIN_HUMANS = {"AniketKS", "Atharva", "Sahil", "Yash", "Meet", "Atharva Kolekar", "hetvig04"}
+    all_tournaments = db.query(TournamentHistory).all()
+    valid_tournament_ids = set()
+    for t in all_tournaments:
+        players = _json_list(t.players)
+        intersect = set(players) & MAIN_HUMANS
+        if len(intersect) >= 2:
+            valid_tournament_ids.add(t.tournament_id)
+
     query = db.query(MatchHistory).filter(
         or_(
             text("exists (select 1 from json_each(side_a) where value = :username)"),
@@ -90,6 +99,8 @@ def get_user_matches(username: str, mode: str = Query(None), limit: int = 100, d
     if safe_limit == 0:
         return out
     for m in rows:
+        if m.mode == "tournament" and m.tournament_id not in valid_tournament_ids:
+            continue
         side_a = _json_list(m.side_a)
         side_b = _json_list(m.side_b)
         if username in side_a or username in side_b:
@@ -120,6 +131,7 @@ def get_tournament_detail(tournament_id: str, db: Session = Depends(get_db)):
 
 @router.get("/tournaments/{username}")
 def get_user_tournaments(username: str, limit: int = 100, db: Session = Depends(get_db)):
+    MAIN_HUMANS = {"AniketKS", "Atharva", "Sahil", "Yash", "Meet", "Atharva Kolekar", "hetvig04"}
     rows = (
         db.query(TournamentHistory)
         .order_by(TournamentHistory.timestamp.desc())
@@ -131,6 +143,10 @@ def get_user_tournaments(username: str, limit: int = 100, db: Session = Depends(
         return out
     for t in rows:
         players = _json_list(t.players)
+        # Check if tournament is valid (>= 2 main humans)
+        intersect = set(players) & MAIN_HUMANS
+        if len(intersect) < 2:
+            continue
         if username in players:
             out.append(t.to_dict())
             if len(out) >= safe_limit:
@@ -306,6 +322,18 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
     player_bowl_best_w = defaultdict(int)
     player_bowl_best_r = defaultdict(lambda: 999)
 
+    ALLOWED_LEADERBOARD_PLAYERS = {"AniketKS", "Atharva", "CPU", "Sahil", "Yash", "Meet", "Atharva Kolekar", "hetvig04"}
+    MAIN_HUMANS = {"AniketKS", "Atharva", "Sahil", "Yash", "Meet", "Atharva Kolekar", "hetvig04"}
+
+    # Dynamically find valid tournament IDs (having >= 2 main human players)
+    all_tournaments = db.query(TournamentHistory).all()
+    valid_tournament_ids = set()
+    for t in all_tournaments:
+        players = _json_list(t.players)
+        intersect = set(players) & MAIN_HUMANS
+        if len(intersect) >= 2:
+            valid_tournament_ids.add(t.tournament_id)
+
     # ── 1. Scan MatchHistory for Tournament matches ──────────────────────
     all_matches = (
         db.query(MatchHistory)
@@ -315,6 +343,9 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
     )
 
     for match in all_matches:
+        if match.tournament_id not in valid_tournament_ids:
+            continue
+
         side_a = _json_list(match.side_a)
         side_b = _json_list(match.side_b)
         margin = _parse_run_margin(match.result_text)
@@ -323,7 +354,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
 
         # Initialize player entries on-the-fly
         for p in all_players_in_match:
-            if p.startswith("CPU Bot") or p.startswith("CPU bot"):
+            if p not in ALLOWED_LEADERBOARD_PLAYERS:
                 continue
             if p not in entries:
                 entries[p] = {
@@ -367,7 +398,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
 
         # Track win / loss
         for p in all_players_in_match:
-            if p.startswith("CPU Bot") or p.startswith("CPU bot"):
+            if p not in entries:
                 continue
             entries[p]["matches_played"] += 1
             if match.winner == "TIE":
@@ -528,8 +559,9 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
         if player_dismissals[p] >= 30:
             e["balls_per_dismissal"] = round(player_bat_balls[p] / player_dismissals[p], 1)
 
-    # ── 3. Scan TournamentHistory for achievements ───────────────────────────
     for t in db.query(TournamentHistory).all():
+        if t.tournament_id not in valid_tournament_ids:
+            continue
         try:
             players_list = _json_list(t.players)
             bracket = json.loads(t.playoff_bracket) if t.playoff_bracket else {}
