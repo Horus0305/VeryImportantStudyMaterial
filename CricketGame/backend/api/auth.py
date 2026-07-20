@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from pydantic import BaseModel
@@ -36,8 +36,8 @@ def login(req: AuthRequest, db: Session = Depends(get_db)):
     return {"msg": msg, "token": token, "username": req.username}
 
 @router.get("/stats/{username}")
-def stats(username: str, db: Session = Depends(get_db)):
-    data = get_player_stats(db, username)
+def stats(username: str, season: str = Query("2"), db: Session = Depends(get_db)):
+    data = get_player_stats(db, username, season=season)
     if not data:
         raise HTTPException(status_code=404, detail="Player not found")
     return data

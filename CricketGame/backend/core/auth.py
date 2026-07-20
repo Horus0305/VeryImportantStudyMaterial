@@ -14,6 +14,7 @@ import json
 from ..data.models import Player, FormatStats, MatchHistory, TournamentHistory
 
 FORMATS = ["1v1", "tournament", "team", "cpu"]
+SEASON_1_CUTOFF = datetime(2026, 7, 20, 0, 0, 0)
 
 
 def hash_password(password: str) -> str:
@@ -63,7 +64,7 @@ def login_player(db: Session, username: str, password: str) -> tuple[bool, str, 
     return True, "Login successful.", token
 
 
-def get_player_stats(db: Session, username: str) -> dict:
+def get_player_stats(db: Session, username: str, season: str = "2") -> dict:
     """Return all per-format stats for a player, plus an 'overall' aggregation."""
     player = db.query(Player).filter(Player.username == username).first()
     if not player:
@@ -71,16 +72,22 @@ def get_player_stats(db: Session, username: str) -> dict:
 
     result = {"username": username}
 
-    # Calculate PoTM counts dynamically from MatchHistory
-    potm_matches = db.query(MatchHistory.mode).filter(MatchHistory.potm == username).all()
+    # Calculate PoTM counts dynamically from MatchHistory filtered by season
+    potm_query = db.query(MatchHistory.mode).filter(MatchHistory.potm == username)
+    if season == "1":
+        potm_query = potm_query.filter(MatchHistory.timestamp < SEASON_1_CUTOFF)
+    elif season == "2":
+        potm_query = potm_query.filter(MatchHistory.timestamp >= SEASON_1_CUTOFF)
+
+    potm_matches = potm_query.all()
     potm_counts = {"1v1": 0, "team": 0, "tournament": 0, "cpu": 0}
     for m in potm_matches:
         key = "team" if m.mode in ("team", "2v2") else m.mode
         if key in potm_counts:
             potm_counts[key] += 1
 
-    # Calculate ALL tournament awards dynamically from TournamentHistory
-    tournament_records = db.query(TournamentHistory).filter(
+    # Calculate ALL tournament awards dynamically from TournamentHistory filtered by season
+    tourn_query = db.query(TournamentHistory).filter(
         or_(
             TournamentHistory.champion == username,
             TournamentHistory.orange_cap.contains(username),
@@ -90,7 +97,13 @@ def get_player_stats(db: Session, username: str) -> dict:
             TournamentHistory.best_economy.contains(username),
             TournamentHistory.player_of_tournament.contains(username),
         )
-    ).all()
+    )
+    if season == "1":
+        tourn_query = tourn_query.filter(TournamentHistory.timestamp < SEASON_1_CUTOFF)
+    elif season == "2":
+        tourn_query = tourn_query.filter(TournamentHistory.timestamp >= SEASON_1_CUTOFF)
+
+    tournament_records = tourn_query.all()
     pot_count = 0
     titles_won = 0
     tournament_award_count = 0

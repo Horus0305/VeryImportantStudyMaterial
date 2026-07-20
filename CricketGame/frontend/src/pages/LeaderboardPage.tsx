@@ -175,19 +175,21 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
     const [mainTab, setMainTab] = useState<MainTab>('leaderboard')
     const [boardTab, setBoardTab] = useState<BoardTab>('overall')
     const [overallSortBy, setOverallSortBy] = useState<'wins' | 'championships'>('wins')
+    const [season, setSeason] = useState<'2' | '1' | 'all'>('2')
     const [data, setData] = useState<Entry[]>([])
     const [loading, setLoading] = useState(true)
     const [fetchError, setFetchError] = useState(false)
 
     useEffect(() => {
-        fetch(`${API}/api/leaderboard?limit=100`)
+        setLoading(true)
+        fetch(`${API}/api/leaderboard?season=${season}&limit=100`)
             .then(r => { if (!r.ok) throw new Error(); return r.json() })
             .then(d => setData(d.leaderboard ?? []))
             .catch(() => setFetchError(true))
             .finally(() => setLoading(false))
-    }, [])
+    }, [season])
 
-    const LEADERBOARD_MIN_MATCHES = 100
+    const LEADERBOARD_MIN_MATCHES = 0
 
     const overallSorted  = useMemo(() => {
         const ranked = data.filter(e => e.matches_played >= LEADERBOARD_MIN_MATCHES)
@@ -209,7 +211,7 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
     const miserSort      = useMemo(() => [...data].filter(e => e.miser_innings > 0).sort((a, b) => b.miser_innings - a.miser_innings), [data])
     const oracleSort     = useMemo(() => [...data].filter(e => e.wickets_per_ball > 0).sort((a, b) => b.wickets_per_ball - a.wickets_per_ball), [data])
 
-    const eligible         = useMemo(() => data.filter(e => e.matches_played >= 3), [data])
+    const eligible         = useMemo(() => data.filter(e => e.matches_played >= 0), [data])
     const championsSort    = useMemo(() => [...data].filter(e => e.tournaments_won > 0).sort((a, b) => b.tournaments_won - a.tournaments_won), [data])
     const playoffsSort     = useMemo(() => [...data].filter(e => e.playoffs_reached > 0).sort((a, b) => b.playoffs_reached - a.playoffs_reached), [data])
     const finalsSort       = useMemo(() => [...data].filter(e => e.finals_reached > 0).sort((a, b) => b.finals_reached - a.finals_reached), [data])
@@ -233,21 +235,37 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
 
             {/* ── NAVBAR ──────────────────────────────────────────── */}
             <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-                    <button
-                        onClick={() => navigate('/')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-all text-xs font-bold uppercase tracking-wide shrink-0"
-                    >
-                        <ArrowLeft size={13} />
-                        <span className="hidden sm:block">Home</span>
-                    </button>
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-linear-to-br from-emerald-500 to-emerald-600 rounded-xl -rotate-6 flex items-center justify-center shadow-sm shadow-emerald-500/20">
-                            <span className="text-base -rotate-6">🏏</span>
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => navigate('/')}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-all text-xs font-bold uppercase tracking-wide shrink-0 cursor-pointer"
+                        >
+                            <ArrowLeft size={13} />
+                            <span className="hidden sm:block">Home</span>
+                        </button>
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-linear-to-br from-emerald-500 to-emerald-600 rounded-xl -rotate-6 flex items-center justify-center shadow-sm shadow-emerald-500/20">
+                                <span className="text-base -rotate-6">🏏</span>
+                            </div>
+                            <span className="text-xl uppercase tracking-tight text-slate-900 hidden sm:block" style={DISPLAY_FONT}>
+                                E <span className="text-emerald-600">Cricket</span>
+                            </span>
                         </div>
-                        <span className="text-xl uppercase tracking-tight text-slate-900 hidden sm:block" style={DISPLAY_FONT}>
-                            E <span className="text-emerald-600">Cricket</span>
-                        </span>
+                    </div>
+
+                    {/* Season Selector in Navbar */}
+                    <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden sm:inline">Season:</span>
+                        <select
+                            value={season}
+                            onChange={(e) => setSeason(e.target.value as '2' | '1' | 'all')}
+                            className="bg-transparent text-xs font-bold text-emerald-600 focus:outline-none cursor-pointer uppercase tracking-wider"
+                        >
+                            <option value="2">Season 2 (Current)</option>
+                            <option value="1">Season 1</option>
+                            <option value="all">All-Time (Combined)</option>
+                        </select>
                     </div>
                 </div>
             </nav>
@@ -255,9 +273,23 @@ export default function LeaderboardPage({ username }: LeaderboardPageProps) {
             <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8">
 
                 {/* ── PAGE HEADER ─────────────────────────────────── */}
-                <div className="mb-8">
-                    <p className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400 mb-1">Tournament records</p>
-                    <h1 className="text-6xl sm:text-8xl text-slate-900 uppercase leading-none" style={DISPLAY_FONT}>Stats</h1>
+                <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400 mb-1">Tournament records</p>
+                        <h1 className="text-6xl sm:text-8xl text-slate-900 uppercase leading-none" style={DISPLAY_FONT}>Stats</h1>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Filter Season:</span>
+                        <select
+                            value={season}
+                            onChange={(e) => setSeason(e.target.value as '2' | '1' | 'all')}
+                            className="bg-transparent text-sm font-bold text-emerald-600 focus:outline-none cursor-pointer uppercase tracking-wider"
+                        >
+                            <option value="2">Season 2 (Current)</option>
+                            <option value="1">Season 1</option>
+                            <option value="all">All-Time (Combined)</option>
+                        </select>
+                    </div>
                 </div>
 
                 {/* ── MAIN TABS ───────────────────────────────────── */}

@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,6 +13,8 @@ from ..data.models import MatchHistory, Player, TournamentHistory
 
 router = APIRouter(prefix="/api", tags=["stats"])
 _cpu_status_engine = CPUStrategyEngine()
+
+SEASON_1_CUTOFF = datetime(2026, 7, 20, 0, 0, 0)
 
 
 def _json_list(raw) -> list[str]:
@@ -71,9 +74,16 @@ def get_match_detail(match_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/matches/{username}")
-def get_user_matches(username: str, mode: str = Query(None), limit: int = 100, db: Session = Depends(get_db)):
+def get_user_matches(username: str, mode: str = Query(None), season: str = Query("2"), limit: int = 100, db: Session = Depends(get_db)):
     MAIN_HUMANS = {"AniketKS", "Atharva", "Sahil", "Yash", "Meet", "Atharva Kolekar", "hetvig04"}
-    all_tournaments = db.query(TournamentHistory).all()
+    
+    t_query = db.query(TournamentHistory)
+    if season == "1":
+        t_query = t_query.filter(TournamentHistory.timestamp < SEASON_1_CUTOFF)
+    elif season == "2":
+        t_query = t_query.filter(TournamentHistory.timestamp >= SEASON_1_CUTOFF)
+
+    all_tournaments = t_query.all()
     valid_tournament_ids = set()
     for t in all_tournaments:
         players = _json_list(t.players)
@@ -87,6 +97,11 @@ def get_user_matches(username: str, mode: str = Query(None), limit: int = 100, d
             text("exists (select 1 from json_each(side_b) where value = :username)")
         )
     )
+    if season == "1":
+        query = query.filter(MatchHistory.timestamp < SEASON_1_CUTOFF)
+    elif season == "2":
+        query = query.filter(MatchHistory.timestamp >= SEASON_1_CUTOFF)
+
     if mode:
         if mode == "team":
             query = query.filter(or_(MatchHistory.mode == "team", MatchHistory.mode == "2v2"))
@@ -130,13 +145,15 @@ def get_tournament_detail(tournament_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/tournaments/{username}")
-def get_user_tournaments(username: str, limit: int = 100, db: Session = Depends(get_db)):
+def get_user_tournaments(username: str, season: str = Query("2"), limit: int = 100, db: Session = Depends(get_db)):
     MAIN_HUMANS = {"AniketKS", "Atharva", "Sahil", "Yash", "Meet", "Atharva Kolekar", "hetvig04"}
-    rows = (
-        db.query(TournamentHistory)
-        .order_by(TournamentHistory.timestamp.desc())
-        .all()
-    )
+    query = db.query(TournamentHistory)
+    if season == "1":
+        query = query.filter(TournamentHistory.timestamp < SEASON_1_CUTOFF)
+    elif season == "2":
+        query = query.filter(TournamentHistory.timestamp >= SEASON_1_CUTOFF)
+
+    rows = query.order_by(TournamentHistory.timestamp.desc()).all()
     out = []
     safe_limit = min(max(limit, 0), 500)
     if safe_limit == 0:
@@ -306,7 +323,7 @@ def _parse_run_margin(result_text: str | None) -> int | None:
 
 
 @router.get("/leaderboard")
-def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
+def get_leaderboard(limit: int = 50, season: str = Query("2"), db: Session = Depends(get_db)):
     entries: dict[str, dict] = {}
 
     # Per-player tracking structures
@@ -322,11 +339,58 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
     player_bowl_best_w = defaultdict(int)
     player_bowl_best_r = defaultdict(lambda: 999)
 
-    ALLOWED_LEADERBOARD_PLAYERS = {"AniketKS", "Atharva", "CPU", "Sahil", "Yash", "Meet", "Atharva Kolekar", "hetvig04"}
+    ALLOWED_LEADERBOARD_PLAYERS = ["AniketKS", "Atharva", "CPU", "Sahil", "Yash", "Meet", "Atharva Kolekar", "hetvig04"]
     MAIN_HUMANS = {"AniketKS", "Atharva", "Sahil", "Yash", "Meet", "Atharva Kolekar", "hetvig04"}
 
-    # Dynamically find valid tournament IDs (having >= 2 main human players)
-    all_tournaments = db.query(TournamentHistory).all()
+    # Always initialize entries for all 8 main players so Season 2 has clean rows ready
+    for p in ALLOWED_LEADERBOARD_PLAYERS:
+        entries[p] = {
+            "username":           p,
+            "matches_played":     0,
+            "matches_won":        0,
+            "matches_lost":       0,
+            "win_pct":            0.0,
+            "total_runs":         0,
+            "highest_score":      0,
+            "batting_avg":        0.0,
+            "strike_rate":        0.0,
+            "fours":              0,
+            "sixes":              0,
+            "boundaries":         0,
+            "fifties":            0,
+            "hundreds":           0,
+            "wickets_taken":      0,
+            "best_bowling":       "—",
+            "bowling_avg":        None,
+            "economy":            None,
+            "potm_count":         0,
+            "tournaments_won":    0,
+            "tournaments_played": 0,
+            "playoffs_reached":    0,
+            "finals_reached":      0,
+            "total_balls":         0,
+            "ducks":               0,
+            "ducks_taken":         0,
+            "close_losses":        0,
+            "heavy_losses":        0,
+            "six_shower":          0,
+            "max_duck_streak":     0,
+            "not_out_pct":         0.0,
+            "miser_innings":       0,
+            "chasing_avg":         0.0,
+            "wickets_per_ball":    0.0,
+            "balls_per_dismissal": 0.0,
+            "finals_lost":         0,
+        }
+
+    # Dynamically find valid tournament IDs (having >= 2 main human players) filtered by season
+    t_query = db.query(TournamentHistory)
+    if season == "1":
+        t_query = t_query.filter(TournamentHistory.timestamp < SEASON_1_CUTOFF)
+    elif season == "2":
+        t_query = t_query.filter(TournamentHistory.timestamp >= SEASON_1_CUTOFF)
+
+    all_tournaments = t_query.all()
     valid_tournament_ids = set()
     for t in all_tournaments:
         players = _json_list(t.players)
@@ -335,12 +399,13 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
             valid_tournament_ids.add(t.tournament_id)
 
     # ── 1. Scan MatchHistory for Tournament matches ──────────────────────
-    all_matches = (
-        db.query(MatchHistory)
-        .filter(MatchHistory.mode == 'tournament')
-        .order_by(MatchHistory.timestamp.asc())
-        .all()
-    )
+    m_query = db.query(MatchHistory).filter(MatchHistory.mode == 'tournament')
+    if season == "1":
+        m_query = m_query.filter(MatchHistory.timestamp < SEASON_1_CUTOFF)
+    elif season == "2":
+        m_query = m_query.filter(MatchHistory.timestamp >= SEASON_1_CUTOFF)
+
+    all_matches = m_query.order_by(MatchHistory.timestamp.asc()).all()
 
     for match in all_matches:
         if match.tournament_id not in valid_tournament_ids:

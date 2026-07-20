@@ -78,6 +78,7 @@ const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
 
     const [stats, setStats] = useState<PlayerStats | null>(null)
     const [activeTab, setActiveTab] = useState<'overall' | '1v1' | 'team' | 'cpu' | 'tournament'>('overall')
+    const [season, setSeason] = useState<'2' | '1' | 'all'>('2')
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [matchHistory, setMatchHistory] = useState<MatchHistoryEntry[]>([])
@@ -97,8 +98,8 @@ const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
             setLoading(true)
             try {
                 const [statsRes, tournamentsRes] = await Promise.all([
-                    fetch(`${API}/auth/stats/${targetUsername}`),
-                    fetch(`${API}/api/tournaments/${targetUsername}`)
+                    fetch(`${API}/auth/stats/${targetUsername}?season=${season}`),
+                    fetch(`${API}/api/tournaments/${targetUsername}?season=${season}`)
                 ])
 
                 if (!statsRes.ok) {
@@ -117,7 +118,7 @@ const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
             }
         }
         fetchInitialData()
-    }, [targetUsername, navigate])
+    }, [targetUsername, season, navigate])
 
     useEffect(() => setNameInput(targetUsername), [targetUsername])
 
@@ -128,14 +129,14 @@ const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
             if (activeTab === 'tournament') return
 
             try {
-                const res = await fetch(`${API}/api/matches/${targetUsername}?${queryMode}`)
+                const res = await fetch(`${API}/api/matches/${targetUsername}?season=${season}&${queryMode}`)
                 if (res.ok) setMatchHistory(await res.json())
             } catch (err) {
                 console.error("Failed to fetch matches:", err)
             }
         }
         fetchMatches()
-    }, [targetUsername, activeTab])
+    }, [targetUsername, activeTab, season])
 
     const startCpuMatch = async (password: string): Promise<boolean> => {
         setCpuLoading(true)
@@ -218,7 +219,20 @@ const DISPLAY_FONT = { fontFamily: "'Anton', 'Bebas Neue', sans-serif" }
                         <ArrowLeft className="w-4 h-4 lg:w-5 lg:h-5" />
                         <span className="text-xs lg:text-sm font-bold uppercase tracking-widest">{isOwnProfile ? 'Back to Hub' : 'Back'}</span>
                     </button>
-                    <div className="flex items-center gap-4 lg:gap-6">
+                    <div className="flex items-center gap-3 lg:gap-6">
+                        {/* Season Dropdown */}
+                        <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden sm:inline">Season:</span>
+                            <select
+                                value={season}
+                                onChange={(e) => setSeason(e.target.value as '2' | '1' | 'all')}
+                                className="bg-transparent text-xs font-bold text-emerald-600 focus:outline-none cursor-pointer uppercase tracking-wider"
+                            >
+                                <option value="2">Season 2 (Current)</option>
+                                <option value="1">Season 1</option>
+                                <option value="all">All-Time (Combined)</option>
+                            </select>
+                        </div>
                         <button className="text-slate-400 hover:text-emerald-600 transition-colors hidden sm:block">
                             <Bell className="w-5 h-5" />
                         </button>
