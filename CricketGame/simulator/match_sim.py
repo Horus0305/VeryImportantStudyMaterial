@@ -1,9 +1,10 @@
 """
 Hand cricket match simulator.
 
-Ball resolution:
+Ball resolution (mirrors backend/game/innings.py resolve_ball exactly):
     bat_num == bowl_num  →  wicket  (batting team scores 0 that ball)
-    bat_num != bowl_num  →  batting team scores bat_num runs
+    bat_num == 0, bowl_num != 0  →  WILDCARD: batting team scores bowl_num
+    bat_num != 0, != bowl_num    →  batting team scores bat_num runs
 
 Innings ends when: 10 wickets fall, all overs are used, or (innings 2 only)
 the chasing team overtakes the target.
@@ -97,7 +98,8 @@ def simulate_innings(
             if wickets >= 10:
                 break
         else:
-            score += bat_num
+            runs = bowl_num if bat_num == 0 else bat_num
+            score += runs
             if target is not None and score > target:
                 break
 

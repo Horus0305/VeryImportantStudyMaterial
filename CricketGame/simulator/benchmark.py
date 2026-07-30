@@ -25,7 +25,7 @@ import sys
 from collections import defaultdict
 from typing import List, Dict
 
-from .engine_sim import SimEngine, NaiveEngine, UniformEngine, BASE_WEIGHTS, entropy
+from .engine_sim import SimEngine, SimEngineV3, NaiveEngine, UniformEngine, BASE_WEIGHTS, entropy
 from .bots import ALL_BOTS
 from .match_sim import simulate_match
 
@@ -46,6 +46,7 @@ def run_benchmark(n_matches: int = 1000, total_overs: int = 2, seed: int = 42) -
         ("CPU Uniform  (Nash baseline)",   UniformEngine()),
         ("CPU Naive    (no adaptation)",   NaiveEngine()),
         ("CPU V2       (freq blend+RRR)",  SimEngine()),
+        ("CPU V3       (+elim+wildcard)",  SimEngineV3()),
     ]
 
     db_prior    = dict(BASE_WEIGHTS)   # no DB data — tests in-game signal only

@@ -305,6 +305,94 @@ def test_batting_avoids_frequent_numbers():
     print(f"  OK Batting correctly avoids opponent's spammed number")
 
 
+def test_batting_hard_elimination_and_wildcard():
+    """
+    Test the required-run-rate hard elimination and the 0-wildcard EV fix.
+    Calls _batting_strategy directly (no DB) since these are pure-function
+    concerns independent of pattern lookup.
+    """
+    print("\n[Test] Testing RRR Hard Elimination + Wildcard EV...")
+    engine = CPUStrategyEngine()
+    uniform_pred = {n: 1 / 7 for n in range(7)}
+
+    # 20 needed off 4 balls: min_viable_n = 20 - 6*3 = 2, so only n=1 is
+    # a guaranteed loss among 1..6 (n=0 is exempt as a wildcard).
+    ctx = {
+        'match_format': '5over', 'role': 'batting', 'current_over': 4,
+        'total_overs': 5, 'current_score': 70, 'target': 90,
+        'wickets_lost': 2, 'balls_left': 4, 'batting_first': False,
+        'last_3_results': [],
+    }
+    s = engine._batting_strategy(uniform_pred, ctx, confidence=0.5, cap=0.45)
+    assert s[1] == 0.0, f"Expected n=1 eliminated (dead chase), got {s[1]}"
+    assert s[0] > 0.0, "n=0 must never be eliminated (wildcard)"
+    assert abs(sum(s.values()) - 1.0) < 1e-9, f"Weights must sum to 1, got {sum(s.values())}"
+    print(f"  OK 20-off-4: n=1 eliminated, weights sum to 1.0 ({s})")
+
+    # 22 needed off 3 balls: even max (6,6,6) only reaches 18 < 22, so the
+    # chase is already dead for every n in 1..6 — everything routes to 0.
+    ctx['target'] = 92
+    ctx['balls_left'] = 3
+    s = engine._batting_strategy(uniform_pred, ctx, confidence=0.5, cap=0.45)
+    for n in range(1, 7):
+        assert s[n] == 0.0, f"Expected n={n} eliminated in a dead chase, got {s[n]}"
+    assert abs(s[0] - 1.0) < 1e-9, f"n=0 should carry all probability, got {s[0]}"
+    print(f"  OK 22-off-3 (unwinnable via 1-6): all mass on wildcard n=0 ({s})")
+
+    # Wildcard EV: if the bowler heavily favors 5s and 6s, playing 0 should
+    # score highly (inherits the bowler's number) even with no RRR pressure
+    # and no elimination in play.
+    ctx['target'] = None
+    ctx['balls_left'] = 30
+    skewed_pred = {0: 0.05, 1: 0.05, 2: 0.05, 3: 0.05, 4: 0.10, 5: 0.35, 6: 0.35}
+    s = engine._batting_strategy(skewed_pred, ctx, confidence=0.5, cap=0.45)
+    assert s[0] > s[1], f"Expected wildcard EV(0) to beat a plain single, got {s}"
+    print(f"  OK Wildcard EV(0) correctly favored when bowler leans on 5/6 ({s})")
+
+
+def test_bowling_gift_risk_discount():
+    """
+    Test that bowling big numbers is discounted when the batter often plays
+    the 0-wildcard (bowling n while they play 0 gifts them n runs per
+    innings.py's resolve_ball), and that this never breaks the probabilities
+    (no negatives, still sums to 1) or changes anything when they never
+    play 0.
+    """
+    print("\n[Test] Testing Bowling Gift-Risk Discount...")
+    engine = CPUStrategyEngine()
+    ctx = {
+        'match_format': '5over', 'role': 'bowling', 'current_over': 2,
+        'total_overs': 5, 'current_score': 30, 'target': None,
+        'wickets_lost': 1, 'balls_left': 20, 'batting_first': True,
+        'last_3_results': [],
+    }
+
+    pred_no0 = {0: 0.0, 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.15, 5: 0.15, 6: 0.10}
+    pred_hi0 = {0: 0.5, 1: 0.1, 2: 0.1, 3: 0.1, 4: 0.08, 5: 0.07, 6: 0.05}
+
+    s_no0 = engine._bowling_strategy(pred_no0, ctx, confidence=0.5, cap=0.45)
+    s_hi0 = engine._bowling_strategy(pred_hi0, ctx, confidence=0.5, cap=0.45)
+
+    for label, s in [('no-0', s_no0), ('hi-0', s_hi0)]:
+        assert abs(sum(s.values()) - 1.0) < 1e-9, f"{label}: weights must sum to 1, got {sum(s.values())}"
+        assert min(s.values()) > 0.0, f"{label}: no weight should go negative or zero, got {s}"
+    print(f"  OK Both scenarios stay valid probability distributions (sum=1, all positive)")
+
+    # Isolate the discount's effect on a like-for-like prediction shape by
+    # comparing against the same pred_hi0 with the discount switched off.
+    import backend.cpu.cpu_strategy_engine as engine_module
+    saved = engine_module.GIFT_RISK_MAX_DISCOUNT
+    engine_module.GIFT_RISK_MAX_DISCOUNT = 0.0
+    s_hi0_undiscounted = engine._bowling_strategy(pred_hi0, ctx, confidence=0.5, cap=0.45)
+    engine_module.GIFT_RISK_MAX_DISCOUNT = saved
+
+    assert s_hi0[6] < s_hi0_undiscounted[6], (
+        f"Expected discount to shrink n=6 when batter often plays 0, "
+        f"got {s_hi0[6]} vs undiscounted {s_hi0_undiscounted[6]}"
+    )
+    print(f"  OK n=6 discounted from {s_hi0_undiscounted[6]:.3f} to {s_hi0[6]:.3f} when batter favors the 0-wildcard")
+
+
 def test_spam_scenario_bowling():
     """Test the exact scenario from the bug report: opponent spams 6 six times."""
     print("\n[Test] Testing Spam Scenario (6x6 Bowling)...")
@@ -499,6 +587,8 @@ def run_all_tests():
         test_cpu_status()
         test_bowling_targets_frequent_numbers()
         test_batting_avoids_frequent_numbers()
+        test_batting_hard_elimination_and_wildcard()
+        test_bowling_gift_risk_discount()
         test_spam_scenario_bowling()
         test_role_specific_strategies()
         test_situational_adjustments()

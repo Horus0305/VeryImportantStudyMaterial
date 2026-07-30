@@ -103,6 +103,15 @@ READ_BLUFF_BOOST = 0.10   # extra bluff probability at full alarm
 # only the wicket. Bowl-side EV ∝ p(n) × (n + BOWL_WICKET_VALUE).
 BOWL_WICKET_VALUE = 5.0
 
+# ── Gift-risk discount (0-wildcard exposure) ─────────────────────────────────
+# Per innings.py's resolve_ball, bat_move == 0 scores whatever the bowler
+# bowled. So bowling a big number while this batter often plays their
+# 0-wildcard is a free-runs risk the payout above doesn't see. Discount big
+# numbers proportionally to how often they play 0 and how much bowling n
+# would gift if they do -- capped well short of zeroing a number out, since
+# a straight subtraction can go negative and break normalization downstream.
+GIFT_RISK_MAX_DISCOUNT = 0.5
+
 # ── Batting expected value (see _batting_strategy) ───────────────────────────
 # EV(n) = n × (1 − p(n)) − W × p(n).  W is the run cost of the CPU's own
 # wicket, scaled by scarcity: when remaining wickets outnumber remaining
@@ -556,6 +565,16 @@ class CPUStrategyEngine:
 
         s = self._normalize({n: s[n] * (_deny(n) + BOWL_WICKET_VALUE) for n in range(7)})
 
+        # ── Gift-risk discount ──────────────────────────────────────────────
+        # Bowling n while the batter plays 0 hands them n runs for free.
+        # Discount scales with both how often they play 0 and how much n
+        # would gift, so a 6 is discounted harder than a 1 for the same
+        # 0-habit, and a batter who never plays 0 sees no change at all.
+        gift_prob = prediction.get(0, 0.0)
+        for n in range(1, 7):
+            discount = min(GIFT_RISK_MAX_DISCOUNT, gift_prob * (n / 6.0))
+            s[n] *= 1.0 - discount
+
         # ── Required run-rate awareness ────────────────────────────────────
         # CPU bowling while defending a target: the higher the batter's
         # required rate, the more likely they gamble on boundaries.
@@ -590,12 +609,18 @@ class CPUStrategyEngine:
         """
         CPU is BATTING — maximize expected runs, not just survival.
 
-        EV(n) = n × (1 − p(n)) − W × p(n)
+        EV(n) = n × (1 − p(n)) − W × p(n)  for n = 1..6
           p(n): blended probability the bowler bowls n
           W:    scarcity-scaled cost of the CPU's own wicket — near zero
                 while wickets outnumber the balls left (dodging into cheap
                 singles wastes runs there), climbing steeply once losing
                 a wicket could actually end the innings early.
+
+        n = 0 is a WILDCARD, not "score zero": per the match rules
+        (innings.py resolve_ball), bat_move == 0 scores whatever the
+        bowler bowled (unless the bowler also bowled 0, which is a
+        wicket like any other match). Its EV is therefore the expected
+        value of the bowler's own distribution, not a flat 0.
 
         Weights are a softmax over EV (sharper with confidence), so a
         heavily-predicted 6 still loses to a safe 5, but a merely-average
@@ -615,6 +640,14 @@ class CPUStrategyEngine:
         runs_to_win = (target - context['current_score']) if target is not None else None
         endgame = runs_to_win is not None and 0 < runs_to_win <= 6
 
+        # Hard elimination: numbers that can no longer keep the chase alive
+        # even with max (6) scoring on every remaining ball. Only applies to
+        # n = 1..6 — 0's payoff is the bowler's own number, which can land
+        # anywhere, so it can never be ruled out the same way.
+        chasing = runs_to_win is not None and runs_to_win > 0
+        min_viable_n = max(0, runs_to_win - 6 * (balls_left - 1)) if chasing else 0
+        banned = {n for n in range(1, 7) if n < min_viable_n}
+
         def _value(n: int) -> float:
             if endgame and n >= runs_to_win:
                 return ENDGAME_WIN_EV
@@ -622,8 +655,11 @@ class CPUStrategyEngine:
 
         ev = {
             n: _value(n) * (1.0 - prediction[n]) - w_cost * prediction[n]
-            for n in range(7)
+            for n in range(1, 7)
         }
+        # Wildcard EV: sum over what the bowler actually bowls (m=1..6),
+        # weighted by that same _value so endgame win-EV still applies.
+        ev[0] = sum(prediction[m] * _value(m) for m in range(1, 7)) - w_cost * prediction[0]
 
         # Softmax over EV; higher confidence -> sharper commitment
         temp  = BAT_TEMP_BASE - BAT_TEMP_CONF_CUT * confidence
@@ -651,7 +687,7 @@ class CPUStrategyEngine:
         # in the EV term already makes the CPU protective when the tail
         # is exposed.)
 
-        return self._floor_and_cap(self._normalize(s), cap)
+        return self._floor_and_cap(self._normalize(s), cap, banned)
 
     # ── Noise ─────────────────────────────────────────────────────────────────
 
@@ -673,7 +709,12 @@ class CPUStrategyEngine:
         keeps matching the CPU's numbers gets served extra entropy.
         Bluff: ~8% chance to boost a low-probability number, raised further
         under alarm.
+
+        A weight of exactly 0 only ever comes from _batting_strategy's hard
+        elimination (mathematically-dead chase numbers) — noise, floor, and
+        bluff all leave those at 0 rather than reviving them.
         """
+        banned = {n for n, w in weights.items() if w <= 0.0}
         peak = max(weights.values()) if weights else 0.0
         base_noise = 0.07 + (0.10 * confidence) + max(0.0, peak - 0.25) * 0.28
         base_noise *= 1.0 - EARNED_NOISE_CUT * earned
@@ -681,16 +722,23 @@ class CPUStrategyEngine:
 
         noisy = {}
         for n in range(7):
+            if n in banned:
+                noisy[n] = 0.0
+                continue
             noise = random.uniform(-base_noise, base_noise)
             noisy[n] = max(FLOOR_PROB, weights[n] + noise)
 
         bluff_prob = 0.08 + max(0.0, peak - 0.28) * 0.14 + READ_BLUFF_BOOST * alarm
         if random.random() < bluff_prob:
-            sorted_by_prob = sorted(noisy.items(), key=lambda x: x[1])
-            bluff_num = sorted_by_prob[random.randint(0, 2)][0]
-            noisy[bluff_num] *= 2.5
+            candidates = sorted(
+                (item for item in noisy.items() if item[0] not in banned),
+                key=lambda x: x[1],
+            )
+            if candidates:
+                bluff_num = candidates[random.randint(0, min(2, len(candidates) - 1))][0]
+                noisy[bluff_num] *= 2.5
 
-        return self._floor_and_cap(self._normalize(noisy), cap)
+        return self._floor_and_cap(self._normalize(noisy), cap, banned)
 
     # ── Math helpers ──────────────────────────────────────────────────────────
 
@@ -700,19 +748,27 @@ class CPUStrategyEngine:
             return {k: v / total for k, v in weights.items()}
         return {i: 1.0 / 7 for i in range(7)}
 
-    def _apply_floor(self, weights: Dict[int, float]) -> Dict[int, float]:
-        total = sum(weights.values())
+    def _apply_floor(
+        self, weights: Dict[int, float], banned: set = frozenset()
+    ) -> Dict[int, float]:
+        survivors = [n for n in range(7) if n not in banned] or list(range(7))
+        total = sum(weights.get(n, 0.0) for n in survivors)
         if total <= 0:
-            return {i: 1.0 / 7 for i in range(7)}
+            even = 1.0 / len(survivors)
+            return {n: (even if n in survivors else 0.0) for n in range(7)}
+        floor_budget = FLOOR_PROB * len(survivors)
+        distr_share  = 1.0 - floor_budget
         return {
-            n: FLOOR_PROB + _DISTR_SHARE * (weights[n] / total)
+            n: (FLOOR_PROB + distr_share * (weights[n] / total)) if n in survivors else 0.0
             for n in range(7)
         }
 
-    def _cap_peak(self, weights: Dict[int, float], cap: float = PEAK_CAP) -> Dict[int, float]:
+    def _cap_peak(
+        self, weights: Dict[int, float], cap: float = PEAK_CAP, banned: set = frozenset()
+    ) -> Dict[int, float]:
         """
         Iteratively cap any value exceeding `cap`, distributing excess
-        uniformly across non-capped numbers.
+        uniformly across non-capped, non-banned numbers.
         """
         w = dict(weights)
         for _ in range(10):
@@ -726,16 +782,25 @@ class CPUStrategyEngine:
                     capped[n] = cap
                 else:
                     capped[n] = v
-            non_capped = [n for n in capped if capped[n] < cap]
-            if non_capped:
-                share = excess / len(non_capped)
-                for n in non_capped:
-                    capped[n] += share
+            non_capped = [n for n in capped if capped[n] < cap and n not in banned]
+            if not non_capped:
+                # No eligible receiver for the excess (heavy banning can leave
+                # only 1-2 survivors, where cap * survivors < 1 makes the cap
+                # unsatisfiable). Keeping banned entries at 0 wins over
+                # enforcing the cap here, so stop and leave values as-is.
+                break
+            share = excess / len(non_capped)
+            for n in non_capped:
+                capped[n] += share
             w = capped
+        for n in banned:
+            w[n] = 0.0
         return w
 
-    def _floor_and_cap(self, weights: Dict[int, float], cap: float = PEAK_CAP) -> Dict[int, float]:
-        return self._cap_peak(self._apply_floor(weights), cap)
+    def _floor_and_cap(
+        self, weights: Dict[int, float], cap: float = PEAK_CAP, banned: set = frozenset()
+    ) -> Dict[int, float]:
+        return self._cap_peak(self._apply_floor(weights, banned), cap, banned)
 
     def _weighted_choice(self, weights: Dict[int, float]) -> int:
         total = sum(weights.values())

@@ -65,6 +65,8 @@ BAT_WICKET_COST_MAX  = 8.0
 BAT_TEMP_BASE        = 1.5
 BAT_TEMP_CONF_CUT    = 0.6
 
+GIFT_RISK_MAX_DISCOUNT = 0.5   # v3: bowling-side 0-wildcard gift-risk discount
+
 DRIFT_MIN_BALLS    = 6
 DRIFT_TV_NOISE     = 0.40
 DRIFT_MAX_DISCOUNT = 0.75
@@ -462,6 +464,224 @@ class SimEngine:
             if r <= cumsum:
                 return num
         return 6
+
+
+# ── v3 engine: RRR hard elimination + 0-wildcard EV + gift-risk discount ──────
+
+class SimEngineV3(SimEngine):
+    """
+    v2 + three fixes derived from the actual match-resolution rule
+    (bat_num == 0 scores whatever the bowler bowled, per innings.py):
+
+      1. Batting: numbers that can no longer keep a chase mathematically
+         alive (even with max scoring the rest of the way) are hard-
+         eliminated, not just down-weighted. n=0 is exempt since its
+         payoff is the bowler's own number, which can still be anything.
+      2. Batting: n=0's EV is no longer a flat 0 — it's the expected value
+         of the bowler's predicted distribution (the wildcard payoff).
+      3. Bowling: bowling a big number while the batter often plays their
+         0-wildcard is discounted (that combination gifts them runs for
+         free) — a capped multiplicative discount, not a raw subtraction,
+         since a raw subtraction can go negative and break normalization.
+    """
+
+    def select_move(
+        self, db_prior, opponent_history, context, confidence=0.5,
+        global_n=0, trans_n=0, transition_pred=None, streak_n=0, streak_pred=None,
+    ):
+        # Same pipeline as SimEngine.select_move, except the final combine
+        # step is banned-aware -- the base version's redundant extra
+        # _floor_and_cap call would otherwise hand eliminated numbers their
+        # floor probability back right at the last step.
+        local_freq = self._build_local_frequency(opponent_history)
+        transition_pred = transition_pred or dict(UNIFORM)
+        balls_played = len(opponent_history)
+        live_pred, live_n = self._build_live_transitions(opponent_history)
+        live2_pred, live2_n = self._build_live_transitions2(opponent_history)
+
+        prediction = self._blend_signals(
+            local_freq, db_prior, global_n, transition_pred, trans_n, balls_played,
+            streak_pred, streak_n, live_pred, live_n, live2_pred, live2_n,
+        )
+
+        alarm  = self._read_alarm(context)
+        earned = self._earned_accuracy(opponent_history) * (1.0 - alarm)
+        cap    = PEAK_CAP + EARNED_CAP_BONUS * earned
+
+        if context['role'] == 'bowling':
+            strategic = self._bowling_strategy(prediction, context, confidence, cap)
+        else:
+            strategic = self._batting_strategy(prediction, context, confidence, cap)
+
+        noisy  = self._add_noise(strategic, confidence, cap, earned, alarm)
+        banned = {n for n, w in noisy.items() if w <= 0.0}
+        final  = self._floor_and_cap(self._normalize(noisy), cap, banned)
+        return self._weighted_choice(final), final
+
+    def _apply_floor(self, weights, banned=frozenset()):
+        survivors = [n for n in range(7) if n not in banned] or list(range(7))
+        total = sum(weights.get(n, 0.0) for n in survivors)
+        if total <= 0:
+            even = 1.0 / len(survivors)
+            return {n: (even if n in survivors else 0.0) for n in range(7)}
+        floor_budget = FLOOR_PROB * len(survivors)
+        distr_share  = 1.0 - floor_budget
+        return {
+            n: (FLOOR_PROB + distr_share * (weights[n] / total)) if n in survivors else 0.0
+            for n in range(7)
+        }
+
+    def _cap_peak(self, weights, cap=PEAK_CAP, banned=frozenset()):
+        w = dict(weights)
+        for _ in range(10):
+            if max(w.values()) <= cap + 1e-9:
+                break
+            excess, capped = 0.0, {}
+            for n, v in w.items():
+                if v > cap:
+                    excess   += v - cap
+                    capped[n] = cap
+                else:
+                    capped[n] = v
+            non_capped = [n for n in capped if capped[n] < cap and n not in banned]
+            if not non_capped:
+                break  # cap unsatisfiable with this few survivors -- leave as-is
+            share = excess / len(non_capped)
+            for n in non_capped:
+                capped[n] += share
+            w = capped
+        for n in banned:
+            w[n] = 0.0
+        return w
+
+    def _floor_and_cap(self, weights, cap=PEAK_CAP, banned=frozenset()):
+        return self._cap_peak(self._apply_floor(weights, banned), cap, banned)
+
+    def _add_noise(self, weights, confidence, cap=PEAK_CAP, earned=0.0, alarm=0.0):
+        banned = {n for n, w in weights.items() if w <= 0.0}
+        peak       = max(weights.values()) if weights else 0.0
+        base_noise = 0.07 + (0.10 * confidence) + max(0.0, peak - 0.25) * 0.28
+        base_noise *= 1.0 - EARNED_NOISE_CUT * earned
+        base_noise *= 1.0 + READ_NOISE_BOOST * alarm
+
+        noisy = {}
+        for n in range(7):
+            if n in banned:
+                noisy[n] = 0.0
+                continue
+            noise = random.uniform(-base_noise, base_noise)
+            noisy[n] = max(FLOOR_PROB, weights[n] + noise)
+
+        bluff_prob = 0.08 + max(0.0, peak - 0.28) * 0.14 + READ_BLUFF_BOOST * alarm
+        if random.random() < bluff_prob:
+            candidates = sorted(
+                (item for item in noisy.items() if item[0] not in banned),
+                key=lambda x: x[1],
+            )
+            if candidates:
+                bluff_num = candidates[random.randint(0, min(2, len(candidates) - 1))][0]
+                noisy[bluff_num] *= 2.5
+
+        return self._floor_and_cap(self._normalize(noisy), cap, banned)
+
+    def _bowling_strategy(self, prediction, context, confidence, cap=PEAK_CAP):
+        s = dict(prediction)
+
+        if confidence > 0.15:
+            avg = sum(s.values()) / 7
+            sharpness = 1.0 + confidence * 1.5
+            for n in range(7):
+                if s[n] > avg:
+                    s[n] = avg + (s[n] - avg) * sharpness
+                else:
+                    s[n] = avg - (avg - s[n]) * min(sharpness * 0.7, 1.4)
+                s[n] = max(s[n], 0.01)
+
+        target = context.get('target')
+        runs_to_win = (target - context['current_score']) if target is not None else None
+        endgame = runs_to_win is not None and 0 < runs_to_win <= 6
+
+        def _deny(n: int) -> float:
+            if endgame and n >= runs_to_win:
+                return ENDGAME_DENY
+            return float(n)
+
+        s = self._normalize({n: s[n] * (_deny(n) + BOWL_WICKET_VALUE) for n in range(7)})
+
+        # Gift-risk discount: bowling n while they play 0 hands them n runs
+        # for free. Scales with both how often they play 0 and how much n
+        # would gift; capped so it can shrink a number but never zero it.
+        gift_prob = prediction.get(0, 0.0)
+        for n in range(1, 7):
+            discount = min(GIFT_RISK_MAX_DISCOUNT, gift_prob * (n / 6.0))
+            s[n] *= 1.0 - discount
+
+        pressure = rrr_pressure(context)
+        if pressure > 0:
+            boost = 1.0 + 0.35 * pressure
+            for n in (4, 5, 6):
+                s[n] *= boost
+            s[0] *= 1.0 + 0.20 * pressure
+        elif pressure < 0:
+            for n in (4, 5, 6):
+                s[n] *= max(0.75, 1.0 + 0.25 * pressure)
+
+        if context['wickets_lost'] >= 7:
+            s[0] *= 1.25
+            for n in (4, 5, 6):
+                s[n] *= 1.10
+
+        return self._floor_and_cap(self._normalize(s), cap)
+
+    def _batting_strategy(self, prediction, context, confidence, cap=PEAK_CAP):
+        wickets_left = max(1, 10 - context['wickets_lost'])
+        balls_left   = max(1, context['balls_left'])
+        scarcity     = balls_left / wickets_left
+        w_cost = min(BAT_WICKET_COST_MAX,
+                     BAT_WICKET_COST_RATE * max(0.0, scarcity - 1.0))
+
+        target = context.get('target')
+        runs_to_win = (target - context['current_score']) if target is not None else None
+        endgame = runs_to_win is not None and 0 < runs_to_win <= 6
+
+        # Hard elimination: n in 1..6 that can no longer keep the chase
+        # mathematically alive even with max scoring the rest of the way.
+        # n=0 is exempt -- its payoff is the bowler's own number.
+        chasing = runs_to_win is not None and runs_to_win > 0
+        min_viable_n = max(0, runs_to_win - 6 * (balls_left - 1)) if chasing else 0
+        banned = {n for n in range(1, 7) if n < min_viable_n}
+
+        def _value(n: int) -> float:
+            if endgame and n >= runs_to_win:
+                return ENDGAME_WIN_EV
+            return float(n)
+
+        ev = {
+            n: _value(n) * (1.0 - prediction[n]) - w_cost * prediction[n]
+            for n in range(1, 7)
+        }
+        # Wildcard EV: n=0 inherits the bowler's own number.
+        ev[0] = sum(prediction[m] * _value(m) for m in range(1, 7)) - w_cost * prediction[0]
+
+        temp   = BAT_TEMP_BASE - BAT_TEMP_CONF_CUT * confidence
+        ev_max = max(ev.values())
+        s = self._normalize({n: math.exp((ev[n] - ev_max) / temp) for n in range(7)})
+
+        pressure = rrr_pressure(context)
+        if pressure > 0:
+            boost = 1.0 + 0.45 * pressure
+            for n in (4, 5, 6):
+                s[n] *= boost
+            s[0] *= max(0.55, 1.0 - 0.35 * pressure)
+            for n in (1, 2, 3):
+                s[n] *= max(0.65, 1.0 - 0.20 * pressure)
+        elif pressure < 0:
+            for n in (1, 2, 3):
+                s[n] *= 1.0 + 0.25 * (-pressure)
+            for n in (5, 6):
+                s[n] *= max(0.75, 1.0 + 0.25 * pressure)
+
+        return self._floor_and_cap(self._normalize(s), cap, banned)
 
 
 # ── Naive engine (no in-game adaptation) ─────────────────────────────────────
