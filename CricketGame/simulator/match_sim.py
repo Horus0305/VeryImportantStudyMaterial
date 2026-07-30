@@ -111,6 +111,86 @@ def simulate_innings(
     }
 
 
+def simulate_innings_h2h(
+    engine_a, prior_a: Dict[int, float], conf_a: float,
+    engine_b, prior_b: Dict[int, float], conf_b: float,
+    role_a: str,              # 'batting' or 'bowling' -- A's role this innings
+    total_overs: int = 2,
+    target: Optional[int] = None,
+    batting_first: bool = True,
+) -> Dict:
+    """One innings, both sides are CPU engines instead of a scripted bot."""
+    role_b = 'bowling' if role_a == 'batting' else 'batting'
+    score: int   = 0
+    wickets: int = 0
+    a_history: List[int] = []
+    b_history: List[int] = []
+    total_balls = total_overs * 6
+
+    for ball_num in range(total_balls):
+        ctx_a = _build_cpu_context(role_a, batting_first, score, wickets,
+                                   ball_num, total_overs, target)
+        ctx_b = _build_cpu_context(role_b, batting_first, score, wickets,
+                                   ball_num, total_overs, target)
+
+        # Each engine's "opponent" is the other engine, so it sees the
+        # other's own history, not its own.
+        a_num, _ = engine_a.select_move(prior_a, b_history, ctx_a, conf_a)
+        b_num, _ = engine_b.select_move(prior_b, a_history, ctx_b, conf_b)
+
+        a_history.append(a_num)
+        b_history.append(b_num)
+
+        if role_a == 'batting':
+            bat_num, bowl_num = a_num, b_num
+        else:
+            bat_num, bowl_num = b_num, a_num
+
+        if bat_num == bowl_num:
+            wickets += 1
+            if wickets >= 10:
+                break
+        else:
+            runs = bowl_num if bat_num == 0 else bat_num
+            score += runs
+            if target is not None and score > target:
+                break
+
+    return {'score': score, 'wickets': wickets, 'balls': len(a_history)}
+
+
+def simulate_match_h2h(
+    engine_a, prior_a: Dict[int, float], conf_a: float,
+    engine_b, prior_b: Dict[int, float], conf_b: float,
+    total_overs: int = 2,
+) -> Dict:
+    """Full 2-innings match between two CPU engines. Who bats first is random."""
+    a_bats_first = random.random() < 0.5
+
+    if a_bats_first:
+        inn1 = simulate_innings_h2h(engine_a, prior_a, conf_a, engine_b, prior_b, conf_b,
+                                    role_a='batting', total_overs=total_overs,
+                                    target=None, batting_first=True)
+        target = inn1['score']
+        inn2 = simulate_innings_h2h(engine_a, prior_a, conf_a, engine_b, prior_b, conf_b,
+                                    role_a='bowling', total_overs=total_overs,
+                                    target=target, batting_first=False)
+        a_score, b_score = inn1['score'], inn2['score']
+        a_won = inn2['score'] <= target
+    else:
+        inn1 = simulate_innings_h2h(engine_a, prior_a, conf_a, engine_b, prior_b, conf_b,
+                                    role_a='bowling', total_overs=total_overs,
+                                    target=None, batting_first=True)
+        target = inn1['score']
+        inn2 = simulate_innings_h2h(engine_a, prior_a, conf_a, engine_b, prior_b, conf_b,
+                                    role_a='batting', total_overs=total_overs,
+                                    target=target, batting_first=False)
+        a_score, b_score = inn2['score'], inn1['score']
+        a_won = inn2['score'] > target
+
+    return {'a_score': a_score, 'b_score': b_score, 'target': target, 'a_won': a_won}
+
+
 def simulate_match(
     cpu_engine,
     bot,

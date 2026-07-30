@@ -133,6 +133,8 @@ class SimEngine:
         transition_pred: Optional[Dict[int, float]] = None,
         streak_n: int = 0,
         streak_pred: Optional[Dict[int, float]] = None,
+        sit_n: int = 0,
+        sit_pred: Optional[Dict[int, float]] = None,
     ) -> Tuple[int, Dict[int, float]]:
         """Returns (chosen_number, final_distribution)."""
         local_freq = self._build_local_frequency(opponent_history)
@@ -144,6 +146,7 @@ class SimEngine:
         prediction = self._blend_signals(
             local_freq, db_prior, global_n, transition_pred, trans_n, balls_played,
             streak_pred, streak_n, live_pred, live_n, live2_pred, live2_n,
+            sit_pred, sit_n,
         )
 
         alarm  = self._read_alarm(context)
@@ -488,6 +491,7 @@ class SimEngineV3(SimEngine):
     def select_move(
         self, db_prior, opponent_history, context, confidence=0.5,
         global_n=0, trans_n=0, transition_pred=None, streak_n=0, streak_pred=None,
+        sit_n=0, sit_pred=None,
     ):
         # Same pipeline as SimEngine.select_move, except the final combine
         # step is banned-aware -- the base version's redundant extra
@@ -502,6 +506,7 @@ class SimEngineV3(SimEngine):
         prediction = self._blend_signals(
             local_freq, db_prior, global_n, transition_pred, trans_n, balls_played,
             streak_pred, streak_n, live_pred, live_n, live2_pred, live2_n,
+            sit_pred, sit_n,
         )
 
         alarm  = self._read_alarm(context)

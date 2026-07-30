@@ -20,6 +20,7 @@ Metrics explained:
                 Nash baseline ≈ 50%
 """
 import argparse
+import itertools
 import random
 import sys
 from collections import defaultdict
@@ -27,7 +28,7 @@ from typing import List, Dict
 
 from .engine_sim import SimEngine, SimEngineV3, NaiveEngine, UniformEngine, BASE_WEIGHTS, entropy
 from .bots import ALL_BOTS
-from .match_sim import simulate_match
+from .match_sim import simulate_match, simulate_match_h2h
 
 # Nash equilibrium theoretical values (both sides uniform)
 NASH_WR   = 100 / 7          # ≈ 14.29 %
@@ -44,7 +45,7 @@ def run_benchmark(n_matches: int = 1000, total_overs: int = 2, seed: int = 42) -
 
     engines = [
         ("CPU Uniform  (Nash baseline)",   UniformEngine()),
-        ("CPU Naive    (no adaptation)",   NaiveEngine()),
+        ("CPU V1/Naive (no adaptation)",   NaiveEngine()),
         ("CPU V2       (freq blend+RRR)",  SimEngine()),
         ("CPU V3       (+elim+wildcard)",  SimEngineV3()),
     ]
@@ -139,6 +140,52 @@ def run_benchmark(n_matches: int = 1000, total_overs: int = 2, seed: int = 42) -
     print(f"{sep}\n")
 
 
+def run_h2h_benchmark(n_matches: int = 1000, total_overs: int = 2, seed: int = 42) -> None:
+    """
+    Round-robin CPU-vs-CPU: every engine version plays every other version
+    directly (no scripted bot involved), so version-over-version improvement
+    can be read straight off a win rate instead of inferred from bot deltas.
+
+    Note: there's no surviving "v1" codebase in this repo -- the engine was
+    already at this architecture in the first commit. V1 here is the Naive
+    engine (no in-match adaptation, plays straight from db_prior), used as
+    the closest available "dumb baseline" stand-in.
+    """
+    random.seed(seed)
+
+    engines = [
+        ("V1/Naive", NaiveEngine()),
+        ("V2",       SimEngine()),
+        ("V3",       SimEngineV3()),
+    ]
+    db_prior   = dict(BASE_WEIGHTS)
+    confidence = 0.5
+
+    col_name = 24
+    header = f"  {'Matchup':<{col_name}}{'A win%':>10}{'B win%':>10}"
+    divider = "  " + "-" * (col_name + 20)
+    sep = "=" * (col_name + 24)
+
+    print(f"\n{sep}")
+    print(f"  CPU vs CPU HEAD-TO-HEAD  —  {n_matches} matches × {total_overs}-over  (seed={seed})")
+    print(sep)
+    print(header)
+    print(divider)
+
+    for (name_a, engine_a), (name_b, engine_b) in itertools.combinations(engines, 2):
+        a_wins = 0
+        for _ in range(n_matches):
+            result = simulate_match_h2h(engine_a, db_prior, confidence,
+                                        engine_b, db_prior, confidence, total_overs)
+            if result['a_won']:
+                a_wins += 1
+        a_pct = a_wins / n_matches * 100
+        b_pct = 100 - a_pct
+        print(f"  {name_a + ' vs ' + name_b:<{col_name}}{a_pct:>9.1f}%{b_pct:>9.1f}%")
+
+    print(f"{sep}\n")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CPU strategy benchmark")
     parser.add_argument("--matches", type=int,   default=1000,
@@ -149,3 +196,4 @@ if __name__ == "__main__":
                         help="Random seed for reproducibility (default 42)")
     args = parser.parse_args()
     run_benchmark(n_matches=args.matches, total_overs=args.overs, seed=args.seed)
+    run_h2h_benchmark(n_matches=args.matches, total_overs=args.overs, seed=args.seed)
